@@ -421,8 +421,8 @@ export function LandingPageClient({
         </div>
       </div>
 
-      {/* TRIGGER COMPONENT (HIDDEN BY DEFAULT - ONLY SHOWN WHEN USER CLICKS 'PICK TRIGGER BUTTON' OR HAS ACTIVE TRIGGERS) */}
-      {(showTriggerBar || isPickerActive || triggerButtons.length > 0) && (
+      {/* TRIGGER COMPONENT (HIDDEN BY DEFAULT - ONLY SHOWN WHEN USER CLICKS 'PICK TRIGGER BUTTON') */}
+      {(isPickerActive || showTriggerBar) && (
         <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 text-white space-y-2.5 shadow-md font-sans animate-in fade-in zoom-in-98 duration-200">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-center gap-2">
