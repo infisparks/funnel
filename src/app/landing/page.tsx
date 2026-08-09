@@ -25,25 +25,40 @@ import { HtmlCodeEditorModal } from '@/components/landing/HtmlCodeEditorModal';
 import { CustomDomainModal } from '@/components/landing/CustomDomainModal';
 import { ThreePopupFunnelModal } from '@/components/funnel/ThreePopupFunnelModal';
 
+// Helper function to synchronously determine public view state with ZERO flicker
+function checkIsPublicHostname(subdomainQuery?: string | null, isPublicParam?: boolean) {
+  if (isPublicParam || !!subdomainQuery) return true;
+
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname.toLowerCase();
+    const search = new URLSearchParams(window.location.search);
+
+    const isMainAdminHost =
+      (host === 'firstoption.cloud' ||
+        host === 'www.firstoption.cloud' ||
+        host.includes('localhost') ||
+        host.includes('vercel.app')) &&
+      !search.has('subdomain') &&
+      !search.has('isPublic');
+
+    return !isMainAdminHost;
+  }
+
+  // Default to true on SSR so public subdomain visitors never see CRM layout
+  return true;
+}
+
 function LandingPageContent() {
   const searchParams = useSearchParams();
   const subdomainQuery = searchParams.get('subdomain');
   const domainQuery = searchParams.get('domain');
   const isPublicParam = searchParams.get('isPublic') === 'true';
 
-  // Synchronously determine if this request is on a public subdomain to eliminate any 0.5s CRM flicker!
-  const isInitiallyPublic =
-    isPublicParam ||
-    !!subdomainQuery ||
-    !!domainQuery ||
-    (typeof window !== 'undefined' &&
-      window.location.hostname.includes('.') &&
-      !window.location.hostname.includes('localhost') &&
-      !window.location.hostname.includes('vercel.app') &&
-      window.location.hostname !== 'firstoption.cloud' &&
-      window.location.hostname !== 'www.firstoption.cloud');
+  // Synchronously compute initial public state (defaults to true for subdomains)
+  const [isPublicSubdomain, setIsPublicSubdomain] = useState(() =>
+    checkIsPublicHostname(subdomainQuery, isPublicParam)
+  );
 
-  const [isPublicSubdomain, setIsPublicSubdomain] = useState(isInitiallyPublic);
   const [activeSubdomain, setActiveSubdomain] = useState(subdomainQuery || '');
 
   const { accentColor } = useTheme();
@@ -62,31 +77,27 @@ function LandingPageContent() {
 
   // Public subdomain tenant details
   const [tenantWorkspace, setTenantWorkspace] = useState<any>(null);
-  const [isLoadingHtml, setIsLoadingHtml] = useState(isInitiallyPublic);
 
   // Synchronously update public flag on client window check
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const host = window.location.hostname.toLowerCase();
       const search = new URLSearchParams(window.location.search);
-      const isSubParam = search.get('isPublic') === 'true' || !!search.get('subdomain') || !!search.get('domain');
 
       let extractedSub = search.get('subdomain') || '';
       if (!extractedSub && host.endsWith('.firstoption.cloud')) {
         extractedSub = host.replace('.firstoption.cloud', '');
       }
 
-      const isSub =
-        isSubParam ||
-        (host.includes('.') &&
-          !host.includes('localhost') &&
-          !host.includes('vercel.app') &&
-          host !== 'firstoption.cloud' &&
-          host !== 'www.firstoption.cloud');
+      const isMainAdminHost =
+        (host === 'firstoption.cloud' ||
+          host === 'www.firstoption.cloud' ||
+          host.includes('localhost') ||
+          host.includes('vercel.app')) &&
+        !search.has('subdomain') &&
+        !search.has('isPublic');
 
-      if (isSub) {
-        setIsPublicSubdomain(true);
-      }
+      setIsPublicSubdomain(!isMainAdminHost);
 
       if (extractedSub && extractedSub !== 'www') {
         setActiveSubdomain(extractedSub);
@@ -112,7 +123,6 @@ function LandingPageContent() {
             setTenantWorkspace(data);
             if (data.landing_html) setHtmlCode(data.landing_html);
             if (data.custom_domain) setCustomDomain(data.custom_domain);
-            setIsLoadingHtml(false);
             return;
           }
         } catch (err) {
@@ -136,7 +146,6 @@ function LandingPageContent() {
             setTenantWorkspace(latestWorkspace);
             if (latestWorkspace.landing_html) setHtmlCode(latestWorkspace.landing_html);
             if (latestWorkspace.custom_domain) setCustomDomain(latestWorkspace.custom_domain);
-            setIsLoadingHtml(false);
             return;
           }
         } catch (err) {
@@ -156,7 +165,6 @@ function LandingPageContent() {
         const savedDomain = localStorage.getItem('landing_custom_domain');
         if (savedDomain) setCustomDomain(savedDomain);
       }
-      setIsLoadingHtml(false);
     }
 
     fetchSubdomainWorkspace();
@@ -383,7 +391,7 @@ function LandingPageContent() {
               onClick={() => setViewport('tablet')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
                 viewport === 'tablet'
-                  ? 'bg-[#8146F0] text-white shadow-2xs'
+                  ? 'bg-white text-[#8146F0] shadow-2xs'
                   : 'text-gray-600 hover:text-gray-900'
               }`}
               title="Tablet View (768px)"
