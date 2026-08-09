@@ -17,10 +17,17 @@ import {
   MessageCircle,
   ExternalLink,
   Globe,
-  Instagram,
-  Link,
+  Link as LinkIcon,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
+
+const InstagramIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+    <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+  </svg>
+);
 
 export interface SurveyQuestion {
   id: string;
@@ -352,10 +359,10 @@ export function ThreePopupFunnelModal({
           style={
             btn.customColor
               ? { backgroundColor: btn.customColor }
-              : { background: 'linear-[#833AB4] linear-gradient(to right, #833AB4, #FD1D1D, #FCB045)' }
+              : { background: 'linear-gradient(to right, #833AB4, #FD1D1D, #FCB045)' }
           }
         >
-          <Instagram className="w-4 h-4" />
+          <InstagramIcon className="w-4 h-4" />
           <span>{btn.label}</span>
           <ExternalLink className="w-3.5 h-3.5 ml-auto" />
         </a>
@@ -388,7 +395,7 @@ export function ThreePopupFunnelModal({
         className="w-full py-3 px-4 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 text-black shadow-md transition-all hover:brightness-105 cursor-pointer"
         style={{ backgroundColor: btn.customColor || successButtonColor }}
       >
-        <Link className="w-4 h-4" />
+        <LinkIcon className="w-4 h-4" />
         <span>{btn.label}</span>
         <ExternalLink className="w-3.5 h-3.5 ml-auto" />
       </a>
