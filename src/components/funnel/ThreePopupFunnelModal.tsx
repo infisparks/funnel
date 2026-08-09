@@ -16,6 +16,9 @@ import {
   CheckSquare,
   MessageCircle,
   ExternalLink,
+  Globe,
+  Instagram,
+  Link,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 
@@ -30,7 +33,8 @@ export interface SuccessButton {
   id: string;
   label: string;
   url: string;
-  variant?: 'whatsapp' | 'primary' | 'secondary';
+  type?: 'whatsapp' | 'website' | 'instagram' | 'custom';
+  customColor?: string;
 }
 
 export interface PopupThemeConfig {
@@ -156,12 +160,18 @@ export function ThreePopupFunnelModal({
   const step4Title = popupTheme.step4Title || 'Booking Confirmed! 🎉';
   const step4Subtitle = popupTheme.step4Subtitle || 'Your meeting is locked in our calendar and CRM. We look forward to speaking!';
   const successButtonColor = popupTheme.step4ButtonColor || primaryColor;
-  const successButtons = popupTheme.step4Buttons || [
+  const successButtons: SuccessButton[] = popupTheme.step4Buttons || [
     {
       id: 'btn1',
       label: 'Join VIP WhatsApp Group 💬',
       url: 'https://chat.whatsapp.com/',
-      variant: 'whatsapp',
+      type: 'whatsapp',
+    },
+    {
+      id: 'btn2',
+      label: 'Follow Us On Instagram 📸',
+      url: 'https://instagram.com/',
+      type: 'instagram',
     },
   ];
 
@@ -308,6 +318,81 @@ export function ThreePopupFunnelModal({
       return { backgroundColor: primaryColor, color: '#000000' };
     }
     return { background: `linear-gradient(to right, ${primaryColor}, #FCD34D)`, color: '#000000' };
+  };
+
+  // Icon & Style Helper for Success Buttons
+  const renderSuccessButton = (btn: SuccessButton) => {
+    const bType = btn.type || 'custom';
+
+    if (bType === 'whatsapp') {
+      return (
+        <a
+          key={btn.id || btn.label}
+          href={btn.url}
+          target="_blank"
+          rel="noreferrer"
+          className="w-full py-3 px-4 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 text-black shadow-md transition-all hover:brightness-105 cursor-pointer"
+          style={{ backgroundColor: btn.customColor || '#25D366' }}
+        >
+          <MessageCircle className="w-4 h-4" />
+          <span>{btn.label}</span>
+          <ExternalLink className="w-3.5 h-3.5 ml-auto" />
+        </a>
+      );
+    }
+
+    if (bType === 'instagram') {
+      return (
+        <a
+          key={btn.id || btn.label}
+          href={btn.url}
+          target="_blank"
+          rel="noreferrer"
+          className="w-full py-3 px-4 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 text-white shadow-md transition-all hover:brightness-105 cursor-pointer"
+          style={
+            btn.customColor
+              ? { backgroundColor: btn.customColor }
+              : { background: 'linear-[#833AB4] linear-gradient(to right, #833AB4, #FD1D1D, #FCB045)' }
+          }
+        >
+          <Instagram className="w-4 h-4" />
+          <span>{btn.label}</span>
+          <ExternalLink className="w-3.5 h-3.5 ml-auto" />
+        </a>
+      );
+    }
+
+    if (bType === 'website') {
+      return (
+        <a
+          key={btn.id || btn.label}
+          href={btn.url}
+          target="_blank"
+          rel="noreferrer"
+          className="w-full py-3 px-4 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 text-white shadow-md transition-all hover:brightness-105 cursor-pointer"
+          style={{ backgroundColor: btn.customColor || '#2563EB' }}
+        >
+          <Globe className="w-4 h-4" />
+          <span>{btn.label}</span>
+          <ExternalLink className="w-3.5 h-3.5 ml-auto" />
+        </a>
+      );
+    }
+
+    return (
+      <a
+        key={btn.id || btn.label}
+        href={btn.url}
+        target="_blank"
+        rel="noreferrer"
+        className="w-full py-3 px-4 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 text-black shadow-md transition-all hover:brightness-105 cursor-pointer"
+        style={{ backgroundColor: btn.customColor || successButtonColor }}
+      >
+        <Link className="w-4 h-4" />
+        <span>{btn.label}</span>
+        <ExternalLink className="w-3.5 h-3.5 ml-auto" />
+      </a>
+    );
   };
 
   return (
@@ -602,7 +687,7 @@ export function ThreePopupFunnelModal({
             </form>
           )}
 
-          {/* STEP 4: COMPLETED CONFIRMATION & ACTION BUTTONS WITH CUSTOM COLOR */}
+          {/* STEP 4: COMPLETED CONFIRMATION & MULTI-TYPE ACTION BUTTONS */}
           {step === 4 && (
             <div className="text-center space-y-4 py-2">
               <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 flex items-center justify-center mx-auto shadow-sm">
@@ -618,23 +703,10 @@ export function ThreePopupFunnelModal({
                 </p>
               </div>
 
-              {/* ACTION BUTTONS WITH CUSTOM COLOR */}
+              {/* ACTION BUTTONS (WhatsApp, Instagram, Website, Custom Link) */}
               {successButtons && successButtons.length > 0 && (
                 <div className="space-y-2 pt-1">
-                  {successButtons.map((btn) => (
-                    <a
-                      key={btn.id || btn.label}
-                      href={btn.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="w-full py-3 px-4 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 text-black shadow-md transition-all cursor-pointer"
-                      style={{ backgroundColor: successButtonColor }}
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                      <span>{btn.label}</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                  ))}
+                  {successButtons.map((btn) => renderSuccessButton(btn))}
                 </div>
               )}
 
