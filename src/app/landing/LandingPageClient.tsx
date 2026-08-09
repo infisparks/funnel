@@ -21,6 +21,7 @@ import {
   ExternalLink,
   Plus,
   Trash2,
+  Save,
   CheckCircle2,
 } from 'lucide-react';
 import { DEFAULT_LANDING_HTML } from '@/lib/defaultLandingHtml';
@@ -55,10 +56,12 @@ export function LandingPageClient({
   );
 
   // Array of exact full text trigger buttons
-  const [triggerButtons, setTriggerButtons] = useState<string[]>([
-    'Book Your Business Technology Strategy Session',
-    'Claim Your 1-on-1 Growth Consultation',
-  ]);
+  const [triggerButtons, setTriggerButtons] = useState<string[]>(
+    initialWorkspace?.survey_questions?.length ? [] : [
+      'Book Your Business Technology Strategy Session',
+      'Claim Your 1-on-1 Growth Consultation',
+    ]
+  );
   const [manualTriggerInput, setManualTriggerInput] = useState('');
 
   const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
@@ -105,6 +108,20 @@ export function LandingPageClient({
     const removed = updated.splice(index, 1);
     setTriggerButtons(updated);
     showToast(`Removed Trigger: "${removed[0]}"`);
+  };
+
+  const handleSaveTriggersToSupabase = async () => {
+    setIsSavingSupabase(true);
+    const ok = await saveWorkspaceConfig({
+      landing_html: htmlCode,
+      subdomain,
+      custom_domain: customDomain,
+      survey_questions: surveyQuestions,
+    });
+    setIsSavingSupabase(false);
+    if (ok) {
+      showToast(`Successfully saved ${triggerButtons.length} triggers & workspace to Supabase! 💾`);
+    }
   };
 
   const handleSaveHtml = async (newCode: string) => {
@@ -163,7 +180,11 @@ export function LandingPageClient({
             // Explicit opt-out
             if (target.dataset.noPopup === 'true') return;
 
-            const fullText = (target.textContent || '').toLowerCase().trim();
+            const clickedText = (target.textContent || '').trim();
+            const fullText = clickedText.toLowerCase();
+
+            // ALWAYS send BUTTON_CLICKED event to parent window so picker mode captures ANY clicked button!
+            window.parent.postMessage({ type: 'BUTTON_CLICKED', text: clickedText }, '*');
 
             // Match exact full text or explicit data-popup attribute
             const matchesTrigger =
@@ -174,7 +195,6 @@ export function LandingPageClient({
 
             if (matchesTrigger) {
               e.preventDefault();
-              window.parent.postMessage({ type: 'BUTTON_CLICKED', text: target.textContent.trim() }, '*');
               window.parent.postMessage('OPEN_FUNNEL_POPUP', '*');
             }
           });
@@ -290,17 +310,17 @@ export function LandingPageClient({
             onClick={() => {
               setIsPickerActive(!isPickerActive);
               if (!isPickerActive) {
-                showToast('Click any button in the live preview below to add it to triggers list! 🎯');
+                showToast('Click ANY button in the live preview below to add it to triggers list! 🎯');
               }
             }}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
               isPickerActive
-                ? 'bg-amber-500 text-black border border-amber-600 shadow-md animate-pulse'
+                ? 'bg-amber-500 text-black border border-amber-600 shadow-md animate-pulse font-extrabold'
                 : 'bg-white border border-[#E5E7EB] hover:bg-gray-50 text-gray-800 shadow-2xs'
             }`}
           >
             <Target className="w-3.5 h-3.5 text-amber-500" />
-            <span>{isPickerActive ? 'Click Button in Preview...' : 'Pick Trigger Button 🎯'}</span>
+            <span>{isPickerActive ? 'Click ANY Button in Preview Below...' : 'Pick Trigger Button 🎯'}</span>
           </button>
 
           {/* Separate Route Badges */}
@@ -362,12 +382,12 @@ export function LandingPageClient({
               Active Trigger Buttons List ({triggerButtons.length})
             </span>
             <span className="text-[10px] text-gray-400">
-              Only buttons matching these exact strings will trigger the 3-Popup Flow.
+              Click "Pick Trigger Button 🎯" or add text below to register trigger buttons.
             </span>
           </div>
 
-          {/* Add Manual Trigger Input Form */}
-          <div className="flex items-center gap-1.5">
+          {/* Add Manual Trigger Input & Save Triggers Button */}
+          <div className="flex flex-wrap items-center gap-1.5">
             <input
               type="text"
               value={manualTriggerInput}
@@ -384,6 +404,15 @@ export function LandingPageClient({
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Add</span>
+            </button>
+
+            {/* Save Triggers to Supabase Button */}
+            <button
+              onClick={handleSaveTriggersToSupabase}
+              className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs flex items-center gap-1.5 cursor-pointer shrink-0 shadow-sm border border-emerald-400"
+            >
+              <Save className="w-3.5 h-3.5 text-emerald-200" />
+              <span>Save Triggers 💾</span>
             </button>
           </div>
         </div>
@@ -497,7 +526,7 @@ export function LandingPageClient({
           {isPickerActive && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 px-4 py-2 rounded-full bg-amber-500 text-black font-extrabold text-xs shadow-xl animate-bounce flex items-center gap-2 border border-amber-400">
               <Target className="w-4 h-4" />
-              <span>Click any button in the preview below to ADD to Triggers List!</span>
+              <span>Click ANY button in the preview below to ADD to Triggers List!</span>
             </div>
           )}
 
