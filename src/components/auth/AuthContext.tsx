@@ -12,6 +12,7 @@ export interface UserWorkspace {
   custom_domain?: string;
   landing_html: string;
   survey_questions?: any[];
+  trigger_buttons?: string[];
   created_at?: string;
   updated_at?: string;
 }
@@ -48,7 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await fetchUserWorkspace(currentSession.user.id);
         }
       } catch (err) {
-        console.error('Error fetching session:', err);
+        console.error('Error fetching auth session:', err);
       } finally {
         setLoading(false);
       }
@@ -56,13 +57,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     loadUserSession();
 
-    // Listen to Auth State Changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
-      setSession(currentSession);
-      setUser(currentSession?.user || null);
+    // Listen to Auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+      setSession(newSession);
+      setUser(newSession?.user || null);
 
-      if (currentSession?.user) {
-        await fetchUserWorkspace(currentSession.user.id);
+      if (newSession?.user) {
+        await fetchUserWorkspace(newSession.user.id);
       } else {
         setWorkspace(null);
       }
@@ -74,41 +75,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Fetch the 1 workspace row for the logged-in user
-  async function fetchUserWorkspace(userId: string) {
+  // Fetch single workspace record for logged in user
+  const fetchUserWorkspace = async (userId: string) => {
     try {
       const { data, error } = await supabase
         .from('funnel_workspaces')
         .select('*')
         .eq('user_id', userId)
+        .order('updated_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
 
-      if (data) {
+      if (error) {
+        console.error('Error fetching workspace:', error);
+      } else if (data) {
         setWorkspace(data);
-      } else {
-        setWorkspace(null);
       }
     } catch (err) {
-      console.log('No existing workspace row found yet for user.');
+      console.error('Error fetching user workspace:', err);
     }
-  }
+  };
 
-  // Upsert (Insert or Update) the 1 workspace row for the user
+  // Upsert user workspace configuration (Single Row per user_id)
   const saveWorkspaceConfig = async (config: Partial<UserWorkspace>): Promise<boolean> => {
     if (!user) {
-      alert('Please sign in to save your funnel workspace configuration!');
-      router.push('/login');
+      alert('User is not authenticated');
       return false;
     }
 
     try {
-      const defaultSubdomain = config.subdomain || workspace?.subdomain || `client-${user.id.substring(0, 6)}`;
-      const payload = {
+      const payload: Partial<UserWorkspace> = {
         user_id: user.id,
-        subdomain: defaultSubdomain,
-        custom_domain: config.custom_domain !== undefined ? config.custom_domain : (workspace?.custom_domain || null),
-        landing_html: config.landing_html || workspace?.landing_html || '<h1>My Funnel</h1>',
-        survey_questions: config.survey_questions || workspace?.survey_questions || [],
+        subdomain: config.subdomain || workspace?.subdomain || 'client1',
+        custom_domain: config.custom_domain || workspace?.custom_domain || 'firstoption.cloud',
+        landing_html: config.landing_html !== undefined ? config.landing_html : workspace?.landing_html || '<h1>My Funnel</h1>',
+        survey_questions: config.survey_questions !== undefined ? config.survey_questions : workspace?.survey_questions || [],
+        trigger_buttons: config.trigger_buttons !== undefined ? config.trigger_buttons : workspace?.trigger_buttons || [],
         updated_at: new Date().toISOString(),
       };
 
@@ -166,22 +168,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/login');
   };
 
-  // Auth Guard: Auto-redirect unauthenticated users to /login ONLY on protected CRM routes
-  useEffect(() => {
-    const isPublicRoute = pathname === '/login' || pathname === '/landing';
-    const isSubdomainHost =
-      typeof window !== 'undefined' &&
-      window.location.hostname.includes('.') &&
-      !window.location.hostname.includes('localhost') &&
-      !window.location.hostname.includes('vercel.app') &&
-      window.location.hostname !== 'firstoption.cloud' &&
-      window.location.hostname !== 'www.firstoption.cloud';
-
-    if (!loading && !user && !isPublicRoute && !isSubdomainHost) {
-      router.push('/login');
-    }
-  }, [loading, user, pathname, router]);
-
   return (
     <AuthContext.Provider
       value={{
@@ -200,7 +186,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;

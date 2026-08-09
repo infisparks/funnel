@@ -47,7 +47,7 @@ export function LandingPageClient({
   const { accentColor } = useTheme();
   const { user, workspace, saveWorkspaceConfig } = useAuth();
 
-  // Initialize state directly with server-fetched HTML code (0ms delay)
+  // Initialize state directly with server-fetched HTML code & saved triggers from Supabase (0ms delay)
   const [htmlCode, setHtmlCode] = useState(initialHtmlCode || DEFAULT_LANDING_HTML);
   const [customDomain, setCustomDomain] = useState(initialWorkspace?.custom_domain || 'firstoption.cloud');
   const [subdomain, setSubdomain] = useState(subdomainName || initialWorkspace?.subdomain || 'client1');
@@ -55,8 +55,10 @@ export function LandingPageClient({
     initialWorkspace?.survey_questions || []
   );
 
-  // Array of exact full text trigger buttons (empty by default)
-  const [triggerButtons, setTriggerButtons] = useState<string[]>([]);
+  // Array of exact full text trigger buttons saved in Supabase
+  const [triggerButtons, setTriggerButtons] = useState<string[]>(
+    initialWorkspace?.trigger_buttons || []
+  );
   const [manualTriggerInput, setManualTriggerInput] = useState('');
 
   const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
@@ -78,6 +80,7 @@ export function LandingPageClient({
       if (workspace.custom_domain) setCustomDomain(workspace.custom_domain);
       if (workspace.subdomain) setSubdomain(workspace.subdomain);
       if (workspace.survey_questions) setSurveyQuestions(workspace.survey_questions);
+      if (workspace.trigger_buttons) setTriggerButtons(workspace.trigger_buttons);
     }
   }, [workspace, isPublicView]);
 
@@ -86,7 +89,7 @@ export function LandingPageClient({
     setTimeout(() => setSupabaseToastMsg(''), 4000);
   };
 
-  const handleAddTriggerButton = (exactText: string) => {
+  const handleAddTriggerButton = async (exactText: string) => {
     const trimmed = exactText.trim();
     if (!trimmed) return;
     if (triggerButtons.includes(trimmed)) {
@@ -95,14 +98,24 @@ export function LandingPageClient({
     }
     const updated = [...triggerButtons, trimmed];
     setTriggerButtons(updated);
-    showToast(`Added Trigger: "${trimmed}" 🎯`);
     setManualTriggerInput('');
+
+    // Persist immediately to Supabase
+    setIsSavingSupabase(true);
+    await saveWorkspaceConfig({ trigger_buttons: updated });
+    setIsSavingSupabase(false);
+    showToast(`Added & Saved Trigger to Supabase: "${trimmed}" 🎯`);
   };
 
-  const handleRemoveTriggerButton = (index: number) => {
+  const handleRemoveTriggerButton = async (index: number) => {
     const updated = [...triggerButtons];
     const removed = updated.splice(index, 1);
     setTriggerButtons(updated);
+
+    // Persist update immediately to Supabase
+    setIsSavingSupabase(true);
+    await saveWorkspaceConfig({ trigger_buttons: updated });
+    setIsSavingSupabase(false);
     showToast(`Removed Trigger: "${removed[0]}"`);
   };
 
@@ -113,10 +126,11 @@ export function LandingPageClient({
       subdomain,
       custom_domain: customDomain,
       survey_questions: surveyQuestions,
+      trigger_buttons: triggerButtons,
     });
     setIsSavingSupabase(false);
     if (ok) {
-      showToast(`Successfully saved ${triggerButtons.length} triggers & workspace to Supabase! 💾`);
+      showToast(`Successfully saved ${triggerButtons.length} triggers to Supabase table! 💾`);
     }
   };
 
@@ -124,7 +138,7 @@ export function LandingPageClient({
     setHtmlCode(newCode);
     localStorage.setItem('landing_custom_html', newCode);
     setIsSavingSupabase(true);
-    const ok = await saveWorkspaceConfig({ landing_html: newCode, subdomain, custom_domain: customDomain });
+    const ok = await saveWorkspaceConfig({ landing_html: newCode, subdomain, custom_domain: customDomain, trigger_buttons: triggerButtons });
     setIsSavingSupabase(false);
     if (ok) {
       showToast('Landing Page HTML successfully saved to Supabase (funnel_workspaces table)! ✅');
@@ -135,7 +149,7 @@ export function LandingPageClient({
     setCustomDomain(newDomain);
     localStorage.setItem('landing_custom_domain', newDomain);
     setIsSavingSupabase(true);
-    const ok = await saveWorkspaceConfig({ landing_html: htmlCode, subdomain, custom_domain: newDomain });
+    const ok = await saveWorkspaceConfig({ landing_html: htmlCode, subdomain, custom_domain: newDomain, trigger_buttons: triggerButtons });
     setIsSavingSupabase(false);
     if (ok) {
       showToast('Custom Domain configuration saved to Supabase table! 🌐');
@@ -149,6 +163,7 @@ export function LandingPageClient({
       subdomain,
       custom_domain: customDomain,
       survey_questions: surveyQuestions,
+      trigger_buttons: triggerButtons,
     });
     setIsSavingSupabase(false);
     if (ok) {
@@ -162,7 +177,11 @@ export function LandingPageClient({
     let code = htmlCode;
 
     // Convert trigger buttons array to JSON string for iframe script
-    const triggersJson = JSON.stringify(triggerButtons.map((t) => t.toLowerCase().trim()));
+    const activeTriggers = (triggerButtons && triggerButtons.length > 0)
+      ? triggerButtons
+      : (initialWorkspace?.trigger_buttons || []);
+
+    const triggersJson = JSON.stringify(activeTriggers.map((t: string) => t.toLowerCase().trim()));
 
     const triggerScript = `
       <script>
@@ -220,7 +239,7 @@ export function LandingPageClient({
       code = code.replace('</head>', triggerScript + '\n</head>');
     }
     return code;
-  }, [htmlCode, triggerButtons]);
+  }, [htmlCode, triggerButtons, initialWorkspace]);
 
   // Listen to postMessage from iframe to open 3-popup lead capture modal & register picked button
   useEffect(() => {
@@ -391,7 +410,7 @@ export function LandingPageClient({
                 Active Trigger Buttons List ({triggerButtons.length})
               </span>
               <span className="text-[10px] text-gray-400">
-                Click any button in the preview to select & add to list.
+                Click any button in the preview to select & save to Supabase.
               </span>
             </div>
 
