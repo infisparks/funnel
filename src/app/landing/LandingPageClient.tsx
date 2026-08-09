@@ -17,6 +17,8 @@ import {
   Zap,
   Database,
   ListOrdered,
+  Target,
+  ExternalLink,
 } from 'lucide-react';
 import { DEFAULT_LANDING_HTML } from '@/lib/defaultLandingHtml';
 import { HtmlCodeEditorModal } from '@/components/landing/HtmlCodeEditorModal';
@@ -56,6 +58,10 @@ export function LandingPageClient({
   const [isPopupFunnelOpen, setIsPopupFunnelOpen] = useState(false);
   const [isSavingSupabase, setIsSavingSupabase] = useState(false);
   const [supabaseToastMsg, setSupabaseToastMsg] = useState('');
+
+  // Target Button Trigger Picker state
+  const [isPickerActive, setIsPickerActive] = useState(false);
+  const [selectedButtonText, setSelectedButtonText] = useState<string | null>(null);
 
   // Sync workspace state if logged in admin updates workspace
   useEffect(() => {
@@ -113,13 +119,15 @@ export function LandingPageClient({
     if (!htmlCode) return '';
     let code = htmlCode;
 
-    // Inject trigger script so any button or link inside custom HTML triggers the 3-Popup Funnel
+    // Inject trigger script so buttons trigger 3-Popup Flow & picker mode highlights buttons on click
     const triggerScript = `
       <script>
         document.addEventListener('click', function(e) {
           const target = e.target.closest('a, button, input[type="submit"]');
           if (target && !target.dataset.noPopup) {
             e.preventDefault();
+            const text = (target.textContent || '').trim();
+            window.parent.postMessage({ type: 'BUTTON_CLICKED', text: text }, '*');
             window.parent.postMessage('OPEN_FUNNEL_POPUP', '*');
           }
         });
@@ -140,16 +148,22 @@ export function LandingPageClient({
     return code;
   }, [htmlCode]);
 
-  // Listen to postMessage from iframe to open 3-popup lead capture modal
+  // Listen to postMessage from iframe to open 3-popup lead capture modal & register picked button
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       if (event.data === 'OPEN_FUNNEL_POPUP') {
         setIsPopupFunnelOpen(true);
+      } else if (event.data?.type === 'BUTTON_CLICKED') {
+        if (isPickerActive) {
+          setSelectedButtonText(event.data.text);
+          setIsPickerActive(false);
+          showToast(`Target Trigger Button Set: "${event.data.text}" 🎯`);
+        }
       }
     };
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  }, [isPickerActive]);
 
   // =========================================================================
   // PUBLIC STANDALONE SUBDOMAIN LANDING PAGE VIEW (ZERO DELAY SERVER RENDER)
@@ -184,7 +198,7 @@ export function LandingPageClient({
   }
 
   // =========================================================================
-  // ADMIN STUDIO VIEW (WITH SIDEBAR, HEADER, AND CODE EDITORS)
+  // ADMIN STUDIO VIEW (WITH SIDEBAR, HEADER, AND SEPARATE ROUTE LINKS)
   // =========================================================================
   return (
     <MainLayout>
@@ -208,7 +222,7 @@ export function LandingPageClient({
             <Badge variant="success">Supabase Sync Live</Badge>
           </div>
           <p className="text-sm text-gray-500 mt-1">
-            Custom HTML landing page renderer, 3-popup lead survey engine, and single-row Supabase workspace config.
+            Custom HTML landing page renderer, 3-popup lead survey engine, and separate page routes (`/survey`, `/meeting`).
           </p>
         </div>
 
@@ -223,20 +237,51 @@ export function LandingPageClient({
             <span>Sync to Supabase Table</span>
           </Button>
 
+          {/* Interactive Trigger Button Picker */}
+          <button
+            onClick={() => {
+              setIsPickerActive(!isPickerActive);
+              if (!isPickerActive) {
+                showToast('Click any button in the live preview below to select it as trigger! 🎯');
+              }
+            }}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              isPickerActive
+                ? 'bg-amber-500 text-black border border-amber-600 shadow-md animate-pulse'
+                : 'bg-white border border-[#E5E7EB] hover:bg-gray-50 text-gray-800 shadow-2xs'
+            }`}
+          >
+            <Target className="w-4 h-4 text-amber-500" />
+            <span>{isPickerActive ? 'Click Button in Preview Below...' : 'Pick Trigger Button 🎯'}</span>
+          </button>
+
+          {/* Separate Route Links Badge */}
+          <a
+            href="/survey"
+            target="_blank"
+            rel="noreferrer"
+            className="px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold flex items-center gap-1 hover:bg-amber-100 transition-colors shadow-2xs"
+          >
+            <span>/survey</span>
+            <ExternalLink className="w-3.5 h-3.5 text-amber-600" />
+          </a>
+
+          <a
+            href="/meeting"
+            target="_blank"
+            rel="noreferrer"
+            className="px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-1 hover:bg-emerald-100 transition-colors shadow-2xs"
+          >
+            <span>/meeting</span>
+            <ExternalLink className="w-3.5 h-3.5 text-emerald-600" />
+          </a>
+
           <Button
             variant="secondary"
             onClick={() => setIsSurveyModalOpen(true)}
             leftIcon={<ListOrdered className="w-4 h-4 text-amber-500" />}
           >
             <span>Customize Survey Form</span>
-          </Button>
-
-          <Button
-            variant="secondary"
-            onClick={() => setIsPopupFunnelOpen(true)}
-            leftIcon={<Zap className="w-4 h-4 text-[#8146F0]" />}
-          >
-            <span>Test 3-Popup Flow</span>
           </Button>
 
           <button
@@ -258,6 +303,22 @@ export function LandingPageClient({
           </Button>
         </div>
       </div>
+
+      {/* Selected Target Button Indicator Banner */}
+      {selectedButtonText && (
+        <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 text-xs font-bold flex items-center justify-between shadow-2xs mb-2">
+          <div className="flex items-center gap-2">
+            <Target className="w-4 h-4 text-amber-600" />
+            <span>Designated Popup Trigger Button: <span className="font-mono font-extrabold text-amber-700">"{selectedButtonText}"</span></span>
+          </div>
+          <button
+            onClick={() => setSelectedButtonText(null)}
+            className="text-amber-700 hover:text-amber-900 underline text-[11px]"
+          >
+            Reset
+          </button>
+        </div>
+      )}
 
       {/* Live Preview Container Bar */}
       <div className="bg-white border border-[#E5E7EB] rounded-3xl overflow-hidden shadow-2xs">
@@ -337,7 +398,14 @@ export function LandingPageClient({
         </div>
 
         {/* Live Iframe Sandbox Preview Area */}
-        <div className="p-4 sm:p-8 bg-[#E2E8F0]/50 min-h-[750px] flex items-center justify-center overflow-x-auto">
+        <div className="p-4 sm:p-8 bg-[#E2E8F0]/50 min-h-[750px] flex items-center justify-center overflow-x-auto relative">
+          {isPickerActive && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 px-4 py-2 rounded-full bg-amber-500 text-black font-extrabold text-xs shadow-xl animate-bounce flex items-center gap-2 border border-amber-400">
+              <Target className="w-4 h-4" />
+              <span>Click the CTA button in the landing page below to set as Popup Trigger!</span>
+            </div>
+          )}
+
           {viewport === 'desktop' && (
             <div className="w-full shadow-lg rounded-2xl overflow-hidden bg-white border border-[#E5E7EB]">
               <iframe
