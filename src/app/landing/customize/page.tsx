@@ -31,6 +31,7 @@ import {
   ExternalLink,
   Globe,
   Link as LinkIcon,
+  Hash,
 } from 'lucide-react';
 import { ThreePopupFunnelModal, PopupThemeConfig, SurveyQuestion, SuccessButton } from '@/components/funnel/ThreePopupFunnelModal';
 
@@ -266,7 +267,7 @@ export default function CustomizeStudioPage() {
                 Full-Screen 3-Popup Funnel Studio
               </h1>
               <p className="text-xs text-gray-500">
-                Auto 1-column long text option layout, progressive survey flow, 3 per row time slots, and 21 luxury colors.
+                Custom #HEX color input, progressive survey flow, 3 per row time slots, and 21 luxury colors.
               </p>
             </div>
           </div>
@@ -772,7 +773,7 @@ export default function CustomizeStudioPage() {
                 </div>
               )}
 
-              {/* STEP 4 CONTROLS: COLORS & STYLES */}
+              {/* STEP 4 CONTROLS: COLORS & STYLES (WITH DEDICATED #HEX COLOR CODE INPUT) */}
               {activeStepTab === 4 && (
                 <div className="space-y-4 bg-white p-4 rounded-2xl border border-gray-200">
                   <div>
@@ -823,23 +824,60 @@ export default function CustomizeStudioPage() {
                     </div>
                   </div>
 
-                  {/* 21 PREMIUM COLOR PALETTES GRID */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-xs font-bold text-gray-900">
-                        21 Premium Curated Color Theme Palettes
+                  {/* DEDICATED CUSTOM #HEX COLOR CODE INPUT & COLOR PICKER */}
+                  <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-extrabold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
+                        <Palette className="w-4 h-4 text-amber-600" />
+                        <span>Enter Custom #Hex Color Code</span>
                       </label>
+                      <span className="text-[10px] text-gray-500 font-mono">Live Preview ⚡</span>
+                    </div>
 
-                      <div className="flex items-center gap-1">
-                        <span className="text-[11px] text-gray-500">Custom Hex:</span>
+                    <div className="flex items-center gap-2">
+                      {/* Color Wheel Swatch Box */}
+                      <div className="relative shrink-0">
                         <input
                           type="color"
-                          value={theme.primaryColor || '#F59E0B'}
+                          value={theme.primaryColor && theme.primaryColor.startsWith('#') ? theme.primaryColor : '#F59E0B'}
                           onChange={(e) => setTheme({ ...theme, primaryColor: e.target.value })}
-                          className="w-5 h-5 rounded cursor-pointer border-0"
+                          className="w-10 h-10 rounded-xl cursor-pointer border border-gray-300 shadow-2xs p-0 overflow-hidden"
+                          title="Pick Color Wheel"
                         />
                       </div>
+
+                      {/* Hex Code Input Field */}
+                      <div className="relative flex-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-mono font-extrabold text-amber-600">#</span>
+                        <input
+                          type="text"
+                          value={(theme.primaryColor || '#F59E0B').replace('#', '')}
+                          onChange={(e) => {
+                            const val = e.target.value.trim();
+                            const cleanHex = val.startsWith('#') ? val : `#${val}`;
+                            setTheme({ ...theme, primaryColor: cleanHex });
+                          }}
+                          placeholder="F59E0B"
+                          maxLength={7}
+                          className="w-full pl-7 pr-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-mono font-extrabold text-gray-900 focus:outline-none focus:border-amber-500 uppercase"
+                        />
+                      </div>
+
+                      {/* Current Color Swatch Pill */}
+                      <div
+                        className="px-3 py-2 rounded-xl text-xs font-extrabold font-mono shadow-2xs border border-black/10 shrink-0"
+                        style={{ backgroundColor: theme.primaryColor || '#F59E0B', color: '#000000' }}
+                      >
+                        Preview
+                      </div>
                     </div>
+                  </div>
+
+                  {/* 21 PREMIUM COLOR PALETTES GRID */}
+                  <div>
+                    <label className="block text-xs font-bold text-gray-900 mb-1.5">
+                      Or Choose From 21 Luxury Preset Palettes
+                    </label>
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[220px] overflow-y-auto pr-1">
                       {PRESET_COLORS.map((c) => {
@@ -1105,7 +1143,7 @@ export default function CustomizeStudioPage() {
                             >
                               <InstagramIcon className="w-3.5 h-3.5" />
                               <span className="truncate">{btn.label}</span>
-                              <ExternalLink className="w-3.5 h-3 ml-auto" />
+                              <ExternalLink className="w-3 h-3 ml-auto" />
                             </div>
                           );
                         }
@@ -1117,7 +1155,7 @@ export default function CustomizeStudioPage() {
                             >
                               <Globe className="w-3.5 h-3.5" />
                               <span className="truncate">{btn.label}</span>
-                              <ExternalLink className="w-3.5 h-3 ml-auto" />
+                              <ExternalLink className="w-3 h-3 ml-auto" />
                             </div>
                           );
                         }
