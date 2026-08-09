@@ -617,7 +617,7 @@ export function ThreePopupFunnelModal({
             </form>
           )}
 
-          {/* STEP 3: SLIDABLE MEETING DATE CAROUSEL & SLIDABLE TIME SLOTS CAROUSEL */}
+          {/* STEP 3: SLIDABLE MEETING DATE CAROUSEL & 3-PER-ROW TIME SLOTS GRID */}
           {step === 3 && (
             <form onSubmit={handleStep3Submit} className="space-y-4">
               {/* HORIZONTAL DATE SLIDER CAROUSEL */}
@@ -653,12 +653,12 @@ export function ThreePopupFunnelModal({
                 </div>
               </div>
 
-              {/* HORIZONTAL SLIDABLE TIME SLOTS CAROUSEL */}
+              {/* TIME SLOTS: 3 PER ROW GRID (NEXT & REST ADJUST NEATLY) */}
               <div>
                 <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
                   {timeSlotLabel}
                 </label>
-                <div className="flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-none">
+                <div className="grid grid-cols-3 gap-2">
                   {availableTimeSlots.map((slot) => {
                     const isSelected = meetingTime === slot;
                     return (
@@ -666,7 +666,7 @@ export function ThreePopupFunnelModal({
                         type="button"
                         key={slot}
                         onClick={() => setMeetingTime(slot)}
-                        className={`px-3.5 py-2.5 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all cursor-pointer shrink-0 ${
+                        className={`p-2.5 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1 border transition-all cursor-pointer truncate ${
                           isSelected
                             ? 'border-emerald-500 bg-emerald-500/20 text-emerald-400 shadow-md font-extrabold'
                             : isLightMode
@@ -674,8 +674,8 @@ export function ThreePopupFunnelModal({
                             : 'border-gray-800 bg-[#131B2A] text-gray-300 hover:border-gray-700'
                         }`}
                       >
-                        <Clock className="w-3.5 h-3.5" style={{ color: primaryColor }} />
-                        <span>{slot}</span>
+                        <Clock className="w-3 h-3 shrink-0" style={{ color: primaryColor }} />
+                        <span className="truncate">{slot}</span>
                       </button>
                     );
                   })}

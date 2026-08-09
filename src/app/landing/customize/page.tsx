@@ -263,7 +263,7 @@ export default function CustomizeStudioPage() {
                 Full-Screen 3-Popup Funnel Studio
               </h1>
               <p className="text-xs text-gray-500">
-                Slidable date and time slots, WhatsApp/Instagram buttons, and 21 luxury color palettes.
+                Slidable date, 3 per row time slots, WhatsApp/Instagram buttons, and 21 luxury color palettes.
               </p>
             </div>
           </div>
@@ -998,7 +998,7 @@ export default function CustomizeStudioPage() {
                 </div>
               )}
 
-              {/* LIVE FORM CONTENT STEP 3 (HORIZONTAL DATE SLIDER + HORIZONTAL TIME SLOTS SLIDER) */}
+              {/* LIVE FORM CONTENT STEP 3 (SLIDABLE DATE CAROUSEL + 3-PER-ROW TIME SLOTS GRID) */}
               {activeStepTab === 3 && (
                 <div className="p-5 pt-2 space-y-3">
                   <div>
@@ -1030,12 +1030,12 @@ export default function CustomizeStudioPage() {
                       {theme.timeSlotLabel || 'SELECT TIME SLOT *'}
                     </label>
 
-                    {/* Time Slot Carousel Slider Preview */}
-                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                    {/* Time Slot Grid Preview (3 Per Row) */}
+                    <div className="grid grid-cols-3 gap-1.5">
                       {(theme.meetingSlots || ['09:00 AM', '11:00 AM', '02:00 PM', '04:30 PM']).map((slot, idx) => (
                         <div
                           key={slot}
-                          className={`px-3 py-2 rounded-xl text-[10px] font-bold flex items-center gap-1 border shrink-0 ${
+                          className={`p-2 rounded-xl text-[10px] font-bold flex items-center justify-center gap-1 border truncate ${
                             idx === 2
                               ? 'border-emerald-500 bg-emerald-500/20 text-emerald-400'
                               : isLightMode
@@ -1044,7 +1044,7 @@ export default function CustomizeStudioPage() {
                           }`}
                         >
                           <Clock className="w-3 h-3 text-amber-400 shrink-0" />
-                          <span>{slot}</span>
+                          <span className="truncate">{slot}</span>
                         </div>
                       ))}
                     </div>
@@ -1100,7 +1100,7 @@ export default function CustomizeStudioPage() {
                             >
                               <InstagramIcon className="w-3.5 h-3.5" />
                               <span className="truncate">{btn.label}</span>
-                              <ExternalLink className="w-3.5 h-3 ml-auto" />
+                              <ExternalLink className="w-3 h-3 ml-auto" />
                             </div>
                           );
                         }
@@ -1112,7 +1112,7 @@ export default function CustomizeStudioPage() {
                             >
                               <Globe className="w-3.5 h-3.5" />
                               <span className="truncate">{btn.label}</span>
-                              <ExternalLink className="w-3.5 h-3 ml-auto" />
+                              <ExternalLink className="w-3 h-3 ml-auto" />
                             </div>
                           );
                         }
