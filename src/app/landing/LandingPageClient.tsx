@@ -22,13 +22,14 @@ import {
   Plus,
   Trash2,
   Save,
-  CheckCircle2,
+  Palette,
 } from 'lucide-react';
 import { DEFAULT_LANDING_HTML } from '@/lib/defaultLandingHtml';
 import { HtmlCodeEditorModal } from '@/components/landing/HtmlCodeEditorModal';
 import { CustomDomainModal } from '@/components/landing/CustomDomainModal';
-import { ThreePopupFunnelModal } from '@/components/funnel/ThreePopupFunnelModal';
+import { ThreePopupFunnelModal, PopupThemeConfig } from '@/components/funnel/ThreePopupFunnelModal';
 import { SurveyBuilderModal, SurveyQuestion } from '@/components/funnel/SurveyBuilderModal';
+import { PopupThemeModal } from '@/components/funnel/PopupThemeModal';
 
 interface LandingPageClientProps {
   initialHtmlCode: string;
@@ -61,10 +62,16 @@ export function LandingPageClient({
   );
   const [manualTriggerInput, setManualTriggerInput] = useState('');
 
+  // Customizable Popup Theme & Copy State
+  const [popupTheme, setPopupTheme] = useState<PopupThemeConfig>(
+    initialWorkspace?.popup_theme || {}
+  );
+
   const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isDomainModalOpen, setIsDomainModalOpen] = useState(false);
   const [isSurveyModalOpen, setIsSurveyModalOpen] = useState(false);
+  const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
   const [isPopupFunnelOpen, setIsPopupFunnelOpen] = useState(false);
   const [isSavingSupabase, setIsSavingSupabase] = useState(false);
   const [supabaseToastMsg, setSupabaseToastMsg] = useState('');
@@ -81,6 +88,7 @@ export function LandingPageClient({
       if (workspace.subdomain) setSubdomain(workspace.subdomain);
       if (workspace.survey_questions) setSurveyQuestions(workspace.survey_questions);
       if (workspace.trigger_buttons) setTriggerButtons(workspace.trigger_buttons);
+      if (workspace.popup_theme) setPopupTheme(workspace.popup_theme);
     }
   }, [workspace, isPublicView]);
 
@@ -127,10 +135,11 @@ export function LandingPageClient({
       custom_domain: customDomain,
       survey_questions: surveyQuestions,
       trigger_buttons: triggerButtons,
+      popup_theme: popupTheme,
     });
     setIsSavingSupabase(false);
     if (ok) {
-      showToast(`Successfully saved ${triggerButtons.length} triggers to Supabase table! 💾`);
+      showToast(`Successfully saved triggers & theme configuration to Supabase! 💾`);
     }
   };
 
@@ -138,10 +147,10 @@ export function LandingPageClient({
     setHtmlCode(newCode);
     localStorage.setItem('landing_custom_html', newCode);
     setIsSavingSupabase(true);
-    const ok = await saveWorkspaceConfig({ landing_html: newCode, subdomain, custom_domain: customDomain, trigger_buttons: triggerButtons });
+    const ok = await saveWorkspaceConfig({ landing_html: newCode, subdomain, custom_domain: customDomain, trigger_buttons: triggerButtons, popup_theme: popupTheme });
     setIsSavingSupabase(false);
     if (ok) {
-      showToast('Landing Page HTML successfully saved to Supabase (funnel_workspaces table)! ✅');
+      showToast('Landing Page HTML successfully saved to Supabase! ✅');
     }
   };
 
@@ -149,7 +158,7 @@ export function LandingPageClient({
     setCustomDomain(newDomain);
     localStorage.setItem('landing_custom_domain', newDomain);
     setIsSavingSupabase(true);
-    const ok = await saveWorkspaceConfig({ landing_html: htmlCode, subdomain, custom_domain: newDomain, trigger_buttons: triggerButtons });
+    const ok = await saveWorkspaceConfig({ landing_html: htmlCode, subdomain, custom_domain: newDomain, trigger_buttons: triggerButtons, popup_theme: popupTheme });
     setIsSavingSupabase(false);
     if (ok) {
       showToast('Custom Domain configuration saved to Supabase table! 🌐');
@@ -164,6 +173,7 @@ export function LandingPageClient({
       custom_domain: customDomain,
       survey_questions: surveyQuestions,
       trigger_buttons: triggerButtons,
+      popup_theme: popupTheme,
     });
     setIsSavingSupabase(false);
     if (ok) {
@@ -281,6 +291,7 @@ export function LandingPageClient({
               ? surveyQuestions
               : initialWorkspace?.survey_questions
           }
+          popupTheme={popupTheme?.primaryColor ? popupTheme : initialWorkspace?.popup_theme}
           onComplete={(lead) => {
             console.log('Lead captured via subdomain funnel:', lead);
           }}
@@ -296,7 +307,7 @@ export function LandingPageClient({
     <MainLayout>
       {/* Supabase Success Toast Notification Floating Banner */}
       {supabaseToastMsg && (
-        <div className="fixed top-6 right-6 z-50 animate-in fade-in slide-in-from-top-4 duration-300">
+        <div className="fixed top-6 right-6 z-50 animate-in fade-in slide-in-from-top-4 duration-300 font-sans">
           <div className="p-3.5 rounded-2xl bg-[#059669] text-white font-bold text-xs shadow-2xl flex items-center gap-2.5 border border-emerald-400">
             <Database className="w-4 h-4 text-emerald-200" />
             <span>{supabaseToastMsg}</span>
@@ -314,7 +325,7 @@ export function LandingPageClient({
             <Badge variant="success">Supabase Sync Live</Badge>
           </div>
           <p className="text-xs text-gray-500 mt-0.5">
-            Full-text exact button trigger manager, custom survey form builder, and instant subdomain host.
+            Full-text exact button trigger manager, popup theme designer, and instant subdomain host.
           </p>
         </div>
 
@@ -328,6 +339,16 @@ export function LandingPageClient({
             leftIcon={<Database className="w-3.5 h-3.5 text-emerald-600" />}
           >
             <span>Sync Supabase</span>
+          </Button>
+
+          {/* Customize Popup Theme Button */}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setIsThemeModalOpen(true)}
+            leftIcon={<Palette className="w-3.5 h-3.5 text-amber-500" />}
+          >
+            <span>Customize Theme 🎨</span>
           </Button>
 
           {/* Interactive Trigger Button Picker Toggle */}
@@ -629,12 +650,20 @@ export function LandingPageClient({
         onSaveQuestions={(newQ) => setSurveyQuestions(newQ)}
       />
 
+      <PopupThemeModal
+        isOpen={isThemeModalOpen}
+        onClose={() => setIsThemeModalOpen(false)}
+        themeConfig={popupTheme}
+        onSaveTheme={(newTheme) => setPopupTheme(newTheme)}
+      />
+
       <ThreePopupFunnelModal
         isOpen={isPopupFunnelOpen}
         onClose={() => setIsPopupFunnelOpen(false)}
         funnelId={workspace?.id}
         userId={user?.id}
         surveyQuestions={surveyQuestions}
+        popupTheme={popupTheme}
         onComplete={(lead) => {
           console.log('Lead captured via 3-Popup funnel:', lead);
         }}

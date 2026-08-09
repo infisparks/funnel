@@ -5,6 +5,23 @@ import { supabase } from '@/lib/supabaseClient';
 import { User, Session } from '@supabase/supabase-js';
 import { usePathname, useRouter } from 'next/navigation';
 
+export interface PopupThemeConfig {
+  primaryColor?: string;
+  bgColor?: string;
+  badgeText?: string;
+  step1Title?: string;
+  step1Subtitle?: string;
+  step1ButtonText?: string;
+  step2Title?: string;
+  step2Subtitle?: string;
+  step2ButtonText?: string;
+  step3Title?: string;
+  step3Subtitle?: string;
+  step3ButtonText?: string;
+  step4Title?: string;
+  step4Subtitle?: string;
+}
+
 export interface UserWorkspace {
   id?: string;
   user_id: string;
@@ -13,6 +30,7 @@ export interface UserWorkspace {
   landing_html: string;
   survey_questions?: any[];
   trigger_buttons?: string[];
+  popup_theme?: PopupThemeConfig;
   created_at?: string;
   updated_at?: string;
 }
@@ -111,6 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         landing_html: config.landing_html !== undefined ? config.landing_html : workspace?.landing_html || '<h1>My Funnel</h1>',
         survey_questions: config.survey_questions !== undefined ? config.survey_questions : workspace?.survey_questions || [],
         trigger_buttons: config.trigger_buttons !== undefined ? config.trigger_buttons : workspace?.trigger_buttons || [],
+        popup_theme: config.popup_theme !== undefined ? config.popup_theme : workspace?.popup_theme || {},
         updated_at: new Date().toISOString(),
       };
 
