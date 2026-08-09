@@ -49,7 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (err) {
         console.error('Error fetching session:', err);
-      } font-medium; finally {
+      } finally {
         setLoading(false);
       }
     }
