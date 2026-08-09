@@ -55,13 +55,8 @@ export function LandingPageClient({
     initialWorkspace?.survey_questions || []
   );
 
-  // Array of exact full text trigger buttons
-  const [triggerButtons, setTriggerButtons] = useState<string[]>(
-    initialWorkspace?.survey_questions?.length ? [] : [
-      'Book Your Business Technology Strategy Session',
-      'Claim Your 1-on-1 Growth Consultation',
-    ]
-  );
+  // Array of exact full text trigger buttons (empty by default)
+  const [triggerButtons, setTriggerButtons] = useState<string[]>([]);
   const [manualTriggerInput, setManualTriggerInput] = useState('');
 
   const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
@@ -72,8 +67,9 @@ export function LandingPageClient({
   const [isSavingSupabase, setIsSavingSupabase] = useState(false);
   const [supabaseToastMsg, setSupabaseToastMsg] = useState('');
 
-  // Target Button Trigger Picker state
+  // Target Button Trigger Picker state & component visibility
   const [isPickerActive, setIsPickerActive] = useState(false);
+  const [showTriggerBar, setShowTriggerBar] = useState(false);
 
   // Sync workspace state if logged in admin updates workspace
   useEffect(() => {
@@ -186,12 +182,22 @@ export function LandingPageClient({
             // ALWAYS send BUTTON_CLICKED event to parent window so picker mode captures ANY clicked button!
             window.parent.postMessage({ type: 'BUTTON_CLICKED', text: clickedText }, '*');
 
-            // Match exact full text or explicit data-popup attribute
-            const matchesTrigger =
-              target.dataset.popup === 'true' ||
-              validTriggers.some(function(trig) {
+            // If trigger list has items, match exact text. Otherwise default to action keywords if list is empty
+            let matchesTrigger = false;
+
+            if (validTriggers && validTriggers.length > 0) {
+              matchesTrigger = target.dataset.popup === 'true' || validTriggers.some(function(trig) {
                 return trig && (fullText === trig || fullText.indexOf(trig) !== -1);
               });
+            } else {
+              // Default CTA keywords fallback if user hasn't selected any specific triggers yet
+              matchesTrigger = target.dataset.popup === 'true' ||
+                fullText.indexOf('book') !== -1 ||
+                fullText.indexOf('strategy') !== -1 ||
+                fullText.indexOf('claim') !== -1 ||
+                fullText.indexOf('schedule') !== -1 ||
+                fullText.indexOf('get started') !== -1;
+            }
 
             if (matchesTrigger) {
               e.preventDefault();
@@ -305,12 +311,14 @@ export function LandingPageClient({
             <span>Sync Supabase</span>
           </Button>
 
-          {/* Interactive Trigger Button Picker */}
+          {/* Interactive Trigger Button Picker Toggle */}
           <button
             onClick={() => {
-              setIsPickerActive(!isPickerActive);
-              if (!isPickerActive) {
-                showToast('Click ANY button in the live preview below to add it to triggers list! 🎯');
+              const nextPickerState = !isPickerActive;
+              setIsPickerActive(nextPickerState);
+              setShowTriggerBar(true); // Reveal trigger bar when user clicks Pick Trigger Button
+              if (nextPickerState) {
+                showToast('Click ANY button in the live preview below to select it as trigger! 🎯');
               }
             }}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
@@ -373,76 +381,78 @@ export function LandingPageClient({
         </div>
       </div>
 
-      {/* MULTIPLE EXACT FULL-TEXT TRIGGER BUTTONS MANAGEMENT BAR */}
-      <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 text-white space-y-2.5 shadow-md font-sans">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Target className="w-4 h-4 text-amber-400" />
-            <span className="text-xs font-extrabold tracking-wide text-white uppercase">
-              Active Trigger Buttons List ({triggerButtons.length})
-            </span>
-            <span className="text-[10px] text-gray-400">
-              Click "Pick Trigger Button 🎯" or add text below to register trigger buttons.
-            </span>
-          </div>
+      {/* TRIGGER COMPONENT (HIDDEN BY DEFAULT - ONLY SHOWN WHEN USER CLICKS 'PICK TRIGGER BUTTON' OR HAS ACTIVE TRIGGERS) */}
+      {(showTriggerBar || isPickerActive || triggerButtons.length > 0) && (
+        <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 text-white space-y-2.5 shadow-md font-sans animate-in fade-in zoom-in-98 duration-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Target className="w-4 h-4 text-amber-400" />
+              <span className="text-xs font-extrabold tracking-wide text-white uppercase">
+                Active Trigger Buttons List ({triggerButtons.length})
+              </span>
+              <span className="text-[10px] text-gray-400">
+                Click any button in the preview to select & add to list.
+              </span>
+            </div>
 
-          {/* Add Manual Trigger Input & Save Triggers Button */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <input
-              type="text"
-              value={manualTriggerInput}
-              onChange={(e) => setManualTriggerInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleAddTriggerButton(manualTriggerInput);
-              }}
-              placeholder="Paste exact button text..."
-              className="px-3 py-1 text-xs bg-slate-800 border border-slate-700 rounded-lg text-white font-semibold focus:outline-none focus:border-amber-400"
-            />
-            <button
-              onClick={() => handleAddTriggerButton(manualTriggerInput)}
-              className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs flex items-center gap-1 cursor-pointer shrink-0"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add</span>
-            </button>
-
-            {/* Save Triggers to Supabase Button */}
-            <button
-              onClick={handleSaveTriggersToSupabase}
-              className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs flex items-center gap-1.5 cursor-pointer shrink-0 shadow-sm border border-emerald-400"
-            >
-              <Save className="w-3.5 h-3.5 text-emerald-200" />
-              <span>Save Triggers 💾</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Trigger Badges List */}
-        <div className="flex flex-wrap items-center gap-2 pt-1">
-          {triggerButtons.map((trigText, idx) => (
-            <div
-              key={idx}
-              className="px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-amber-300 font-extrabold text-xs flex items-center gap-2 shadow-2xs group hover:border-amber-500/50 transition-all"
-            >
-              <span className="text-gray-400 text-[10px]">#{idx + 1}</span>
-              <span className="font-mono">"{trigText}"</span>
+            {/* Add Manual Trigger Input & Save Triggers Button */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <input
+                type="text"
+                value={manualTriggerInput}
+                onChange={(e) => setManualTriggerInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleAddTriggerButton(manualTriggerInput);
+                }}
+                placeholder="Paste exact button text..."
+                className="px-3 py-1 text-xs bg-slate-800 border border-slate-700 rounded-lg text-white font-semibold focus:outline-none focus:border-amber-400"
+              />
               <button
-                onClick={() => handleRemoveTriggerButton(idx)}
-                className="text-gray-400 hover:text-rose-400 p-0.5 rounded hover:bg-slate-700 transition-colors"
-                title="Delete Trigger"
+                onClick={() => handleAddTriggerButton(manualTriggerInput)}
+                className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs flex items-center gap-1 cursor-pointer shrink-0"
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add</span>
+              </button>
+
+              {/* Save Triggers to Supabase Button */}
+              <button
+                onClick={handleSaveTriggersToSupabase}
+                className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs flex items-center gap-1.5 cursor-pointer shrink-0 shadow-sm border border-emerald-400"
+              >
+                <Save className="w-3.5 h-3.5 text-emerald-200" />
+                <span>Save Triggers 💾</span>
               </button>
             </div>
-          ))}
+          </div>
 
-          {triggerButtons.length === 0 && (
-            <span className="text-xs text-amber-400/80 italic font-semibold">
-              No triggers added yet. Click "Pick Trigger Button 🎯" above or add button text manually!
-            </span>
-          )}
+          {/* Trigger Badges List */}
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            {triggerButtons.map((trigText, idx) => (
+              <div
+                key={idx}
+                className="px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-amber-300 font-extrabold text-xs flex items-center gap-2 shadow-2xs group hover:border-amber-500/50 transition-all"
+              >
+                <span className="text-gray-400 text-[10px]">#{idx + 1}</span>
+                <span className="font-mono">"{trigText}"</span>
+                <button
+                  onClick={() => handleRemoveTriggerButton(idx)}
+                  className="text-gray-400 hover:text-rose-400 p-0.5 rounded hover:bg-slate-700 transition-colors"
+                  title="Delete Trigger"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+
+            {triggerButtons.length === 0 && (
+              <span className="text-xs text-amber-400/80 italic font-semibold">
+                No triggers selected yet. Click ANY button in the website preview below to select it!
+              </span>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Live Preview Container Bar */}
       <div className="bg-white border border-[#E5E7EB] rounded-3xl overflow-hidden shadow-2xs font-sans">
