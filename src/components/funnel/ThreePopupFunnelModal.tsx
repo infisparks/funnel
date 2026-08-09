@@ -63,6 +63,7 @@ export interface PopupThemeConfig {
   // Step 4
   step4Title?: string;
   step4Subtitle?: string;
+  step4ButtonColor?: string;
   step4Buttons?: SuccessButton[];
 }
 
@@ -151,9 +152,10 @@ export function ThreePopupFunnelModal({
     ? popupTheme.meetingSlots
     : ['09:00 AM', '11:00 AM', '02:00 PM', '04:30 PM', '06:00 PM'];
 
-  // Step 4 Copy & Buttons
+  // Step 4 Copy & Buttons & Custom Color (Default: primaryColor)
   const step4Title = popupTheme.step4Title || 'Booking Confirmed! 🎉';
   const step4Subtitle = popupTheme.step4Subtitle || 'Your meeting is locked in our calendar and CRM. We look forward to speaking!';
+  const successButtonColor = popupTheme.step4ButtonColor || primaryColor;
   const successButtons = popupTheme.step4Buttons || [
     {
       id: 'btn1',
@@ -600,7 +602,7 @@ export function ThreePopupFunnelModal({
             </form>
           )}
 
-          {/* STEP 4: COMPLETED CONFIRMATION & ACTION BUTTONS */}
+          {/* STEP 4: COMPLETED CONFIRMATION & ACTION BUTTONS WITH CUSTOM COLOR */}
           {step === 4 && (
             <div className="text-center space-y-4 py-2">
               <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 flex items-center justify-center mx-auto shadow-sm">
@@ -616,7 +618,7 @@ export function ThreePopupFunnelModal({
                 </p>
               </div>
 
-              {/* ACTION BUTTONS (e.g. JOIN WHATSAPP GROUP) */}
+              {/* ACTION BUTTONS WITH CUSTOM COLOR */}
               {successButtons && successButtons.length > 0 && (
                 <div className="space-y-2 pt-1">
                   {successButtons.map((btn) => (
@@ -625,7 +627,8 @@ export function ThreePopupFunnelModal({
                       href={btn.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="w-full py-3 px-4 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-black shadow-md transition-all cursor-pointer"
+                      className="w-full py-3 px-4 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 text-black shadow-md transition-all cursor-pointer"
+                      style={{ backgroundColor: successButtonColor }}
                     >
                       <MessageCircle className="w-4 h-4" />
                       <span>{btn.label}</span>

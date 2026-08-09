@@ -61,7 +61,6 @@ export default function CustomizeStudioPage() {
   const router = useRouter();
   const { workspace, saveWorkspaceConfig } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'theme' | 'survey'>('theme');
   const [activeStepTab, setActiveStepTab] = useState<1 | 2 | 3 | 4 | 5>(1);
 
   // Theme Config State
@@ -91,6 +90,7 @@ export default function CustomizeStudioPage() {
     meetingSlots: ['09:00 AM', '11:00 AM', '02:00 PM', '04:30 PM', '06:00 PM'],
     step4Title: 'Booking Confirmed! 🎉',
     step4Subtitle: 'Your meeting is locked in our calendar and CRM. We look forward to speaking!',
+    step4ButtonColor: '#25D366', // Default WhatsApp green or selected primary color
     step4Buttons: [
       {
         id: 'btn1',
@@ -209,6 +209,7 @@ export default function CustomizeStudioPage() {
   const primaryColor = theme.primaryColor || '#F59E0B';
   const isLightMode = theme.themeMode === 'light';
   const isSolidButton = theme.buttonStyle === 'solid';
+  const successButtonColor = theme.step4ButtonColor || primaryColor;
 
   const getButtonStyle = () => {
     if (isSolidButton) {
@@ -235,7 +236,7 @@ export default function CustomizeStudioPage() {
                 Full-Screen 3-Popup Funnel Studio
               </h1>
               <p className="text-xs text-gray-500">
-                Design custom meeting slots, date slider, WhatsApp group buttons, and 21 luxury colors.
+                Design custom meeting slots, date slider, success page colors, and 21 luxury color palettes.
               </p>
             </div>
           </div>
@@ -263,593 +264,574 @@ export default function CustomizeStudioPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 flex-1 overflow-hidden mt-3 rounded-3xl border border-gray-200 bg-white shadow-xs">
           {/* LEFT 6 COLUMNS: CONTROLS & EDITABLE PANELS */}
           <div className="lg:col-span-6 border-r border-gray-200 flex flex-col bg-gray-50/50 overflow-hidden">
-            {/* Top Studio Tabs */}
-            <div className="p-3 bg-white border-b border-gray-200 flex items-center gap-2 overflow-x-auto shrink-0">
+            {/* CLEAN UNIFIED SUB-TABS ROW */}
+            <div className="p-3 bg-white border-b border-gray-200 flex items-center gap-1.5 overflow-x-auto shrink-0">
               <button
-                onClick={() => setActiveTab('theme')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === 'theme'
-                    ? 'bg-amber-500 text-black shadow-xs font-extrabold'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                onClick={() => setActiveStepTab(1)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                  activeStepTab === 1 ? 'bg-amber-500 text-black shadow-xs font-extrabold' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                1. Form Copy & Field Labels
+                Step 1 (Contact)
               </button>
-
               <button
-                onClick={() => setActiveTab('survey')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === 'survey'
-                    ? 'bg-amber-500 text-black shadow-xs font-extrabold'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                onClick={() => setActiveStepTab(2)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                  activeStepTab === 2 ? 'bg-amber-500 text-black shadow-xs font-extrabold' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                2. Real-Time Survey Builder ({surveyQuestions.length})
+                Step 2 (Survey Questions)
+              </button>
+              <button
+                onClick={() => setActiveStepTab(3)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                  activeStepTab === 3 ? 'bg-amber-500 text-black shadow-xs font-extrabold' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Step 3 (Slots)
+              </button>
+              <button
+                onClick={() => setActiveStepTab(5)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                  activeStepTab === 5 ? 'bg-emerald-600 text-white shadow-xs font-extrabold' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Step 4 (Success Page)
+              </button>
+              <button
+                onClick={() => setActiveStepTab(4)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                  activeStepTab === 4 ? 'bg-indigo-600 text-white shadow-xs font-extrabold' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                🎨 Colors & Styles
               </button>
             </div>
 
             {/* TAB CONTENT PANEL */}
             <div className="p-5 overflow-y-auto space-y-5 flex-1">
-              {activeTab === 'theme' && (
-                <div className="space-y-4">
-                  {/* Step Selector Tabs */}
-                  <div className="flex items-center gap-1.5 p-1 bg-gray-200/60 rounded-xl overflow-x-auto">
-                    <button
-                      onClick={() => setActiveStepTab(1)}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold cursor-pointer shrink-0 ${
-                        activeStepTab === 1 ? 'bg-white text-gray-900 shadow-2xs' : 'text-gray-600'
-                      }`}
-                    >
-                      Step 1 (Contact)
-                    </button>
-                    <button
-                      onClick={() => setActiveStepTab(2)}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold cursor-pointer shrink-0 ${
-                        activeStepTab === 2 ? 'bg-white text-gray-900 shadow-2xs' : 'text-gray-600'
-                      }`}
-                    >
-                      Step 2 (Survey)
-                    </button>
-                    <button
-                      onClick={() => setActiveStepTab(3)}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold cursor-pointer shrink-0 ${
-                        activeStepTab === 3 ? 'bg-white text-gray-900 shadow-2xs' : 'text-gray-600'
-                      }`}
-                    >
-                      Step 3 (Slots)
-                    </button>
-                    <button
-                      onClick={() => setActiveStepTab(5)}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold cursor-pointer shrink-0 ${
-                        activeStepTab === 5 ? 'bg-emerald-600 text-white shadow-2xs' : 'text-gray-600'
-                      }`}
-                    >
-                      Step 4 (Success Page)
-                    </button>
-                    <button
-                      onClick={() => setActiveStepTab(4)}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold cursor-pointer shrink-0 ${
-                        activeStepTab === 4 ? 'bg-indigo-600 text-white shadow-2xs' : 'text-gray-600'
-                      }`}
-                    >
-                      🎨 Colors
-                    </button>
+              {/* STEP 1 CONTROLS */}
+              {activeStepTab === 1 && (
+                <div className="space-y-3 bg-white p-4 rounded-2xl border border-gray-200">
+                  <h4 className="text-xs font-extrabold text-amber-600 uppercase tracking-wider">
+                    Form 1 Copy, Subtitle & Editable Labels
+                  </h4>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Step 1 Title</label>
+                    <input
+                      type="text"
+                      value={theme.step1Title}
+                      onChange={(e) => setTheme({ ...theme, step1Title: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs font-bold text-gray-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Step 1 Subtitle / Description</label>
+                    <textarea
+                      rows={2}
+                      value={theme.step1Subtitle}
+                      onChange={(e) => setTheme({ ...theme, step1Subtitle: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs text-gray-700"
+                    />
                   </div>
 
-                  {/* STEP 1 CONTROLS */}
-                  {activeStepTab === 1 && (
-                    <div className="space-y-3 bg-white p-4 rounded-2xl border border-gray-200">
-                      <h4 className="text-xs font-extrabold text-amber-600 uppercase tracking-wider">
-                        Form 1 Copy, Subtitle & Editable Labels
-                      </h4>
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Step 1 Title</label>
-                        <input
-                          type="text"
-                          value={theme.step1Title}
-                          onChange={(e) => setTheme({ ...theme, step1Title: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs font-bold text-gray-900"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Step 1 Subtitle / Description</label>
-                        <textarea
-                          rows={2}
-                          value={theme.step1Subtitle}
-                          onChange={(e) => setTheme({ ...theme, step1Subtitle: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs text-gray-700"
-                        />
-                      </div>
+                  <div className="p-3.5 rounded-2xl bg-gray-50 border border-gray-200 space-y-3">
+                    <h5 className="text-xs font-extrabold text-gray-800 uppercase tracking-wider">
+                      Field Titles & Input Placeholders
+                    </h5>
 
-                      <div className="p-3.5 rounded-2xl bg-gray-50 border border-gray-200 space-y-3">
-                        <h5 className="text-xs font-extrabold text-gray-800 uppercase tracking-wider">
-                          Field Titles & Input Placeholders
-                        </h5>
-
-                        <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">Full Name Field Title</label>
-                          <input
-                            type="text"
-                            value={theme.nameLabel}
-                            onChange={(e) => setTheme({ ...theme, nameLabel: e.target.value })}
-                            placeholder="Full Name *"
-                            className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-bold text-gray-900 mb-1.5"
-                          />
-                          <input
-                            type="text"
-                            value={theme.namePlaceholder}
-                            onChange={(e) => setTheme({ ...theme, namePlaceholder: e.target.value })}
-                            placeholder="Enter your full name"
-                            className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs text-gray-700"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">Work Email Field Title</label>
-                          <input
-                            type="text"
-                            value={theme.emailLabel}
-                            onChange={(e) => setTheme({ ...theme, emailLabel: e.target.value })}
-                            placeholder="Work Email *"
-                            className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-bold text-gray-900 mb-1.5"
-                          />
-                          <input
-                            type="text"
-                            value={theme.emailPlaceholder}
-                            onChange={(e) => setTheme({ ...theme, emailPlaceholder: e.target.value })}
-                            placeholder="name@company.com"
-                            className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs text-gray-700"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">WhatsApp Phone Field Title</label>
-                          <input
-                            type="text"
-                            value={theme.phoneLabel}
-                            onChange={(e) => setTheme({ ...theme, phoneLabel: e.target.value })}
-                            placeholder="WhatsApp Phone Number *"
-                            className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-bold text-gray-900 mb-1.5"
-                          />
-                          <input
-                            type="text"
-                            value={theme.phonePlaceholder}
-                            onChange={(e) => setTheme({ ...theme, phonePlaceholder: e.target.value })}
-                            placeholder="+91 9876543210"
-                            className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs text-gray-700"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">CTA Button Text</label>
-                        <input
-                          type="text"
-                          value={theme.step1ButtonText}
-                          onChange={(e) => setTheme({ ...theme, step1ButtonText: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs font-bold text-amber-600"
-                        />
-                      </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Full Name Field Title</label>
+                      <input
+                        type="text"
+                        value={theme.nameLabel}
+                        onChange={(e) => setTheme({ ...theme, nameLabel: e.target.value })}
+                        placeholder="Full Name *"
+                        className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-bold text-gray-900 mb-1.5"
+                      />
+                      <input
+                        type="text"
+                        value={theme.namePlaceholder}
+                        onChange={(e) => setTheme({ ...theme, namePlaceholder: e.target.value })}
+                        placeholder="Enter your full name"
+                        className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs text-gray-700"
+                      />
                     </div>
-                  )}
 
-                  {/* STEP 2 CONTROLS */}
-                  {activeStepTab === 2 && (
-                    <div className="space-y-3 bg-white p-4 rounded-2xl border border-gray-200">
-                      <h4 className="text-xs font-extrabold text-amber-600 uppercase tracking-wider">
-                        Form 2 Copy & Description
-                      </h4>
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Step 2 Title</label>
-                        <input
-                          type="text"
-                          value={theme.step2Title}
-                          onChange={(e) => setTheme({ ...theme, step2Title: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs font-bold text-gray-900"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Step 2 Subtitle / Description</label>
-                        <textarea
-                          rows={2}
-                          value={theme.step2Subtitle}
-                          onChange={(e) => setTheme({ ...theme, step2Subtitle: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs text-gray-700"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Step 2 CTA Button Text</label>
-                        <input
-                          type="text"
-                          value={theme.step2ButtonText}
-                          onChange={(e) => setTheme({ ...theme, step2ButtonText: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs font-bold text-amber-600"
-                        />
-                      </div>
-
-                      <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs font-semibold text-amber-900 flex items-center justify-between">
-                        <span>To edit or add survey questions:</span>
-                        <button
-                          type="button"
-                          onClick={() => setActiveTab('survey')}
-                          className="px-2.5 py-1 bg-amber-500 text-black font-extrabold rounded-lg text-xs"
-                        >
-                          Open Survey Builder ➡️
-                        </button>
-                      </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Work Email Field Title</label>
+                      <input
+                        type="text"
+                        value={theme.emailLabel}
+                        onChange={(e) => setTheme({ ...theme, emailLabel: e.target.value })}
+                        placeholder="Work Email *"
+                        className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-bold text-gray-900 mb-1.5"
+                      />
+                      <input
+                        type="text"
+                        value={theme.emailPlaceholder}
+                        onChange={(e) => setTheme({ ...theme, emailPlaceholder: e.target.value })}
+                        placeholder="name@company.com"
+                        className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs text-gray-700"
+                      />
                     </div>
-                  )}
 
-                  {/* STEP 3 CONTROLS & CUSTOM TIME SLOTS MANAGER */}
-                  {activeStepTab === 3 && (
-                    <div className="space-y-4 bg-white p-4 rounded-2xl border border-gray-200">
-                      <h4 className="text-xs font-extrabold text-amber-600 uppercase tracking-wider">
-                        Form 3 Meeting Booking & Time Slots Manager
-                      </h4>
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Step 3 Title</label>
-                        <input
-                          type="text"
-                          value={theme.step3Title}
-                          onChange={(e) => setTheme({ ...theme, step3Title: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs font-bold text-gray-900"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Step 3 Subtitle / Description</label>
-                        <textarea
-                          rows={2}
-                          value={theme.step3Subtitle}
-                          onChange={(e) => setTheme({ ...theme, step3Subtitle: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs text-gray-700"
-                        />
-                      </div>
-
-                      {/* Custom Time Slots Manager */}
-                      <div className="p-3.5 rounded-2xl bg-amber-50/60 border border-amber-200 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <h5 className="text-xs font-extrabold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
-                            <Clock className="w-4 h-4 text-amber-600" />
-                            <span>Custom Available Time Slots</span>
-                          </h5>
-                          <button
-                            type="button"
-                            onClick={handleAddSlot}
-                            className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs rounded-lg flex items-center gap-1 cursor-pointer"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Add Time Slot</span>
-                          </button>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2">
-                          {(theme.meetingSlots || ['09:00 AM', '11:00 AM', '02:00 PM', '04:30 PM']).map((slot, idx) => (
-                            <div key={idx} className="flex items-center gap-1 bg-white border border-gray-300 rounded-xl px-2.5 py-1.5">
-                              <input
-                                type="text"
-                                value={slot}
-                                onChange={(e) => {
-                                  const updatedSlots = [...(theme.meetingSlots || [])];
-                                  updatedSlots[idx] = e.target.value;
-                                  setTheme({ ...theme, meetingSlots: updatedSlots });
-                                }}
-                                className="w-full text-xs font-bold text-gray-900 bg-transparent focus:outline-none"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveSlot(idx)}
-                                className="text-gray-400 hover:text-rose-500 p-1 cursor-pointer"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Step 3 CTA Button Text</label>
-                        <input
-                          type="text"
-                          value={theme.step3ButtonText}
-                          onChange={(e) => setTheme({ ...theme, step3ButtonText: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs font-bold text-amber-600"
-                        />
-                      </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">WhatsApp Phone Field Title</label>
+                      <input
+                        type="text"
+                        value={theme.phoneLabel}
+                        onChange={(e) => setTheme({ ...theme, phoneLabel: e.target.value })}
+                        placeholder="WhatsApp Phone Number *"
+                        className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-bold text-gray-900 mb-1.5"
+                      />
+                      <input
+                        type="text"
+                        value={theme.phonePlaceholder}
+                        onChange={(e) => setTheme({ ...theme, phonePlaceholder: e.target.value })}
+                        placeholder="+91 9876543210"
+                        className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs text-gray-700"
+                      />
                     </div>
-                  )}
+                  </div>
 
-                  {/* STEP 5: SUCCESS PAGE & WHATSAPP BUTTON BUILDER */}
-                  {activeStepTab === 5 && (
-                    <div className="space-y-4 bg-white p-4 rounded-2xl border border-gray-200">
-                      <h4 className="text-xs font-extrabold text-emerald-600 uppercase tracking-wider flex items-center gap-1.5">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        <span>Step 4 Success Page & Action Buttons</span>
-                      </h4>
-
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Success Title</label>
-                        <input
-                          type="text"
-                          value={theme.step4Title}
-                          onChange={(e) => setTheme({ ...theme, step4Title: e.target.value })}
-                          placeholder="Booking Confirmed! 🎉"
-                          className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs font-bold text-gray-900"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Success Description</label>
-                        <textarea
-                          rows={2}
-                          value={theme.step4Subtitle}
-                          onChange={(e) => setTheme({ ...theme, step4Subtitle: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs text-gray-700"
-                        />
-                      </div>
-
-                      {/* Success Action Buttons (e.g. Join WhatsApp Group) */}
-                      <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <h5 className="text-xs font-extrabold text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
-                            <MessageCircle className="w-4 h-4 text-emerald-600" />
-                            <span>Success Action Buttons (WhatsApp Group, etc.)</span>
-                          </h5>
-                          <button
-                            type="button"
-                            onClick={handleAddSuccessButton}
-                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-lg flex items-center gap-1 cursor-pointer shadow-xs"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Add Button</span>
-                          </button>
-                        </div>
-
-                        <div className="space-y-2.5">
-                          {(theme.step4Buttons || []).map((btn, bIdx) => (
-                            <div key={btn.id || bIdx} className="p-3 bg-white border border-emerald-200 rounded-xl space-y-2">
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-[11px] font-bold text-emerald-800">Action Button #{bIdx + 1}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveSuccessButton(bIdx)}
-                                  className="text-rose-500 hover:bg-rose-50 p-1 rounded-lg cursor-pointer"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-
-                              <input
-                                type="text"
-                                value={btn.label}
-                                onChange={(e) => {
-                                  const updatedBtns = [...(theme.step4Buttons || [])];
-                                  updatedBtns[bIdx].label = e.target.value;
-                                  setTheme({ ...theme, step4Buttons: updatedBtns });
-                                }}
-                                placeholder="Button Label (e.g. Join VIP WhatsApp Group 💬)"
-                                className="w-full px-3 py-1.5 rounded-lg border border-gray-300 text-xs font-bold text-gray-900"
-                              />
-
-                              <input
-                                type="text"
-                                value={btn.url}
-                                onChange={(e) => {
-                                  const updatedBtns = [...(theme.step4Buttons || [])];
-                                  updatedBtns[bIdx].url = e.target.value;
-                                  setTheme({ ...theme, step4Buttons: updatedBtns });
-                                }}
-                                placeholder="Target Link URL (e.g. https://chat.whatsapp.com/...)"
-                                className="w-full px-3 py-1.5 rounded-lg border border-gray-300 text-xs font-mono text-gray-700"
-                              />
-                            </div>
-                          ))}
-
-                          {(!theme.step4Buttons || theme.step4Buttons.length === 0) && (
-                            <span className="text-xs text-gray-500 italic block">
-                              No buttons added yet. Click "Add Button" to attach a WhatsApp group or resource link!
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* STEP 4 CONTROLS: COLORS & STYLES */}
-                  {activeStepTab === 4 && (
-                    <div className="space-y-4 bg-white p-4 rounded-2xl border border-gray-200">
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Modal Theme Mode</label>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setTheme({ ...theme, themeMode: 'dark' })}
-                            className={`p-2.5 rounded-xl text-xs font-bold cursor-pointer ${
-                              theme.themeMode === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700'
-                            }`}
-                          >
-                            Dark Luxury Mode
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setTheme({ ...theme, themeMode: 'light' })}
-                            className={`p-2.5 rounded-xl text-xs font-bold cursor-pointer ${
-                              theme.themeMode === 'light' ? 'bg-amber-500 text-black' : 'bg-gray-100 text-gray-700'
-                            }`}
-                          >
-                            Clean Light Mode
-                          </button>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Button Accent Style</label>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setTheme({ ...theme, buttonStyle: 'gradient' })}
-                            className={`p-2.5 rounded-xl text-xs font-bold cursor-pointer ${
-                              theme.buttonStyle === 'gradient' ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-black' : 'bg-gray-100 text-gray-700'
-                            }`}
-                          >
-                            Gradient Accent
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setTheme({ ...theme, buttonStyle: 'solid' })}
-                            className={`p-2.5 rounded-xl text-xs font-bold cursor-pointer ${
-                              theme.buttonStyle === 'solid' ? 'bg-amber-500 text-black' : 'bg-gray-100 text-gray-700'
-                            }`}
-                          >
-                            Solid Accent Color
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* 21 PREMIUM COLOR PALETTES GRID */}
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <label className="block text-xs font-bold text-gray-900">
-                            21 Premium Curated Color Theme Palettes
-                          </label>
-
-                          <div className="flex items-center gap-1">
-                            <span className="text-[11px] text-gray-500">Custom Hex:</span>
-                            <input
-                              type="color"
-                              value={theme.primaryColor || '#F59E0B'}
-                              onChange={(e) => setTheme({ ...theme, primaryColor: e.target.value })}
-                              className="w-5 h-5 rounded cursor-pointer border-0"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[220px] overflow-y-auto pr-1">
-                          {PRESET_COLORS.map((c) => {
-                            const isSelected = theme.primaryColor === c.hex;
-                            return (
-                              <button
-                                type="button"
-                                key={c.hex}
-                                onClick={() => setTheme({ ...theme, primaryColor: c.hex })}
-                                className={`p-2 rounded-xl border text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
-                                  isSelected
-                                    ? 'border-2 border-amber-500 bg-amber-50 text-gray-900 shadow-2xs font-extrabold'
-                                    : 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100'
-                                }`}
-                              >
-                                <span
-                                  className="w-3.5 h-3.5 rounded-full border border-gray-300 shrink-0 shadow-2xs"
-                                  style={{ backgroundColor: c.hex }}
-                                />
-                                <span className="truncate">{c.name}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">CTA Button Text</label>
+                    <input
+                      type="text"
+                      value={theme.step1ButtonText}
+                      onChange={(e) => setTheme({ ...theme, step1ButtonText: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs font-bold text-amber-600"
+                    />
+                  </div>
                 </div>
               )}
 
-              {activeTab === 'survey' && (
+              {/* STEP 2 CONTROLS & REAL-TIME SURVEY BUILDER */}
+              {activeStepTab === 2 && (
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
+                  <div className="space-y-3 bg-white p-4 rounded-2xl border border-gray-200">
                     <h4 className="text-xs font-extrabold text-amber-600 uppercase tracking-wider">
-                      Real-Time Survey Builder ({surveyQuestions.length} Question)
+                      Form 2 Copy & Description
                     </h4>
-                    <span className="text-[10px] text-gray-400 font-mono">Updates Live on Right ➡️</span>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Step 2 Title</label>
+                      <input
+                        type="text"
+                        value={theme.step2Title}
+                        onChange={(e) => setTheme({ ...theme, step2Title: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs font-bold text-gray-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Step 2 Subtitle / Description</label>
+                      <textarea
+                        rows={2}
+                        value={theme.step2Subtitle}
+                        onChange={(e) => setTheme({ ...theme, step2Subtitle: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs text-gray-700"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Step 2 CTA Button Text</label>
+                      <input
+                        type="text"
+                        value={theme.step2ButtonText}
+                        onChange={(e) => setTheme({ ...theme, step2ButtonText: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs font-bold text-amber-600"
+                      />
+                    </div>
                   </div>
 
-                  {surveyQuestions.map((q, idx) => (
-                    <div key={q.id || idx} className="p-4 rounded-2xl bg-white border border-gray-200 space-y-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex-1">
-                          <label className="block text-[11px] font-bold text-gray-500 mb-1">Question #{idx + 1} Title</label>
-                          <input
-                            type="text"
-                            value={q.label}
-                            onChange={(e) => {
-                              const updated = [...surveyQuestions];
-                              updated[idx].label = e.target.value;
-                              setSurveyQuestions(updated);
-                            }}
-                            className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs font-bold text-gray-900"
-                          />
-                        </div>
-                        {surveyQuestions.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveQuestion(idx)}
-                            className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl cursor-pointer shrink-0 mt-5"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
+                  {/* SURVEY QUESTIONS BUILDER */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-extrabold text-amber-600 uppercase tracking-wider">
+                        Survey Questions Builder ({surveyQuestions.length})
+                      </h4>
+                      <span className="text-[10px] text-gray-400 font-mono">Updates Live on Right ➡️</span>
+                    </div>
 
+                    {surveyQuestions.map((q, idx) => (
+                      <div key={q.id || idx} className="p-4 rounded-2xl bg-white border border-gray-200 space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex-1">
+                            <label className="block text-[11px] font-bold text-gray-500 mb-1">Question #{idx + 1} Title</label>
+                            <input
+                              type="text"
+                              value={q.label}
+                              onChange={(e) => {
+                                const updated = [...surveyQuestions];
+                                updated[idx].label = e.target.value;
+                                setSurveyQuestions(updated);
+                              }}
+                              className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs font-bold text-gray-900"
+                            />
+                          </div>
+                          {surveyQuestions.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveQuestion(idx)}
+                              className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl cursor-pointer shrink-0 mt-5"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = [...surveyQuestions];
+                            updated[idx].allowMultiple = !updated[idx].allowMultiple;
+                            setSurveyQuestions(updated);
+                          }}
+                          className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold cursor-pointer ${
+                            q.allowMultiple ? 'bg-amber-50 border-amber-300 text-amber-900' : 'bg-gray-50 border-gray-200 text-gray-600'
+                          }`}
+                        >
+                          {q.allowMultiple ? <CheckSquare className="w-4 h-4 text-amber-600" /> : <Square className="w-4 h-4 text-gray-400" />}
+                          <span>Allow Multi-Select Checkboxes (Tick 1 or Multiple)</span>
+                        </button>
+
+                        <div className="space-y-1.5 pt-1">
+                          <label className="block text-[11px] font-bold text-gray-600">Selectable Answer Choices</label>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {q.options.map((opt, optIdx) => (
+                              <div key={optIdx} className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-xl px-2.5 py-1.5">
+                                <input
+                                  type="text"
+                                  value={opt}
+                                  onChange={(e) => {
+                                    const updated = [...surveyQuestions];
+                                    updated[idx].options[optIdx] = e.target.value;
+                                    setSurveyQuestions(updated);
+                                  }}
+                                  className="w-full text-xs font-semibold text-gray-800 bg-transparent focus:outline-none"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveOption(idx, optIdx)}
+                                  className="text-gray-400 hover:text-rose-500 p-1 cursor-pointer"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => handleAddOption(idx)}
+                              className="p-2 rounded-xl border border-dashed border-gray-300 text-xs font-bold text-gray-600 flex items-center justify-center gap-1 bg-white cursor-pointer"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Add Option</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    <button
+                      type="button"
+                      onClick={handleAddQuestion}
+                      className="w-full py-3 rounded-2xl border-2 border-dashed border-gray-300 hover:border-amber-500 text-xs font-extrabold text-gray-700 hover:text-amber-600 flex items-center justify-center gap-2 bg-white cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add New Qualification Question</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 3 CONTROLS & CUSTOM TIME SLOTS MANAGER */}
+              {activeStepTab === 3 && (
+                <div className="space-y-4 bg-white p-4 rounded-2xl border border-gray-200">
+                  <h4 className="text-xs font-extrabold text-amber-600 uppercase tracking-wider">
+                    Form 3 Meeting Booking & Time Slots Manager
+                  </h4>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Step 3 Title</label>
+                    <input
+                      type="text"
+                      value={theme.step3Title}
+                      onChange={(e) => setTheme({ ...theme, step3Title: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs font-bold text-gray-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Step 3 Subtitle / Description</label>
+                    <textarea
+                      rows={2}
+                      value={theme.step3Subtitle}
+                      onChange={(e) => setTheme({ ...theme, step3Subtitle: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs text-gray-700"
+                    />
+                  </div>
+
+                  {/* Custom Time Slots Manager */}
+                  <div className="p-3.5 rounded-2xl bg-amber-50/60 border border-amber-200 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h5 className="text-xs font-extrabold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
+                        <Clock className="w-4 h-4 text-amber-600" />
+                        <span>Custom Available Time Slots</span>
+                      </h5>
                       <button
                         type="button"
-                        onClick={() => {
-                          const updated = [...surveyQuestions];
-                          updated[idx].allowMultiple = !updated[idx].allowMultiple;
-                          setSurveyQuestions(updated);
-                        }}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold cursor-pointer ${
-                          q.allowMultiple ? 'bg-amber-50 border-amber-300 text-amber-900' : 'bg-gray-50 border-gray-200 text-gray-600'
-                        }`}
+                        onClick={handleAddSlot}
+                        className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs rounded-lg flex items-center gap-1 cursor-pointer"
                       >
-                        {q.allowMultiple ? <CheckSquare className="w-4 h-4 text-amber-600" /> : <Square className="w-4 h-4 text-gray-400" />}
-                        <span>Allow Multi-Select Checkboxes (Tick 1 or Multiple)</span>
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add Time Slot</span>
                       </button>
+                    </div>
 
-                      {/* Options */}
-                      <div className="space-y-1.5 pt-1">
-                        <label className="block text-[11px] font-bold text-gray-600">Selectable Answer Choices</label>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {q.options.map((opt, optIdx) => (
-                            <div key={optIdx} className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-xl px-2.5 py-1.5">
-                              <input
-                                type="text"
-                                value={opt}
-                                onChange={(e) => {
-                                  const updated = [...surveyQuestions];
-                                  updated[idx].options[optIdx] = e.target.value;
-                                  setSurveyQuestions(updated);
-                                }}
-                                className="w-full text-xs font-semibold text-gray-800 bg-transparent focus:outline-none"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveOption(idx, optIdx)}
-                                className="text-gray-400 hover:text-rose-500 p-1 cursor-pointer"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          ))}
+                    <div className="grid grid-cols-2 gap-2">
+                      {(theme.meetingSlots || ['09:00 AM', '11:00 AM', '02:00 PM', '04:30 PM']).map((slot, idx) => (
+                        <div key={idx} className="flex items-center gap-1 bg-white border border-gray-300 rounded-xl px-2.5 py-1.5">
+                          <input
+                            type="text"
+                            value={slot}
+                            onChange={(e) => {
+                              const updatedSlots = [...(theme.meetingSlots || [])];
+                              updatedSlots[idx] = e.target.value;
+                              setTheme({ ...theme, meetingSlots: updatedSlots });
+                            }}
+                            className="w-full text-xs font-bold text-gray-900 bg-transparent focus:outline-none"
+                          />
                           <button
                             type="button"
-                            onClick={() => handleAddOption(idx)}
-                            className="p-2 rounded-xl border border-dashed border-gray-300 text-xs font-bold text-gray-600 flex items-center justify-center gap-1 bg-white cursor-pointer"
+                            onClick={() => handleRemoveSlot(idx)}
+                            className="text-gray-400 hover:text-rose-500 p-1 cursor-pointer"
                           >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Add Option</span>
+                            <X className="w-3.5 h-3.5" />
                           </button>
                         </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Step 3 CTA Button Text</label>
+                    <input
+                      type="text"
+                      value={theme.step3ButtonText}
+                      onChange={(e) => setTheme({ ...theme, step3ButtonText: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs font-bold text-amber-600"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 5: SUCCESS PAGE & CUSTOM BUTTON COLOR BUILDER */}
+              {activeStepTab === 5 && (
+                <div className="space-y-4 bg-white p-4 rounded-2xl border border-gray-200">
+                  <h4 className="text-xs font-extrabold text-emerald-600 uppercase tracking-wider flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Step 4 Success Page & Action Buttons</span>
+                  </h4>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Success Title</label>
+                    <input
+                      type="text"
+                      value={theme.step4Title}
+                      onChange={(e) => setTheme({ ...theme, step4Title: e.target.value })}
+                      placeholder="Booking Confirmed! 🎉"
+                      className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs font-bold text-gray-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Success Description</label>
+                    <textarea
+                      rows={2}
+                      value={theme.step4Subtitle}
+                      onChange={(e) => setTheme({ ...theme, step4Subtitle: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs text-gray-700"
+                    />
+                  </div>
+
+                  {/* Custom Success Button Color Picker */}
+                  <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold text-gray-800">
+                        Success Page Action Button Custom Color
+                      </label>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-gray-500 font-mono">{theme.step4ButtonColor || primaryColor}</span>
+                        <input
+                          type="color"
+                          value={theme.step4ButtonColor || primaryColor}
+                          onChange={(e) => setTheme({ ...theme, step4ButtonColor: e.target.value })}
+                          className="w-6 h-6 rounded cursor-pointer border-0"
+                        />
                       </div>
                     </div>
-                  ))}
+                    <span className="text-[11px] text-gray-500">
+                      By default, uses your selected primary theme color ({primaryColor}). Change color picker above to set custom color!
+                    </span>
+                  </div>
 
-                  <button
-                    type="button"
-                    onClick={handleAddQuestion}
-                    className="w-full py-3 rounded-2xl border-2 border-dashed border-gray-300 hover:border-amber-500 text-xs font-extrabold text-gray-700 hover:text-amber-600 flex items-center justify-center gap-2 bg-white cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Add New Qualification Question</span>
-                  </button>
+                  {/* Success Action Buttons (e.g. Join WhatsApp Group) */}
+                  <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h5 className="text-xs font-extrabold text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
+                        <MessageCircle className="w-4 h-4 text-emerald-600" />
+                        <span>Success Action Buttons (WhatsApp Group, etc.)</span>
+                      </h5>
+                      <button
+                        type="button"
+                        onClick={handleAddSuccessButton}
+                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-lg flex items-center gap-1 cursor-pointer shadow-xs"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add Button</span>
+                      </button>
+                    </div>
+
+                    <div className="space-y-2.5">
+                      {(theme.step4Buttons || []).map((btn, bIdx) => (
+                        <div key={btn.id || bIdx} className="p-3 bg-white border border-emerald-200 rounded-xl space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[11px] font-bold text-emerald-800">Action Button #{bIdx + 1}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveSuccessButton(bIdx)}
+                              className="text-rose-500 hover:bg-rose-50 p-1 rounded-lg cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          <input
+                            type="text"
+                            value={btn.label}
+                            onChange={(e) => {
+                              const updatedBtns = [...(theme.step4Buttons || [])];
+                              updatedBtns[bIdx].label = e.target.value;
+                              setTheme({ ...theme, step4Buttons: updatedBtns });
+                            }}
+                            placeholder="Button Label (e.g. Join VIP WhatsApp Group 💬)"
+                            className="w-full px-3 py-1.5 rounded-lg border border-gray-300 text-xs font-bold text-gray-900"
+                          />
+
+                          <input
+                            type="text"
+                            value={btn.url}
+                            onChange={(e) => {
+                              const updatedBtns = [...(theme.step4Buttons || [])];
+                              updatedBtns[bIdx].url = e.target.value;
+                              setTheme({ ...theme, step4Buttons: updatedBtns });
+                            }}
+                            placeholder="Target Link URL (e.g. https://chat.whatsapp.com/...)"
+                            className="w-full px-3 py-1.5 rounded-lg border border-gray-300 text-xs font-mono text-gray-700"
+                          />
+                        </div>
+                      ))}
+
+                      {(!theme.step4Buttons || theme.step4Buttons.length === 0) && (
+                        <span className="text-xs text-gray-500 italic block">
+                          No buttons added yet. Click "Add Button" to attach a WhatsApp group or resource link!
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 4 CONTROLS: COLORS & STYLES */}
+              {activeStepTab === 4 && (
+                <div className="space-y-4 bg-white p-4 rounded-2xl border border-gray-200">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Modal Theme Mode</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setTheme({ ...theme, themeMode: 'dark' })}
+                        className={`p-2.5 rounded-xl text-xs font-bold cursor-pointer ${
+                          theme.themeMode === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        Dark Luxury Mode
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTheme({ ...theme, themeMode: 'light' })}
+                        className={`p-2.5 rounded-xl text-xs font-bold cursor-pointer ${
+                          theme.themeMode === 'light' ? 'bg-amber-500 text-black' : 'bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        Clean Light Mode
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Button Accent Style</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setTheme({ ...theme, buttonStyle: 'gradient' })}
+                        className={`p-2.5 rounded-xl text-xs font-bold cursor-pointer ${
+                          theme.buttonStyle === 'gradient' ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-black' : 'bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        Gradient Accent
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTheme({ ...theme, buttonStyle: 'solid' })}
+                        className={`p-2.5 rounded-xl text-xs font-bold cursor-pointer ${
+                          theme.buttonStyle === 'solid' ? 'bg-amber-500 text-black' : 'bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        Solid Accent Color
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 21 PREMIUM COLOR PALETTES GRID */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-bold text-gray-900">
+                        21 Premium Curated Color Theme Palettes
+                      </label>
+
+                      <div className="flex items-center gap-1">
+                        <span className="text-[11px] text-gray-500">Custom Hex:</span>
+                        <input
+                          type="color"
+                          value={theme.primaryColor || '#F59E0B'}
+                          onChange={(e) => setTheme({ ...theme, primaryColor: e.target.value })}
+                          className="w-5 h-5 rounded cursor-pointer border-0"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[220px] overflow-y-auto pr-1">
+                      {PRESET_COLORS.map((c) => {
+                        const isSelected = theme.primaryColor === c.hex;
+                        return (
+                          <button
+                            type="button"
+                            key={c.hex}
+                            onClick={() => setTheme({ ...theme, primaryColor: c.hex })}
+                            className={`p-2 rounded-xl border text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                              isSelected
+                                ? 'border-2 border-amber-500 bg-amber-50 text-gray-900 shadow-2xs font-extrabold'
+                                : 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100'
+                            }`}
+                          >
+                            <span
+                              className="w-3.5 h-3.5 rounded-full border border-gray-300 shrink-0 shadow-2xs"
+                              style={{ backgroundColor: c.hex }}
+                            />
+                            <span className="truncate">{c.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -874,28 +856,26 @@ export default function CustomizeStudioPage() {
                   className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border"
                   style={{ backgroundColor: `${primaryColor}15`, borderColor: `${primaryColor}40`, color: primaryColor }}
                 >
-                  <span>Step {activeTab === 'survey' ? 2 : (activeStepTab > 4 ? 3 : activeStepTab)} of 3</span>
+                  <span>Step {activeStepTab > 4 ? 3 : activeStepTab} of 3</span>
                 </div>
 
                 <h3 className={`text-lg font-extrabold ${isLightMode ? 'text-[#111827]' : 'text-white'}`}>
-                  {activeTab === 'survey' && (theme.step2Title || 'Qualify Requirements')}
-                  {activeTab === 'theme' && activeStepTab === 1 && (theme.step1Title || 'Claim Your Consultation')}
-                  {activeTab === 'theme' && activeStepTab === 2 && (theme.step2Title || 'Qualify Requirements')}
-                  {activeTab === 'theme' && activeStepTab === 3 && (theme.step3Title || 'Lock Strategy Slot')}
-                  {activeTab === 'theme' && activeStepTab === 5 && (theme.step4Title || 'Booking Confirmed! 🎉')}
+                  {activeStepTab === 1 && (theme.step1Title || 'Claim Your Consultation')}
+                  {activeStepTab === 2 && (theme.step2Title || 'Qualify Requirements')}
+                  {activeStepTab === 3 && (theme.step3Title || 'Lock Strategy Slot')}
+                  {activeStepTab === 5 && (theme.step4Title || 'Booking Confirmed! 🎉')}
                 </h3>
 
                 <p className={`text-xs block leading-snug ${isLightMode ? 'text-gray-600' : 'text-gray-400'}`}>
-                  {activeTab === 'survey' && (theme.step2Subtitle || 'Answer quick questions so we can customize your roadmap')}
-                  {activeTab === 'theme' && activeStepTab === 1 && (theme.step1Subtitle || 'Enter your details to reserve your custom strategy session')}
-                  {activeTab === 'theme' && activeStepTab === 2 && (theme.step2Subtitle || 'Answer quick questions so we can customize your roadmap')}
-                  {activeTab === 'theme' && activeStepTab === 3 && (theme.step3Subtitle || 'Pick a date & time slot for your 1-on-1 session')}
-                  {activeTab === 'theme' && activeStepTab === 5 && (theme.step4Subtitle || 'Your meeting is locked in our calendar.')}
+                  {activeStepTab === 1 && (theme.step1Subtitle || 'Enter your details to reserve your custom strategy session')}
+                  {activeStepTab === 2 && (theme.step2Subtitle || 'Answer quick questions so we can customize your roadmap')}
+                  {activeStepTab === 3 && (theme.step3Subtitle || 'Pick a date & time slot for your 1-on-1 session')}
+                  {activeStepTab === 5 && (theme.step4Subtitle || 'Your meeting is locked in our calendar.')}
                 </p>
               </div>
 
               {/* LIVE FORM CONTENT STEP 1 */}
-              {activeTab === 'theme' && (activeStepTab === 1 || activeStepTab === 4) && (
+              {(activeStepTab === 1 || activeStepTab === 4) && (
                 <div className="p-5 pt-2 space-y-3">
                   <div>
                     <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">
@@ -950,7 +930,7 @@ export default function CustomizeStudioPage() {
               )}
 
               {/* LIVE FORM CONTENT STEP 2 (REAL-TIME SURVEY QUESTIONS) */}
-              {(activeTab === 'survey' || (activeTab === 'theme' && activeStepTab === 2)) && (
+              {activeStepTab === 2 && (
                 <div className="p-5 pt-2 space-y-3">
                   <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
                     {surveyQuestions.map((q) => (
@@ -989,7 +969,7 @@ export default function CustomizeStudioPage() {
               )}
 
               {/* LIVE FORM CONTENT STEP 3 (HORIZONTAL DATE SLIDER + TIME SLOTS) */}
-              {activeTab === 'theme' && activeStepTab === 3 && (
+              {activeStepTab === 3 && (
                 <div className="p-5 pt-2 space-y-3">
                   <div>
                     <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1.5 ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
@@ -1049,7 +1029,7 @@ export default function CustomizeStudioPage() {
               )}
 
               {/* LIVE FORM CONTENT STEP 4 (SUCCESS PAGE & WHATSAPP BUTTON) */}
-              {activeTab === 'theme' && activeStepTab === 5 && (
+              {activeStepTab === 5 && (
                 <div className="p-5 pt-2 text-center space-y-3">
                   <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 flex items-center justify-center mx-auto shadow-sm">
                     <CheckCircle2 className="w-6 h-6" />
@@ -1060,7 +1040,7 @@ export default function CustomizeStudioPage() {
                       {theme.step4Title || 'Booking Confirmed! 🎉'}
                     </h4>
                     <p className={`text-[11px] leading-relaxed ${isLightMode ? 'text-gray-600' : 'text-gray-300'}`}>
-                      {theme.step4Subtitle || 'Your meeting is locked in our CRM.'}
+                      {theme.step4Subtitle || 'Your meeting is locked in our calendar.'}
                     </p>
                   </div>
 
@@ -1069,7 +1049,8 @@ export default function CustomizeStudioPage() {
                       {theme.step4Buttons.map((btn) => (
                         <div
                           key={btn.id}
-                          className="w-full py-2.5 px-3 rounded-xl font-extrabold text-[11px] uppercase flex items-center justify-center gap-1.5 bg-[#25D366] text-black shadow-md"
+                          className="w-full py-2.5 px-3 rounded-xl font-extrabold text-[11px] uppercase flex items-center justify-center gap-1.5 text-black shadow-md"
+                          style={{ backgroundColor: successButtonColor }}
                         >
                           <MessageCircle className="w-3.5 h-3.5" />
                           <span className="truncate">{btn.label}</span>
