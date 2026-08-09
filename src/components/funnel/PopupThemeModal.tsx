@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import {
   X,
@@ -16,8 +16,19 @@ import {
   Sun,
   Moon,
   Sparkles,
+  Plus,
+  Trash2,
+  CheckSquare,
+  Square,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
+
+export interface SurveyQuestion {
+  id: string;
+  label: string;
+  options: string[];
+  allowMultiple?: boolean;
+}
 
 export interface PopupThemeConfig {
   primaryColor?: string;
@@ -100,8 +111,32 @@ export function PopupThemeModal({
     timeSlotLabel: initialTheme?.timeSlotLabel || 'Select Strategy Call Time Slot *',
   });
 
+  // Survey Questions State (synced with workspace)
+  const [surveyQuestions, setSurveyQuestions] = useState<SurveyQuestion[]>(
+    workspace?.survey_questions || [
+      {
+        id: 'q1',
+        label: 'Select Your Primary Industry',
+        options: ['Service Business', 'Manufacturer / B2B', 'Medical / Clinic', 'E-commerce Store'],
+        allowMultiple: false,
+      },
+      {
+        id: 'q2',
+        label: 'Which Growth Services Do You Need? (Select Multiple)',
+        options: ['Funnel Building', 'WhatsApp CRM Automation', 'Meta Ads', 'Lead Nurturing'],
+        allowMultiple: true,
+      },
+    ]
+  );
+
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  useEffect(() => {
+    if (workspace?.survey_questions) {
+      setSurveyQuestions(workspace.survey_questions);
+    }
+  }, [workspace]);
 
   if (!isOpen) return null;
 
@@ -126,6 +161,7 @@ export function PopupThemeModal({
     setIsSaving(true);
     const ok = await saveWorkspaceConfig({
       popup_theme: theme,
+      survey_questions: surveyQuestions,
     });
     setIsSaving(false);
 
@@ -137,6 +173,38 @@ export function PopupThemeModal({
         onClose();
       }, 1500);
     }
+  };
+
+  // Survey Handlers for Real-Time Creation
+  const handleAddQuestion = () => {
+    const newId = `q${Date.now()}`;
+    setSurveyQuestions([
+      ...surveyQuestions,
+      {
+        id: newId,
+        label: 'New Qualification Question',
+        options: ['Option A', 'Option B'],
+        allowMultiple: false,
+      },
+    ]);
+  };
+
+  const handleRemoveQuestion = (idx: number) => {
+    const updated = [...surveyQuestions];
+    updated.splice(idx, 1);
+    setSurveyQuestions(updated);
+  };
+
+  const handleAddOption = (qIdx: number) => {
+    const updated = [...surveyQuestions];
+    updated[qIdx].options.push(`New Option ${updated[qIdx].options.length + 1}`);
+    setSurveyQuestions(updated);
+  };
+
+  const handleRemoveOption = (qIdx: number, optIdx: number) => {
+    const updated = [...surveyQuestions];
+    updated[qIdx].options.splice(optIdx, 1);
+    setSurveyQuestions(updated);
   };
 
   return (
@@ -154,7 +222,7 @@ export function PopupThemeModal({
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">Real-Time Studio</span>
               </h3>
               <p className="text-xs text-gray-400">
-                100% editable titles, subtitles, field labels, placeholders, colors, and button styles.
+                Edit titles, field labels, placeholders & create survey questions with real-time live preview.
               </p>
             </div>
           </div>
@@ -190,7 +258,7 @@ export function PopupThemeModal({
                 : 'bg-gray-800/60 text-gray-300 hover:bg-gray-800'
             }`}
           >
-            Form 2: Survey Qualification
+            Form 2: Survey Qualification (Real-Time)
           </button>
 
           <button
@@ -223,7 +291,7 @@ export function PopupThemeModal({
             {saveSuccess && (
               <div className="p-3.5 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Popup theme & placeholders saved to Supabase! ✅</span>
+                <span>Popup theme & survey questions saved to Supabase! ✅</span>
               </div>
             )}
 
@@ -258,14 +326,14 @@ export function PopupThemeModal({
                   />
                 </div>
 
-                {/* Field Labels Customization */}
+                {/* Field Labels & Placeholders Customization (Consistent Clean Style) */}
                 <div className="p-3.5 rounded-2xl bg-[#131B2A] border border-gray-800 space-y-3">
                   <h5 className="text-xs font-extrabold text-amber-400 uppercase tracking-wider">
                     Custom Field Labels & Placeholders
                   </h5>
-                  
+
                   <div>
-                    <label className="block text-[11px] font-bold text-gray-300 mb-1">Name Field Label</label>
+                    <label className="block text-[11px] font-bold text-gray-300 mb-1">Full Name Field Title</label>
                     <input
                       type="text"
                       value={theme.nameLabel}
@@ -273,18 +341,17 @@ export function PopupThemeModal({
                       placeholder="Full Name *"
                       className="w-full px-3 py-2 rounded-xl border border-gray-700 bg-[#0B0F17] text-xs font-bold text-white mb-1.5"
                     />
-                    <label className="block text-[11px] font-bold text-gray-400 mb-1">Name Field Placeholder</label>
                     <input
                       type="text"
                       value={theme.namePlaceholder}
                       onChange={(e) => setTheme({ ...theme, namePlaceholder: e.target.value })}
                       placeholder="Enter your full name"
-                      className="w-full px-3 py-2 rounded-xl border border-gray-700 bg-[#0B0F17] text-xs font-semibold text-white"
+                      className="w-full px-3 py-2 rounded-xl border border-gray-700 bg-[#0B0F17] text-xs text-gray-300"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-gray-300 mb-1">Email Field Label</label>
+                    <label className="block text-[11px] font-bold text-gray-300 mb-1">Work Email Field Title</label>
                     <input
                       type="text"
                       value={theme.emailLabel}
@@ -292,32 +359,30 @@ export function PopupThemeModal({
                       placeholder="Work Email *"
                       className="w-full px-3 py-2 rounded-xl border border-gray-700 bg-[#0B0F17] text-xs font-bold text-white mb-1.5"
                     />
-                    <label className="block text-[11px] font-bold text-gray-400 mb-1">Email Field Placeholder</label>
                     <input
                       type="text"
                       value={theme.emailPlaceholder}
                       onChange={(e) => setTheme({ ...theme, emailPlaceholder: e.target.value })}
                       placeholder="name@company.com"
-                      className="w-full px-3 py-2 rounded-xl border border-gray-700 bg-[#0B0F17] text-xs font-semibold text-white"
+                      className="w-full px-3 py-2 rounded-xl border border-gray-700 bg-[#0B0F17] text-xs text-gray-300"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-amber-400 mb-1">WhatsApp Phone Field Label 📱</label>
+                    <label className="block text-[11px] font-bold text-gray-300 mb-1">WhatsApp Phone Field Title</label>
                     <input
                       type="text"
                       value={theme.phoneLabel}
                       onChange={(e) => setTheme({ ...theme, phoneLabel: e.target.value })}
                       placeholder="WhatsApp Phone Number *"
-                      className="w-full px-3 py-2 rounded-xl border border-amber-500/50 bg-[#0B0F17] text-xs font-bold text-white mb-1.5"
+                      className="w-full px-3 py-2 rounded-xl border border-gray-700 bg-[#0B0F17] text-xs font-bold text-white mb-1.5"
                     />
-                    <label className="block text-[11px] font-bold text-gray-400 mb-1">Phone Field Placeholder</label>
                     <input
                       type="text"
                       value={theme.phonePlaceholder}
                       onChange={(e) => setTheme({ ...theme, phonePlaceholder: e.target.value })}
                       placeholder="+91 9876543210"
-                      className="w-full px-3 py-2 rounded-xl border border-gray-700 bg-[#0B0F17] text-xs font-semibold text-white"
+                      className="w-full px-3 py-2 rounded-xl border border-gray-700 bg-[#0B0F17] text-xs text-gray-300"
                     />
                   </div>
                 </div>
@@ -336,19 +401,6 @@ export function PopupThemeModal({
 
                 <div>
                   <label className="block text-xs font-bold text-gray-300 mb-1">
-                    Button Sub-Footer Copy
-                  </label>
-                  <input
-                    type="text"
-                    value={theme.step1FooterCopy}
-                    onChange={(e) => setTheme({ ...theme, step1FooterCopy: e.target.value })}
-                    placeholder="100% free strategy session • no sales pitch"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-800 bg-[#131B2A] text-xs font-semibold text-white focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-300 mb-1">
                     Top Badge Text
                   </label>
                   <input
@@ -361,12 +413,15 @@ export function PopupThemeModal({
               </div>
             )}
 
-            {/* TAB 2: STEP 2 SURVEY FORM */}
+            {/* TAB 2: STEP 2 REAL-TIME SURVEY QUESTIONS BUILDER */}
             {activeStepTab === 2 && (
               <div className="space-y-4 animate-in fade-in duration-200">
-                <h4 className="text-sm font-extrabold text-amber-400 uppercase tracking-wider">
-                  Form 2 Customization (Survey Qualification)
-                </h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-extrabold text-amber-400 uppercase tracking-wider">
+                    Form 2 Real-Time Survey Builder
+                  </h4>
+                  <span className="text-[10px] text-gray-400 font-mono">Updates Live on Right ➡️</span>
+                </div>
 
                 <div>
                   <label className="block text-xs font-bold text-gray-300 mb-1">
@@ -376,32 +431,101 @@ export function PopupThemeModal({
                     type="text"
                     value={theme.step2Title}
                     onChange={(e) => setTheme({ ...theme, step2Title: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-800 bg-[#131B2A] text-xs font-bold text-white focus:outline-none focus:border-amber-400"
+                    className="w-full px-3.5 py-2 py-2 rounded-xl border border-gray-800 bg-[#131B2A] text-xs font-bold text-white focus:outline-none focus:border-amber-400 mb-2"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-gray-300 mb-1">
-                    Step 2 Subtitle / Description
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={theme.step2Subtitle}
-                    onChange={(e) => setTheme({ ...theme, step2Subtitle: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-800 bg-[#131B2A] text-xs font-semibold text-gray-300 focus:outline-none focus:border-amber-400"
-                  />
-                </div>
+                {/* SURVEY QUESTIONS BUILDER */}
+                <div className="space-y-3">
+                  {surveyQuestions.map((q, qIdx) => (
+                    <div key={q.id || qIdx} className="p-3.5 rounded-2xl bg-[#131B2A] border border-gray-800 space-y-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex-1">
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">
+                            Question #{qIdx + 1} Title
+                          </label>
+                          <input
+                            type="text"
+                            value={q.label}
+                            onChange={(e) => {
+                              const updated = [...surveyQuestions];
+                              updated[qIdx].label = e.target.value;
+                              setSurveyQuestions(updated);
+                            }}
+                            className="w-full px-3 py-1.5 rounded-xl border border-gray-700 bg-[#0B0F17] text-xs font-bold text-white"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveQuestion(qIdx)}
+                          className="p-1.5 text-rose-400 hover:bg-rose-500/20 rounded-lg shrink-0 mt-4 cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-gray-300 mb-1">
-                    Step 2 CTA Action Button Text
-                  </label>
-                  <input
-                    type="text"
-                    value={theme.step2ButtonText}
-                    onChange={(e) => setTheme({ ...theme, step2ButtonText: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-800 bg-[#131B2A] text-xs font-bold text-amber-300 focus:outline-none focus:border-amber-400"
-                  />
+                      {/* Multi-Select Toggle */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = [...surveyQuestions];
+                          updated[qIdx].allowMultiple = !updated[qIdx].allowMultiple;
+                          setSurveyQuestions(updated);
+                        }}
+                        className={`flex items-center gap-2 px-2.5 py-1 rounded-lg border text-[11px] font-bold cursor-pointer ${
+                          q.allowMultiple ? 'bg-amber-500/20 border-amber-500/40 text-amber-300' : 'bg-[#0B0F17] border-gray-700 text-gray-400'
+                        }`}
+                      >
+                        {q.allowMultiple ? <CheckSquare className="w-3.5 h-3.5 text-amber-400" /> : <Square className="w-3.5 h-3.5 text-gray-500" />}
+                        <span>Allow Multi-Select Checkboxes (Tick Multiple)</span>
+                      </button>
+
+                      {/* Options */}
+                      <div className="space-y-1.5 pt-1">
+                        <label className="block text-[10px] font-bold text-gray-400">Answer Options</label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                          {q.options.map((opt, optIdx) => (
+                            <div key={optIdx} className="flex items-center gap-1 bg-[#0B0F17] border border-gray-700 rounded-lg px-2 py-1">
+                              <input
+                                type="text"
+                                value={opt}
+                                onChange={(e) => {
+                                  const updated = [...surveyQuestions];
+                                  updated[qIdx].options[optIdx] = e.target.value;
+                                  setSurveyQuestions(updated);
+                                }}
+                                className="w-full text-xs font-semibold text-white bg-transparent focus:outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveOption(qIdx, optIdx)}
+                                className="text-gray-500 hover:text-rose-400 p-0.5 cursor-pointer"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => handleAddOption(qIdx)}
+                            className="p-1 rounded-lg border border-dashed border-gray-700 text-[10px] font-bold text-gray-400 hover:text-amber-400 flex items-center justify-center gap-1 bg-[#0B0F17] cursor-pointer"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span>Add Option</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  <button
+                    type="button"
+                    onClick={handleAddQuestion}
+                    className="w-full py-2.5 rounded-xl border border-dashed border-amber-500/40 hover:border-amber-400 text-xs font-bold text-amber-400 flex items-center justify-center gap-1.5 bg-amber-500/10 cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add New Qualification Question</span>
+                  </button>
                 </div>
               </div>
             )}
@@ -445,18 +569,6 @@ export function PopupThemeModal({
                     type="text"
                     value={theme.dateLabel}
                     onChange={(e) => setTheme({ ...theme, dateLabel: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-800 bg-[#131B2A] text-xs font-semibold text-white focus:outline-none focus:border-amber-400"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-300 mb-1">
-                    Time Slot Field Label
-                  </label>
-                  <input
-                    type="text"
-                    value={theme.timeSlotLabel}
-                    onChange={(e) => setTheme({ ...theme, timeSlotLabel: e.target.value })}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-gray-800 bg-[#131B2A] text-xs font-semibold text-white focus:outline-none focus:border-amber-400"
                   />
                 </div>
@@ -700,28 +812,33 @@ export function PopupThemeModal({
                 </div>
               )}
 
-              {/* LIVE FORM CONTENT STEP 2 */}
+              {/* LIVE FORM CONTENT STEP 2 (REAL-TIME LIVE SURVEY QUESTIONS) */}
               {activeStepTab === 2 && (
                 <div className="p-5 pt-2 space-y-3">
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-bold" style={{ color: primaryColor }}>
-                      Select Your Primary Industry
-                    </label>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      <div
-                        className="p-2 rounded-xl text-[10px] font-bold border"
-                        style={{
-                          borderColor: primaryColor,
-                          backgroundColor: `${primaryColor}20`,
-                          color: isLightMode ? '#111827' : '#FFFFFF',
-                        }}
-                      >
-                        Service Business
+                  <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                    {surveyQuestions.map((q) => (
+                      <div key={q.id} className="space-y-1.5">
+                        <label className="block text-[11px] font-bold" style={{ color: primaryColor }}>
+                          {q.label}
+                        </label>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {q.options.map((opt, idx) => (
+                            <div
+                              key={opt}
+                              className={`p-2 rounded-xl text-[10px] font-bold border truncate ${
+                                idx === 0
+                                  ? 'border-amber-500/50 bg-amber-500/20 text-white'
+                                  : isLightMode
+                                  ? 'bg-[#F8FAFC] border-gray-200 text-gray-700'
+                                  : 'bg-[#131B2A] border-gray-800 text-gray-400'
+                              }`}
+                            >
+                              {opt}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <div className={`p-2 rounded-xl text-[10px] font-bold border ${isLightMode ? 'bg-[#F8FAFC] border-gray-200 text-gray-700' : 'bg-[#131B2A] border-gray-800 text-gray-400'}`}>
-                        E-commerce
-                      </div>
-                    </div>
+                    ))}
                   </div>
 
                   <button
