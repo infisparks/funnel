@@ -43,7 +43,7 @@ export default function CustomizeStudioPage() {
   const router = useRouter();
   const { workspace, saveWorkspaceConfig } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'theme' | 'survey' | 'triggers'>('theme');
+  const [activeTab, setActiveTab] = useState<'theme' | 'survey'>('theme');
   const [activeStepTab, setActiveStepTab] = useState<1 | 2 | 3 | 4>(1);
 
   // Theme Config State
@@ -55,9 +55,13 @@ export default function CustomizeStudioPage() {
     step1Title: 'Claim Your 1-on-1 Growth Consultation',
     step1Subtitle: 'Enter your details to reserve your custom revenue strategy session',
     step1ButtonText: 'CONTINUE TO SELECT SLOT',
+    nameLabel: 'Full Name *',
     namePlaceholder: 'Enter your full name',
+    emailLabel: 'Work Email *',
     emailPlaceholder: 'name@company.com',
+    phoneLabel: 'WhatsApp Phone Number *',
     phonePlaceholder: '+91 9876543210',
+    step1FooterCopy: '100% free strategy session • no sales pitch',
     step2Title: 'Qualify Your Business Requirements',
     step2Subtitle: 'Answer quick questions so we can customize your growth roadmap',
     step2ButtonText: 'PROCEED TO TIME SLOT',
@@ -65,6 +69,7 @@ export default function CustomizeStudioPage() {
     step3Subtitle: 'Pick a date & time slot for your 1-on-1 session',
     step3ButtonText: 'CONFIRM & LOCK BOOKING 📅',
     dateLabel: 'Select Preferred Meeting Date *',
+    timeSlotLabel: 'Select Strategy Call Time Slot *',
   });
 
   // Survey Questions State
@@ -136,7 +141,7 @@ export default function CustomizeStudioPage() {
                 Full-Screen 3-Popup Funnel Designer
               </h1>
               <p className="text-xs text-gray-500">
-                Design all 3 forms, custom colors, light/dark modes, and multi-select survey checkboxes with real-time preview.
+                Customize 100% of titles, subtitles, field labels (including WhatsApp Phone), placeholders, and colors with real-time preview.
               </p>
             </div>
           </div>
@@ -174,7 +179,7 @@ export default function CustomizeStudioPage() {
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                1. Form Copy & Colors
+                1. Form Copy & Field Labels
               </button>
 
               <button
@@ -232,7 +237,7 @@ export default function CustomizeStudioPage() {
                   {activeStepTab === 1 && (
                     <div className="space-y-3 bg-white p-4 rounded-2xl border border-gray-200">
                       <h4 className="text-xs font-extrabold text-amber-600 uppercase tracking-wider">
-                        Form 1 Copy & Placeholders
+                        Form 1 Copy, Subtitle & Editable Labels
                       </h4>
                       <div>
                         <label className="block text-xs font-bold text-gray-700 mb-1">Step 1 Title</label>
@@ -244,7 +249,7 @@ export default function CustomizeStudioPage() {
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Step 1 Subtitle</label>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Step 1 Subtitle / Description</label>
                         <textarea
                           rows={2}
                           value={theme.step1Subtitle}
@@ -252,33 +257,54 @@ export default function CustomizeStudioPage() {
                           className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs text-gray-700"
                         />
                       </div>
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Name Field Placeholder</label>
-                        <input
-                          type="text"
-                          value={theme.namePlaceholder}
-                          onChange={(e) => setTheme({ ...theme, namePlaceholder: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs font-semibold text-gray-800"
-                        />
+
+                      {/* Phone & Field Labels */}
+                      <div className="p-3.5 rounded-2xl bg-amber-50/50 border border-amber-200 space-y-2.5">
+                        <h5 className="text-xs font-extrabold text-amber-800 uppercase tracking-wider">
+                          Editable Field Labels & Placeholders
+                        </h5>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-gray-700 mb-1">Phone Field Label 📱</label>
+                          <input
+                            type="text"
+                            value={theme.phoneLabel}
+                            onChange={(e) => setTheme({ ...theme, phoneLabel: e.target.value })}
+                            placeholder="WhatsApp Phone Number *"
+                            className="w-full px-3 py-2 rounded-xl border border-amber-400 bg-white text-xs font-bold text-gray-900 mb-1"
+                          />
+                          <input
+                            type="text"
+                            value={theme.phonePlaceholder}
+                            onChange={(e) => setTheme({ ...theme, phonePlaceholder: e.target.value })}
+                            placeholder="+91 9876543210"
+                            className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs text-gray-700"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-gray-700 mb-1">Name Field Label</label>
+                          <input
+                            type="text"
+                            value={theme.nameLabel}
+                            onChange={(e) => setTheme({ ...theme, nameLabel: e.target.value })}
+                            placeholder="Full Name *"
+                            className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-bold text-gray-900 mb-1"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-gray-700 mb-1">Email Field Label</label>
+                          <input
+                            type="text"
+                            value={theme.emailLabel}
+                            onChange={(e) => setTheme({ ...theme, emailLabel: e.target.value })}
+                            placeholder="Work Email *"
+                            className="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white text-xs font-bold text-gray-900 mb-1"
+                          />
+                        </div>
                       </div>
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Email Field Placeholder</label>
-                        <input
-                          type="text"
-                          value={theme.emailPlaceholder}
-                          onChange={(e) => setTheme({ ...theme, emailPlaceholder: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs font-semibold text-gray-800"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">WhatsApp Phone Placeholder</label>
-                        <input
-                          type="text"
-                          value={theme.phonePlaceholder}
-                          onChange={(e) => setTheme({ ...theme, phonePlaceholder: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs font-semibold text-gray-800"
-                        />
-                      </div>
+
                       <div>
                         <label className="block text-xs font-bold text-gray-700 mb-1">CTA Button Text</label>
                         <input
@@ -410,13 +436,21 @@ export default function CustomizeStudioPage() {
                   {activeStepTab === 2 && (theme.step2Title || 'Qualify Requirements')}
                   {activeStepTab === 3 && (theme.step3Title || 'Lock Strategy Slot')}
                 </h3>
+
+                <p className={`text-xs block leading-snug ${isLightMode ? 'text-gray-600' : 'text-gray-400'}`}>
+                  {activeStepTab === 1 && (theme.step1Subtitle || 'Enter your details to reserve your custom strategy session')}
+                  {activeStepTab === 2 && (theme.step2Subtitle || 'Answer quick questions so we can customize your roadmap')}
+                  {activeStepTab === 3 && (theme.step3Subtitle || 'Pick a date & time slot for your 1-on-1 session')}
+                </p>
               </div>
 
               {/* LIVE FORM CONTENT STEP 1 */}
               {(activeStepTab === 1 || activeStepTab === 4) && (
                 <div className="p-5 pt-2 space-y-3">
                   <div>
-                    <label className="block text-[10px] font-bold text-gray-400 mb-1">FULL NAME *</label>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">
+                      {theme.nameLabel || 'FULL NAME *'}
+                    </label>
                     <input
                       type="text"
                       disabled
@@ -428,7 +462,9 @@ export default function CustomizeStudioPage() {
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold text-gray-400 mb-1">WORK EMAIL *</label>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">
+                      {theme.emailLabel || 'WORK EMAIL *'}
+                    </label>
                     <input
                       type="email"
                       disabled
@@ -440,7 +476,9 @@ export default function CustomizeStudioPage() {
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold text-gray-400 mb-1">WHATSAPP PHONE NUMBER *</label>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-amber-400 mb-1">
+                      {theme.phoneLabel || 'WHATSAPP PHONE NUMBER *'}
+                    </label>
                     <input
                       type="tel"
                       disabled

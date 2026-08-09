@@ -31,10 +31,14 @@ export interface PopupThemeConfig {
   badgeText?: string;
   step1Title?: string;
   step1Subtitle?: string;
-  step1ButtonText?: string;
+  nameLabel?: string;
   namePlaceholder?: string;
+  emailLabel?: string;
   emailPlaceholder?: string;
+  phoneLabel?: string;
   phonePlaceholder?: string;
+  step1ButtonText?: string;
+  step1FooterCopy?: string;
   step2Title?: string;
   step2Subtitle?: string;
   step2ButtonText?: string;
@@ -42,6 +46,7 @@ export interface PopupThemeConfig {
   step3Subtitle?: string;
   step3ButtonText?: string;
   dateLabel?: string;
+  timeSlotLabel?: string;
   step4Title?: string;
   step4Subtitle?: string;
 }
@@ -84,23 +89,32 @@ export function ThreePopupFunnelModal({
   const isSolidButton = popupTheme.buttonStyle === 'solid';
 
   const badgeText = popupTheme.badgeText || 'FAST 30-SEC BOOKING';
+  
+  // Step 1 Copy
   const step1Title = popupTheme.step1Title || 'Claim Your 1-on-1 Growth Consultation';
   const step1Subtitle = popupTheme.step1Subtitle || 'Enter your details to reserve your custom revenue strategy session';
   const step1BtnText = popupTheme.step1ButtonText || 'CONTINUE TO SELECT SLOT';
-
+  const nameLabel = popupTheme.nameLabel || 'Full Name *';
   const namePlaceholder = popupTheme.namePlaceholder || 'Enter your full name';
+  const emailLabel = popupTheme.emailLabel || 'Work Email *';
   const emailPlaceholder = popupTheme.emailPlaceholder || 'name@company.com';
+  const phoneLabel = popupTheme.phoneLabel || 'WhatsApp Phone Number *';
   const phonePlaceholder = popupTheme.phonePlaceholder || '+91 9876543210';
+  const step1FooterCopy = popupTheme.step1FooterCopy || '100% free strategy session • no sales pitch';
 
+  // Step 2 Copy
   const step2Title = popupTheme.step2Title || 'Qualify Your Business Requirements';
   const step2Subtitle = popupTheme.step2Subtitle || 'Answer quick questions so we can customize your growth roadmap';
   const step2BtnText = popupTheme.step2ButtonText || 'PROCEED TO TIME SLOT';
 
+  // Step 3 Copy
   const step3Title = popupTheme.step3Title || 'Lock Your Strategy Call Slot';
   const step3Subtitle = popupTheme.step3Subtitle || 'Pick a date & time slot for your 1-on-1 session';
   const step3BtnText = popupTheme.step3ButtonText || 'CONFIRM & LOCK BOOKING 📅';
   const dateLabel = popupTheme.dateLabel || 'Select Preferred Meeting Date *';
+  const timeSlotLabel = popupTheme.timeSlotLabel || 'Select Strategy Call Time Slot *';
 
+  // Step 4 Copy
   const step4Title = popupTheme.step4Title || 'Session Reserved! 🎉';
   const step4Subtitle = popupTheme.step4Subtitle || 'Your booking details are confirmed and locked in our CRM';
 
@@ -114,7 +128,7 @@ export function ThreePopupFunnelModal({
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
 
-  // Popup 2 State: Survey Responses (supports single or multi-select arrays)
+  // Popup 2 State: Survey Responses
   const [surveyAnswers, setSurveyAnswers] = useState<Record<string, any>>({});
 
   // Popup 3 State: Meeting Booking
@@ -309,7 +323,7 @@ export function ThreePopupFunnelModal({
             {step === 4 && step4Title}
           </h3>
 
-          <p className={`text-xs ${isLightMode ? 'text-gray-500' : 'text-gray-400'}`}>
+          <p className={`text-xs block leading-relaxed ${isLightMode ? 'text-gray-600' : 'text-gray-300'}`}>
             {step === 1 && step1Subtitle}
             {step === 2 && step2Subtitle}
             {step === 3 && step3Subtitle}
@@ -324,7 +338,7 @@ export function ThreePopupFunnelModal({
             <form onSubmit={handleStep1Submit} className="space-y-4">
               <div>
                 <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
-                  Full Name *
+                  {nameLabel}
                 </label>
                 <div className="relative">
                   <User className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -343,7 +357,7 @@ export function ThreePopupFunnelModal({
 
               <div>
                 <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
-                  Work Email *
+                  {emailLabel}
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -362,7 +376,7 @@ export function ThreePopupFunnelModal({
 
               <div>
                 <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
-                  WhatsApp Phone Number *
+                  {phoneLabel}
                 </label>
                 <div className="relative">
                   <Phone className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -389,14 +403,14 @@ export function ThreePopupFunnelModal({
                   <span>{isSubmitting ? 'Saving...' : step1BtnText}</span>
                   <ChevronRight className="w-4 h-4" />
                 </span>
-                <span className="text-[10px] font-bold opacity-80 lowercase font-mono">
-                  100% free strategy session • no sales pitch
+                <span className="text-[10px] font-bold opacity-80 font-mono">
+                  {step1FooterCopy}
                 </span>
               </button>
             </form>
           )}
 
-          {/* STEP 2: DYNAMIC CUSTOMER SURVEY QUESTIONS (SINGLE OR MULTI-SELECT TICKS) */}
+          {/* STEP 2: DYNAMIC CUSTOMER SURVEY QUESTIONS */}
           {step === 2 && (
             <form onSubmit={handleStep2Submit} className="space-y-4">
               <div className="space-y-4 max-h-[320px] overflow-y-auto pr-1">
@@ -489,7 +503,7 @@ export function ThreePopupFunnelModal({
 
               <div>
                 <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
-                  Select Strategy Call Time Slot *
+                  {timeSlotLabel}
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   {['09:00 AM', '11:00 AM', '02:00 PM', '04:00 PM'].map((slot) => {

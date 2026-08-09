@@ -26,10 +26,14 @@ export interface PopupThemeConfig {
   badgeText?: string;
   step1Title?: string;
   step1Subtitle?: string;
-  step1ButtonText?: string;
+  nameLabel?: string;
   namePlaceholder?: string;
+  emailLabel?: string;
   emailPlaceholder?: string;
+  phoneLabel?: string;
   phonePlaceholder?: string;
+  step1ButtonText?: string;
+  step1FooterCopy?: string;
   step2Title?: string;
   step2Subtitle?: string;
   step2ButtonText?: string;
@@ -37,6 +41,9 @@ export interface PopupThemeConfig {
   step3Subtitle?: string;
   step3ButtonText?: string;
   dateLabel?: string;
+  timeSlotLabel?: string;
+  step4Title?: string;
+  step4Subtitle?: string;
 }
 
 interface PopupThemeModalProps {
@@ -76,9 +83,13 @@ export function PopupThemeModal({
     step1Title: initialTheme?.step1Title || 'Claim Your 1-on-1 Growth Consultation',
     step1Subtitle: initialTheme?.step1Subtitle || 'Enter your details to reserve your custom revenue strategy session',
     step1ButtonText: initialTheme?.step1ButtonText || 'CONTINUE TO SELECT SLOT',
+    nameLabel: initialTheme?.nameLabel || 'Full Name *',
     namePlaceholder: initialTheme?.namePlaceholder || 'Enter your full name',
+    emailLabel: initialTheme?.emailLabel || 'Work Email *',
     emailPlaceholder: initialTheme?.emailPlaceholder || 'name@company.com',
+    phoneLabel: initialTheme?.phoneLabel || 'WhatsApp Phone Number *',
     phonePlaceholder: initialTheme?.phonePlaceholder || '+91 9876543210',
+    step1FooterCopy: initialTheme?.step1FooterCopy || '100% free strategy session • no sales pitch',
     step2Title: initialTheme?.step2Title || 'Qualify Your Business Requirements',
     step2Subtitle: initialTheme?.step2Subtitle || 'Answer quick questions so we can customize your growth roadmap',
     step2ButtonText: initialTheme?.step2ButtonText || 'PROCEED TO TIME SLOT',
@@ -86,6 +97,7 @@ export function PopupThemeModal({
     step3Subtitle: initialTheme?.step3Subtitle || 'Pick a date & time slot for your 1-on-1 session',
     step3ButtonText: initialTheme?.step3ButtonText || 'CONFIRM & LOCK BOOKING 📅',
     dateLabel: initialTheme?.dateLabel || 'Select Preferred Meeting Date *',
+    timeSlotLabel: initialTheme?.timeSlotLabel || 'Select Strategy Call Time Slot *',
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -142,7 +154,7 @@ export function PopupThemeModal({
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">Real-Time Studio</span>
               </h3>
               <p className="text-xs text-gray-400">
-                Customize colors, dark/light themes, solid/gradient buttons, custom placeholders, and copy.
+                100% editable titles, subtitles, field labels, placeholders, colors, and button styles.
               </p>
             </div>
           </div>
@@ -246,6 +258,70 @@ export function PopupThemeModal({
                   />
                 </div>
 
+                {/* Field Labels Customization */}
+                <div className="p-3.5 rounded-2xl bg-[#131B2A] border border-gray-800 space-y-3">
+                  <h5 className="text-xs font-extrabold text-amber-400 uppercase tracking-wider">
+                    Custom Field Labels & Placeholders
+                  </h5>
+                  
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-300 mb-1">Name Field Label</label>
+                    <input
+                      type="text"
+                      value={theme.nameLabel}
+                      onChange={(e) => setTheme({ ...theme, nameLabel: e.target.value })}
+                      placeholder="Full Name *"
+                      className="w-full px-3 py-2 rounded-xl border border-gray-700 bg-[#0B0F17] text-xs font-bold text-white mb-1.5"
+                    />
+                    <label className="block text-[11px] font-bold text-gray-400 mb-1">Name Field Placeholder</label>
+                    <input
+                      type="text"
+                      value={theme.namePlaceholder}
+                      onChange={(e) => setTheme({ ...theme, namePlaceholder: e.target.value })}
+                      placeholder="Enter your full name"
+                      className="w-full px-3 py-2 rounded-xl border border-gray-700 bg-[#0B0F17] text-xs font-semibold text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-300 mb-1">Email Field Label</label>
+                    <input
+                      type="text"
+                      value={theme.emailLabel}
+                      onChange={(e) => setTheme({ ...theme, emailLabel: e.target.value })}
+                      placeholder="Work Email *"
+                      className="w-full px-3 py-2 rounded-xl border border-gray-700 bg-[#0B0F17] text-xs font-bold text-white mb-1.5"
+                    />
+                    <label className="block text-[11px] font-bold text-gray-400 mb-1">Email Field Placeholder</label>
+                    <input
+                      type="text"
+                      value={theme.emailPlaceholder}
+                      onChange={(e) => setTheme({ ...theme, emailPlaceholder: e.target.value })}
+                      placeholder="name@company.com"
+                      className="w-full px-3 py-2 rounded-xl border border-gray-700 bg-[#0B0F17] text-xs font-semibold text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-amber-400 mb-1">WhatsApp Phone Field Label 📱</label>
+                    <input
+                      type="text"
+                      value={theme.phoneLabel}
+                      onChange={(e) => setTheme({ ...theme, phoneLabel: e.target.value })}
+                      placeholder="WhatsApp Phone Number *"
+                      className="w-full px-3 py-2 rounded-xl border border-amber-500/50 bg-[#0B0F17] text-xs font-bold text-white mb-1.5"
+                    />
+                    <label className="block text-[11px] font-bold text-gray-400 mb-1">Phone Field Placeholder</label>
+                    <input
+                      type="text"
+                      value={theme.phonePlaceholder}
+                      onChange={(e) => setTheme({ ...theme, phonePlaceholder: e.target.value })}
+                      placeholder="+91 9876543210"
+                      className="w-full px-3 py-2 rounded-xl border border-gray-700 bg-[#0B0F17] text-xs font-semibold text-white"
+                    />
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-xs font-bold text-gray-300 mb-1">
                     Step 1 CTA Action Button Text
@@ -258,50 +334,17 @@ export function PopupThemeModal({
                   />
                 </div>
 
-                {/* Input Placeholders Customization */}
-                <div className="p-3.5 rounded-2xl bg-[#131B2A] border border-gray-800 space-y-3">
-                  <h5 className="text-xs font-extrabold text-amber-400 uppercase tracking-wider">
-                    Custom Input Field Placeholders
-                  </h5>
-                  
-                  <div>
-                    <label className="block text-[11px] font-bold text-gray-400 mb-1">
-                      Full Name Input Placeholder
-                    </label>
-                    <input
-                      type="text"
-                      value={theme.namePlaceholder}
-                      onChange={(e) => setTheme({ ...theme, namePlaceholder: e.target.value })}
-                      placeholder="e.g. Enter your full name"
-                      className="w-full px-3 py-2 rounded-xl border border-gray-700 bg-[#0B0F17] text-xs font-semibold text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-gray-400 mb-1">
-                      Work Email Input Placeholder
-                    </label>
-                    <input
-                      type="text"
-                      value={theme.emailPlaceholder}
-                      onChange={(e) => setTheme({ ...theme, emailPlaceholder: e.target.value })}
-                      placeholder="e.g. name@company.com"
-                      className="w-full px-3 py-2 rounded-xl border border-gray-700 bg-[#0B0F17] text-xs font-semibold text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-gray-400 mb-1">
-                      WhatsApp Phone Input Placeholder
-                    </label>
-                    <input
-                      type="text"
-                      value={theme.phonePlaceholder}
-                      onChange={(e) => setTheme({ ...theme, phonePlaceholder: e.target.value })}
-                      placeholder="e.g. +91 9876543210"
-                      className="w-full px-3 py-2 rounded-xl border border-gray-700 bg-[#0B0F17] text-xs font-semibold text-white"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-300 mb-1">
+                    Button Sub-Footer Copy
+                  </label>
+                  <input
+                    type="text"
+                    value={theme.step1FooterCopy}
+                    onChange={(e) => setTheme({ ...theme, step1FooterCopy: e.target.value })}
+                    placeholder="100% free strategy session • no sales pitch"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-800 bg-[#131B2A] text-xs font-semibold text-white focus:outline-none"
+                  />
                 </div>
 
                 <div>
@@ -402,6 +445,18 @@ export function PopupThemeModal({
                     type="text"
                     value={theme.dateLabel}
                     onChange={(e) => setTheme({ ...theme, dateLabel: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-800 bg-[#131B2A] text-xs font-semibold text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-300 mb-1">
+                    Time Slot Field Label
+                  </label>
+                  <input
+                    type="text"
+                    value={theme.timeSlotLabel}
+                    onChange={(e) => setTheme({ ...theme, timeSlotLabel: e.target.value })}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-gray-800 bg-[#131B2A] text-xs font-semibold text-white focus:outline-none focus:border-amber-400"
                   />
                 </div>
@@ -573,7 +628,7 @@ export function PopupThemeModal({
                   {activeStepTab === 4 && (theme.step1Title || 'Claim Your 1-on-1 Growth Consultation')}
                 </h3>
 
-                <p className={`text-[11px] leading-snug ${isLightMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                <p className={`text-[11px] block leading-snug ${isLightMode ? 'text-gray-500' : 'text-gray-400'}`}>
                   {activeStepTab === 1 && (theme.step1Subtitle || 'Enter your details to reserve your custom strategy session')}
                   {activeStepTab === 2 && (theme.step2Subtitle || 'Answer quick questions so we can customize your roadmap')}
                   {activeStepTab === 3 && (theme.step3Subtitle || 'Pick a date & time slot for your 1-on-1 session')}
@@ -586,7 +641,7 @@ export function PopupThemeModal({
                 <div className="p-5 pt-2 space-y-3">
                   <div>
                     <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
-                      Full Name *
+                      {theme.nameLabel || 'Full Name *'}
                     </label>
                     <div className="relative">
                       <User className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -603,7 +658,7 @@ export function PopupThemeModal({
 
                   <div>
                     <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
-                      Work Email *
+                      {theme.emailLabel || 'Work Email *'}
                     </label>
                     <div className="relative">
                       <Mail className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -620,7 +675,7 @@ export function PopupThemeModal({
 
                   <div>
                     <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
-                      WhatsApp Phone Number *
+                      {theme.phoneLabel || 'WhatsApp Phone Number *'}
                     </label>
                     <div className="relative">
                       <Phone className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -636,7 +691,7 @@ export function PopupThemeModal({
                   </div>
 
                   <button
-                    className="w-full py-3 px-3 rounded-xl text-black font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-1 shadow-lg transition-all cursor-pointer mt-1"
+                    className="w-full py-3 px-3 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-1 shadow-lg transition-all cursor-pointer mt-1"
                     style={getButtonStyle()}
                   >
                     <span>{theme.step1ButtonText || 'CONTINUE TO SELECT SLOT'}</span>
@@ -670,7 +725,7 @@ export function PopupThemeModal({
                   </div>
 
                   <button
-                    className="w-full py-3 px-3 rounded-xl text-black font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-1 shadow-lg transition-all cursor-pointer mt-2"
+                    className="w-full py-3 px-3 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-1 shadow-lg transition-all cursor-pointer mt-2"
                     style={getButtonStyle()}
                   >
                     <span>{theme.step2ButtonText || 'PROCEED TO TIME SLOT'}</span>
@@ -697,7 +752,7 @@ export function PopupThemeModal({
                   </div>
 
                   <button
-                    className="w-full py-3 px-3 rounded-xl text-black font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg transition-all cursor-pointer mt-1"
+                    className="w-full py-3 px-3 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg transition-all cursor-pointer mt-1"
                     style={getButtonStyle()}
                   >
                     <Calendar className="w-3.5 h-3.5" />
