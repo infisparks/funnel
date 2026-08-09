@@ -19,6 +19,9 @@ import {
   ListOrdered,
   Target,
   ExternalLink,
+  Plus,
+  Trash2,
+  CheckCircle2,
 } from 'lucide-react';
 import { DEFAULT_LANDING_HTML } from '@/lib/defaultLandingHtml';
 import { HtmlCodeEditorModal } from '@/components/landing/HtmlCodeEditorModal';
@@ -51,6 +54,13 @@ export function LandingPageClient({
     initialWorkspace?.survey_questions || []
   );
 
+  // Array of exact full text trigger buttons
+  const [triggerButtons, setTriggerButtons] = useState<string[]>([
+    'Book Your Business Technology Strategy Session',
+    'Claim Your 1-on-1 Growth Consultation',
+  ]);
+  const [manualTriggerInput, setManualTriggerInput] = useState('');
+
   const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isDomainModalOpen, setIsDomainModalOpen] = useState(false);
@@ -61,7 +71,6 @@ export function LandingPageClient({
 
   // Target Button Trigger Picker state
   const [isPickerActive, setIsPickerActive] = useState(false);
-  const [selectedButtonText, setSelectedButtonText] = useState<string | null>(null);
 
   // Sync workspace state if logged in admin updates workspace
   useEffect(() => {
@@ -76,6 +85,26 @@ export function LandingPageClient({
   const showToast = (message: string) => {
     setSupabaseToastMsg(message);
     setTimeout(() => setSupabaseToastMsg(''), 4000);
+  };
+
+  const handleAddTriggerButton = (exactText: string) => {
+    const trimmed = exactText.trim();
+    if (!trimmed) return;
+    if (triggerButtons.includes(trimmed)) {
+      showToast(`Trigger "${trimmed}" is already in your list!`);
+      return;
+    }
+    const updated = [...triggerButtons, trimmed];
+    setTriggerButtons(updated);
+    showToast(`Added Trigger: "${trimmed}" 🎯`);
+    setManualTriggerInput('');
+  };
+
+  const handleRemoveTriggerButton = (index: number) => {
+    const updated = [...triggerButtons];
+    const removed = updated.splice(index, 1);
+    setTriggerButtons(updated);
+    showToast(`Removed Trigger: "${removed[0]}"`);
   };
 
   const handleSaveHtml = async (newCode: string) => {
@@ -114,49 +143,42 @@ export function LandingPageClient({
     }
   };
 
-  // Helper: Auto-inject viewport meta tag and smart click event listener for targeted CTA trigger buttons
+  // Helper: Auto-inject viewport meta tag and smart click event listener matching EXACT full text trigger strings
   const processedHtmlCode = useMemo(() => {
     if (!htmlCode) return '';
     let code = htmlCode;
 
-    const targetTriggerText = selectedButtonText ? selectedButtonText.toLowerCase().trim() : '';
+    // Convert trigger buttons array to JSON string for iframe script
+    const triggersJson = JSON.stringify(triggerButtons.map((t) => t.toLowerCase().trim()));
 
-    // Smart trigger script: Only action CTA buttons (containing Book, Strategy, Get Started, Claim, etc.) open popup
     const triggerScript = `
       <script>
-        document.addEventListener('click', function(e) {
-          const target = e.target.closest('a, button, input[type="submit"]');
-          if (!target) return;
+        (function() {
+          const validTriggers = ${triggersJson};
 
-          // If button explicitly disables popup
-          if (target.dataset.noPopup === 'true') return;
+          document.addEventListener('click', function(e) {
+            const target = e.target.closest('a, button, input[type="submit"]');
+            if (!target) return;
 
-          const text = (target.textContent || '').toLowerCase().trim();
-          const selectedTarget = "${targetTriggerText}";
+            // Explicit opt-out
+            if (target.dataset.noPopup === 'true') return;
 
-          // Check if element matches picked target button text or is a CTA action button
-          const isExplicitTargetMatch = selectedTarget && text.includes(selectedTarget);
-          const isCtaKeyword =
-            target.dataset.popup === 'true' ||
-            target.classList.contains('popup-trigger') ||
-            target.id === 'popup-trigger' ||
-            text.includes('book') ||
-            text.includes('strategy') ||
-            text.includes('claim') ||
-            text.includes('schedule') ||
-            text.includes('consultation') ||
-            text.includes('get started') ||
-            text.includes('start free') ||
-            text.includes('demo') ||
-            text.includes('trial') ||
-            text.includes('reserve');
+            const fullText = (target.textContent || '').toLowerCase().trim();
 
-          if (isExplicitTargetMatch || (!selectedTarget && isCtaKeyword)) {
-            e.preventDefault();
-            window.parent.postMessage({ type: 'BUTTON_CLICKED', text: text }, '*');
-            window.parent.postMessage('OPEN_FUNNEL_POPUP', '*');
-          }
-        });
+            // Match exact full text or explicit data-popup attribute
+            const matchesTrigger =
+              target.dataset.popup === 'true' ||
+              validTriggers.some(function(trig) {
+                return trig && (fullText === trig || fullText.indexOf(trig) !== -1);
+              });
+
+            if (matchesTrigger) {
+              e.preventDefault();
+              window.parent.postMessage({ type: 'BUTTON_CLICKED', text: target.textContent.trim() }, '*');
+              window.parent.postMessage('OPEN_FUNNEL_POPUP', '*');
+            }
+          });
+        })();
       </script>
     `;
 
@@ -172,7 +194,7 @@ export function LandingPageClient({
       code = code.replace('</head>', triggerScript + '\n</head>');
     }
     return code;
-  }, [htmlCode, selectedButtonText]);
+  }, [htmlCode, triggerButtons]);
 
   // Listen to postMessage from iframe to open 3-popup lead capture modal & register picked button
   useEffect(() => {
@@ -180,23 +202,22 @@ export function LandingPageClient({
       if (event.data === 'OPEN_FUNNEL_POPUP') {
         setIsPopupFunnelOpen(true);
       } else if (event.data?.type === 'BUTTON_CLICKED') {
-        if (isPickerActive) {
-          setSelectedButtonText(event.data.text);
+        if (isPickerActive && event.data.text) {
+          handleAddTriggerButton(event.data.text);
           setIsPickerActive(false);
-          showToast(`Target Trigger Button Set: "${event.data.text}" 🎯`);
         }
       }
     };
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [isPickerActive]);
+  }, [isPickerActive, triggerButtons]);
 
   // =========================================================================
   // PUBLIC STANDALONE SUBDOMAIN LANDING PAGE VIEW (ZERO DELAY SERVER RENDER)
   // =========================================================================
   if (isPublicView) {
     return (
-      <div className="w-screen h-screen overflow-hidden bg-white relative">
+      <div className="w-screen h-screen overflow-hidden bg-white relative font-sans">
         <iframe
           srcDoc={processedHtmlCode}
           title="Live Landing Page"
@@ -224,43 +245,44 @@ export function LandingPageClient({
   }
 
   // =========================================================================
-  // ADMIN STUDIO VIEW (WITH SIDEBAR, HEADER, AND SEPARATE ROUTE LINKS)
+  // ADMIN STUDIO VIEW (POPPINS FONT, COMPACT, HIGHLY RESPONSIVE PC/MOBILE UI)
   // =========================================================================
   return (
     <MainLayout>
       {/* Supabase Success Toast Notification Floating Banner */}
       {supabaseToastMsg && (
         <div className="fixed top-6 right-6 z-50 animate-in fade-in slide-in-from-top-4 duration-300">
-          <div className="p-4 rounded-2xl bg-[#059669] text-white font-bold text-xs shadow-2xl flex items-center gap-3 border border-emerald-400">
-            <Database className="w-5 h-5 text-emerald-200" />
+          <div className="p-3.5 rounded-2xl bg-[#059669] text-white font-bold text-xs shadow-2xl flex items-center gap-2.5 border border-emerald-400">
+            <Database className="w-4 h-4 text-emerald-200" />
             <span>{supabaseToastMsg}</span>
           </div>
         </div>
       )}
 
-      {/* Top Header Controls */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-1">
+      {/* Top Header Controls Bar */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-1 font-sans">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#111827]">
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-[#111827]">
               Landing Page Studio & Subdomain Host
             </h1>
             <Badge variant="success">Supabase Sync Live</Badge>
           </div>
-          <p className="text-sm text-gray-500 mt-1">
-            Custom HTML landing page renderer, 3-popup lead survey engine, and separate page routes (`/survey`, `/meeting`).
+          <p className="text-xs text-gray-500 mt-0.5">
+            Full-text exact button trigger manager, custom survey form builder, and instant subdomain host.
           </p>
         </div>
 
-        {/* Control Buttons */}
-        <div className="flex flex-wrap items-center gap-2.5">
+        {/* Action Controls Toolbar */}
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
+            size="sm"
             onClick={handleSyncToSupabase}
             isLoading={isSavingSupabase}
-            leftIcon={<Database className="w-4 h-4 text-emerald-600" />}
+            leftIcon={<Database className="w-3.5 h-3.5 text-emerald-600" />}
           >
-            <span>Sync to Supabase Table</span>
+            <span>Sync Supabase</span>
           </Button>
 
           {/* Interactive Trigger Button Picker */}
@@ -268,87 +290,134 @@ export function LandingPageClient({
             onClick={() => {
               setIsPickerActive(!isPickerActive);
               if (!isPickerActive) {
-                showToast('Click any button in the live preview below to select it as trigger! 🎯');
+                showToast('Click any button in the live preview below to add it to triggers list! 🎯');
               }
             }}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
               isPickerActive
                 ? 'bg-amber-500 text-black border border-amber-600 shadow-md animate-pulse'
                 : 'bg-white border border-[#E5E7EB] hover:bg-gray-50 text-gray-800 shadow-2xs'
             }`}
           >
-            <Target className="w-4 h-4 text-amber-500" />
-            <span>{isPickerActive ? 'Click Button in Preview Below...' : 'Pick Trigger Button 🎯'}</span>
+            <Target className="w-3.5 h-3.5 text-amber-500" />
+            <span>{isPickerActive ? 'Click Button in Preview...' : 'Pick Trigger Button 🎯'}</span>
           </button>
 
-          {/* Separate Route Links Badge */}
+          {/* Separate Route Badges */}
           <a
             href="/survey"
             target="_blank"
             rel="noreferrer"
-            className="px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold flex items-center gap-1 hover:bg-amber-100 transition-colors shadow-2xs"
+            className="px-2.5 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-bold flex items-center gap-1 hover:bg-amber-100 transition-colors shadow-2xs"
           >
             <span>/survey</span>
-            <ExternalLink className="w-3.5 h-3.5 text-amber-600" />
+            <ExternalLink className="w-3 h-3 text-amber-600" />
           </a>
 
           <a
             href="/meeting"
             target="_blank"
             rel="noreferrer"
-            className="px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-1 hover:bg-emerald-100 transition-colors shadow-2xs"
+            className="px-2.5 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold flex items-center gap-1 hover:bg-emerald-100 transition-colors shadow-2xs"
           >
             <span>/meeting</span>
-            <ExternalLink className="w-3.5 h-3.5 text-emerald-600" />
+            <ExternalLink className="w-3 h-3 text-emerald-600" />
           </a>
 
           <Button
             variant="secondary"
+            size="sm"
             onClick={() => setIsSurveyModalOpen(true)}
-            leftIcon={<ListOrdered className="w-4 h-4 text-amber-500" />}
+            leftIcon={<ListOrdered className="w-3.5 h-3.5 text-amber-500" />}
           >
-            <span>Customize Survey Form</span>
+            <span>Customize Survey</span>
           </Button>
 
           <button
             onClick={() => setIsDomainModalOpen(true)}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-[#E5E7EB] bg-white hover:bg-gray-50 text-xs font-bold text-gray-800 shadow-2xs transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#E5E7EB] bg-white hover:bg-gray-50 text-xs font-bold text-gray-800 shadow-2xs cursor-pointer"
           >
-            <Globe className="w-4 h-4 text-indigo-600" />
-            <span className="font-mono text-gray-900">https://{subdomain}.firstoption.cloud</span>
+            <Globe className="w-3.5 h-3.5 text-indigo-600" />
+            <span className="font-mono text-gray-900 text-[11px]">https://{subdomain}.firstoption.cloud</span>
             <span className="w-2 h-2 rounded-full bg-emerald-500" />
           </button>
 
           <Button
             variant="primary"
+            size="sm"
             onClick={() => setIsEditorOpen(true)}
-            leftIcon={<Code2 className="w-4 h-4" />}
-            className="shadow-md"
+            leftIcon={<Code2 className="w-3.5 h-3.5" />}
           >
-            <span>Edit HTML Code</span>
+            <span>Edit HTML</span>
           </Button>
         </div>
       </div>
 
-      {/* Selected Target Button Indicator Banner */}
-      {selectedButtonText && (
-        <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 text-xs font-bold flex items-center justify-between shadow-2xs mb-2">
+      {/* MULTIPLE EXACT FULL-TEXT TRIGGER BUTTONS MANAGEMENT BAR */}
+      <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 text-white space-y-2.5 shadow-md font-sans">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <Target className="w-4 h-4 text-amber-600" />
-            <span>Designated Popup Trigger Button: <span className="font-mono font-extrabold text-amber-700">"{selectedButtonText}"</span></span>
+            <Target className="w-4 h-4 text-amber-400" />
+            <span className="text-xs font-extrabold tracking-wide text-white uppercase">
+              Active Trigger Buttons List ({triggerButtons.length})
+            </span>
+            <span className="text-[10px] text-gray-400">
+              Only buttons matching these exact strings will trigger the 3-Popup Flow.
+            </span>
           </div>
-          <button
-            onClick={() => setSelectedButtonText(null)}
-            className="text-amber-700 hover:text-amber-900 underline text-[11px]"
-          >
-            Reset
-          </button>
+
+          {/* Add Manual Trigger Input Form */}
+          <div className="flex items-center gap-1.5">
+            <input
+              type="text"
+              value={manualTriggerInput}
+              onChange={(e) => setManualTriggerInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleAddTriggerButton(manualTriggerInput);
+              }}
+              placeholder="Paste exact button text..."
+              className="px-3 py-1 text-xs bg-slate-800 border border-slate-700 rounded-lg text-white font-semibold focus:outline-none focus:border-amber-400"
+            />
+            <button
+              onClick={() => handleAddTriggerButton(manualTriggerInput)}
+              className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs flex items-center gap-1 cursor-pointer shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add</span>
+            </button>
+          </div>
         </div>
-      )}
+
+        {/* Trigger Badges List */}
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          {triggerButtons.map((trigText, idx) => (
+            <div
+              key={idx}
+              className="px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-amber-300 font-extrabold text-xs flex items-center gap-2 shadow-2xs group hover:border-amber-500/50 transition-all"
+            >
+              <span className="text-gray-400 text-[10px]">#{idx + 1}</span>
+              <span className="font-mono">"{trigText}"</span>
+              <button
+                onClick={() => handleRemoveTriggerButton(idx)}
+                className="text-gray-400 hover:text-rose-400 p-0.5 rounded hover:bg-slate-700 transition-colors"
+                title="Delete Trigger"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+
+          {triggerButtons.length === 0 && (
+            <span className="text-xs text-amber-400/80 italic font-semibold">
+              No triggers added yet. Click "Pick Trigger Button 🎯" above or add button text manually!
+            </span>
+          )}
+        </div>
+      </div>
 
       {/* Live Preview Container Bar */}
-      <div className="bg-white border border-[#E5E7EB] rounded-3xl overflow-hidden shadow-2xs">
-        <div className="px-4 py-3 bg-[#F8FAFC] border-b border-[#E5E7EB] flex flex-wrap items-center justify-between gap-3">
+      <div className="bg-white border border-[#E5E7EB] rounded-3xl overflow-hidden shadow-2xs font-sans">
+        <div className="px-4 py-2.5 bg-[#F8FAFC] border-b border-[#E5E7EB] flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3 flex-1 min-w-[200px]">
             <div className="flex items-center gap-1.5">
               <span className="w-3 h-3 rounded-full bg-rose-400" />
@@ -356,7 +425,7 @@ export function LandingPageClient({
               <span className="w-3 h-3 rounded-full bg-emerald-400" />
             </div>
 
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white border border-gray-200 text-xs text-gray-600 max-w-sm w-full truncate shadow-2xs">
+            <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-white border border-gray-200 text-xs text-gray-600 max-w-sm w-full truncate shadow-2xs">
               <Lock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
               <span className="text-gray-400">https://</span>
               <span className="font-semibold text-gray-800 truncate">{subdomain}.firstoption.cloud</span>
@@ -366,40 +435,40 @@ export function LandingPageClient({
           <div className="flex items-center gap-1 p-1 bg-gray-200/60 rounded-xl">
             <button
               onClick={() => setViewport('desktop')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
                 viewport === 'desktop'
                   ? 'bg-white text-[#8146F0] shadow-2xs'
                   : 'text-gray-600 hover:text-gray-900'
               }`}
               title="Desktop View"
             >
-              <Monitor className="w-4 h-4" />
+              <Monitor className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Desktop</span>
             </button>
 
             <button
               onClick={() => setViewport('tablet')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
                 viewport === 'tablet'
                   ? 'bg-white text-[#8146F0] shadow-2xs'
                   : 'text-gray-600 hover:text-gray-900'
               }`}
               title="Tablet View (768px)"
             >
-              <Tablet className="w-4 h-4" />
+              <Tablet className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Tablet</span>
             </button>
 
             <button
               onClick={() => setViewport('mobile')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
                 viewport === 'mobile'
                   ? 'bg-white text-[#8146F0] shadow-2xs'
                   : 'text-gray-600 hover:text-gray-900'
               }`}
               title="Mobile Device (iPhone / Android 375px)"
             >
-              <Smartphone className="w-4 h-4" />
+              <Smartphone className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Mobile (iPhone/Android)</span>
             </button>
           </div>
@@ -407,7 +476,7 @@ export function LandingPageClient({
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsPopupFunnelOpen(true)}
-              className="px-3 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-xs font-bold text-indigo-700 flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              className="px-3 py-1 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-xs font-bold text-indigo-700 flex items-center gap-1.5 shadow-2xs cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span>Launch 3-Popup Flow</span>
@@ -415,7 +484,7 @@ export function LandingPageClient({
 
             <button
               onClick={() => setIsEditorOpen(true)}
-              className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-xs font-semibold text-gray-700 flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              className="px-3 py-1 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-xs font-semibold text-gray-700 flex items-center gap-1.5 shadow-2xs cursor-pointer"
             >
               <Code2 className="w-3.5 h-3.5 text-indigo-600" />
               <span>Paste HTML</span>
@@ -424,11 +493,11 @@ export function LandingPageClient({
         </div>
 
         {/* Live Iframe Sandbox Preview Area */}
-        <div className="p-4 sm:p-8 bg-[#E2E8F0]/50 min-h-[750px] flex items-center justify-center overflow-x-auto relative">
+        <div className="p-4 sm:p-6 bg-[#E2E8F0]/50 min-h-[750px] flex items-center justify-center overflow-x-auto relative">
           {isPickerActive && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 px-4 py-2 rounded-full bg-amber-500 text-black font-extrabold text-xs shadow-xl animate-bounce flex items-center gap-2 border border-amber-400">
               <Target className="w-4 h-4" />
-              <span>Click the CTA button in the landing page below to set as Popup Trigger!</span>
+              <span>Click any button in the preview below to ADD to Triggers List!</span>
             </div>
           )}
 
