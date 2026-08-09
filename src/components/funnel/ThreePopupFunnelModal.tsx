@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import {
   X,
@@ -14,6 +14,8 @@ import {
   RotateCcw,
   Square,
   CheckSquare,
+  MessageCircle,
+  ExternalLink,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 
@@ -24,11 +26,19 @@ export interface SurveyQuestion {
   allowMultiple?: boolean;
 }
 
+export interface SuccessButton {
+  id: string;
+  label: string;
+  url: string;
+  variant?: 'whatsapp' | 'primary' | 'secondary';
+}
+
 export interface PopupThemeConfig {
   primaryColor?: string;
   themeMode?: 'dark' | 'light';
   buttonStyle?: 'solid' | 'gradient';
   badgeText?: string;
+  // Step 1
   step1Title?: string;
   step1Subtitle?: string;
   nameLabel?: string;
@@ -39,16 +49,21 @@ export interface PopupThemeConfig {
   phonePlaceholder?: string;
   step1ButtonText?: string;
   step1FooterCopy?: string;
+  // Step 2
   step2Title?: string;
   step2Subtitle?: string;
   step2ButtonText?: string;
+  // Step 3
   step3Title?: string;
   step3Subtitle?: string;
   step3ButtonText?: string;
   dateLabel?: string;
   timeSlotLabel?: string;
+  meetingSlots?: string[];
+  // Step 4
   step4Title?: string;
   step4Subtitle?: string;
+  step4Buttons?: SuccessButton[];
 }
 
 interface ThreePopupFunnelModalProps {
@@ -61,6 +76,32 @@ interface ThreePopupFunnelModalProps {
   onComplete?: (leadData: any) => void;
 }
 
+// Generate next 7 days for horizontal slider
+function getUpcomingDates() {
+  const dates = [];
+  const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  
+  const today = new Date();
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+
+    const year = d.getFullYear();
+    const monthStr = String(d.getMonth() + 1).padStart(2, '0');
+    const dayStr = String(d.getDate()).padStart(2, '0');
+    const isoDate = `${year}-${monthStr}-${dayStr}`;
+
+    dates.push({
+      isoDate,
+      dayName: i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : daysOfWeek[d.getDay()],
+      dayNum: d.getDate(),
+      monthName: months[d.getMonth()],
+    });
+  }
+  return dates;
+}
+
 export function ThreePopupFunnelModal({
   isOpen,
   onClose,
@@ -71,19 +112,12 @@ export function ThreePopupFunnelModal({
       options: ['Service Business', 'Manufacturer / B2B', 'Medical / Clinic', 'E-commerce Store'],
       allowMultiple: false,
     },
-    {
-      id: 'q2',
-      label: 'Which Growth Services Do You Need? (Select Multiple)',
-      options: ['Funnel Building', 'WhatsApp CRM Automation', 'Meta / Google Ads', 'Lead Nurturing'],
-      allowMultiple: true,
-    },
   ],
   popupTheme = {},
   funnelId,
   userId,
   onComplete,
 }: ThreePopupFunnelModalProps) {
-  // Theme & Mode Configs
   const primaryColor = popupTheme.primaryColor || '#F59E0B';
   const isLightMode = popupTheme.themeMode === 'light';
   const isSolidButton = popupTheme.buttonStyle === 'solid';
@@ -107,16 +141,29 @@ export function ThreePopupFunnelModal({
   const step2Subtitle = popupTheme.step2Subtitle || 'Answer quick questions so we can customize your growth roadmap';
   const step2BtnText = popupTheme.step2ButtonText || 'PROCEED TO TIME SLOT';
 
-  // Step 3 Copy
+  // Step 3 Copy & Slots
   const step3Title = popupTheme.step3Title || 'Lock Your Strategy Call Slot';
   const step3Subtitle = popupTheme.step3Subtitle || 'Pick a date & time slot for your 1-on-1 session';
   const step3BtnText = popupTheme.step3ButtonText || 'CONFIRM & LOCK BOOKING 📅';
   const dateLabel = popupTheme.dateLabel || 'Select Preferred Meeting Date *';
   const timeSlotLabel = popupTheme.timeSlotLabel || 'Select Strategy Call Time Slot *';
+  const availableTimeSlots = (popupTheme.meetingSlots && popupTheme.meetingSlots.length > 0)
+    ? popupTheme.meetingSlots
+    : ['09:00 AM', '11:00 AM', '02:00 PM', '04:30 PM', '06:00 PM'];
 
-  // Step 4 Copy
-  const step4Title = popupTheme.step4Title || 'Session Reserved! 🎉';
-  const step4Subtitle = popupTheme.step4Subtitle || 'Your booking details are confirmed and locked in our CRM';
+  // Step 4 Copy & Buttons
+  const step4Title = popupTheme.step4Title || 'Booking Confirmed! 🎉';
+  const step4Subtitle = popupTheme.step4Subtitle || 'Your meeting is locked in our calendar and CRM. We look forward to speaking!';
+  const successButtons = popupTheme.step4Buttons || [
+    {
+      id: 'btn1',
+      label: 'Join VIP WhatsApp Group 💬',
+      url: 'https://chat.whatsapp.com/',
+      variant: 'whatsapp',
+    },
+  ];
+
+  const upcomingDates = useMemo(() => getUpcomingDates(), []);
 
   // Active popup step: 1 (Contact), 2 (Survey), 3 (Meeting), 4 (Completed Confirmation)
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
@@ -131,11 +178,11 @@ export function ThreePopupFunnelModal({
   // Popup 2 State: Survey Responses
   const [surveyAnswers, setSurveyAnswers] = useState<Record<string, any>>({});
 
-  // Popup 3 State: Meeting Booking
-  const [meetingDate, setMeetingDate] = useState('2026-08-10');
-  const [meetingTime, setMeetingTime] = useState('02:00 PM');
+  // Popup 3 State: Date & Time Slot
+  const [selectedIsoDate, setSelectedIsoDate] = useState(upcomingDates[0]?.isoDate || '2026-08-10');
+  const [meetingTime, setMeetingTime] = useState(availableTimeSlots[0] || '02:00 PM');
 
-  // Check localStorage on open to auto-resume step 2 if lead previously saved Step 1 info
+  // Auto-resume step 2 if lead session saved in localStorage
   useEffect(() => {
     if (isOpen) {
       try {
@@ -164,9 +211,8 @@ export function ThreePopupFunnelModal({
     }
 
     setIsSubmitting(true);
-    // Save Step 1 Lead Info to Supabase
     try {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('leads')
         .insert({
           funnel_id: funnelId || null,
@@ -211,7 +257,7 @@ export function ThreePopupFunnelModal({
       email,
       step_progress: 'meeting_booked',
       survey_responses: surveyAnswers,
-      meeting_date: meetingDate,
+      meeting_date: selectedIsoDate,
       meeting_time: meetingTime,
     };
 
@@ -257,15 +303,9 @@ export function ThreePopupFunnelModal({
 
   const getButtonStyle = () => {
     if (isSolidButton) {
-      return {
-        backgroundColor: primaryColor,
-        color: '#000000',
-      };
+      return { backgroundColor: primaryColor, color: '#000000' };
     }
-    return {
-      background: `linear-gradient(to right, ${primaryColor}, #FCD34D)`,
-      color: '#000000',
-    };
+    return { background: `linear-gradient(to right, ${primaryColor}, #FCD34D)`, color: '#000000' };
   };
 
   return (
@@ -276,7 +316,7 @@ export function ThreePopupFunnelModal({
         }`}
         style={{ borderColor: isLightMode ? '#E5E7EB' : `${primaryColor}50` }}
       >
-        {/* Close Button & Reset Button */}
+        {/* Top Controls */}
         <div className="absolute top-4 right-4 flex items-center gap-1.5 z-10">
           {step > 1 && (
             <button
@@ -301,7 +341,7 @@ export function ThreePopupFunnelModal({
         </div>
 
         {/* Modal Header */}
-        <div className="p-6 pb-2 text-center space-y-3">
+        <div className="p-6 pb-2 text-center space-y-2.5">
           <div
             className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-bold tracking-wide uppercase border"
             style={{
@@ -335,9 +375,9 @@ export function ThreePopupFunnelModal({
         <div className="p-6 pt-2">
           {/* STEP 1: CONTACT INFO */}
           {step === 1 && (
-            <form onSubmit={handleStep1Submit} className="space-y-4">
+            <form onSubmit={handleStep1Submit} className="space-y-3.5">
               <div>
-                <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
+                <label className={`block text-xs font-bold uppercase tracking-wider mb-1 ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
                   {nameLabel}
                 </label>
                 <div className="relative">
@@ -348,7 +388,7 @@ export function ThreePopupFunnelModal({
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder={namePlaceholder}
-                    className={`w-full pl-10 pr-3.5 py-3 rounded-xl border text-xs font-semibold focus:outline-none ${
+                    className={`w-full pl-10 pr-3.5 py-2.5 rounded-xl border text-xs font-semibold focus:outline-none ${
                       isLightMode ? 'bg-[#F8FAFC] border-gray-300 text-gray-900 placeholder-gray-400' : 'bg-[#131B2A] border-gray-800 text-white placeholder-gray-500'
                     }`}
                   />
@@ -356,7 +396,7 @@ export function ThreePopupFunnelModal({
               </div>
 
               <div>
-                <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
+                <label className={`block text-xs font-bold uppercase tracking-wider mb-1 ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
                   {emailLabel}
                 </label>
                 <div className="relative">
@@ -367,7 +407,7 @@ export function ThreePopupFunnelModal({
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder={emailPlaceholder}
-                    className={`w-full pl-10 pr-3.5 py-3 rounded-xl border text-xs font-semibold focus:outline-none ${
+                    className={`w-full pl-10 pr-3.5 py-2.5 rounded-xl border text-xs font-semibold focus:outline-none ${
                       isLightMode ? 'bg-[#F8FAFC] border-gray-300 text-gray-900 placeholder-gray-400' : 'bg-[#131B2A] border-gray-800 text-white placeholder-gray-500'
                     }`}
                   />
@@ -375,7 +415,7 @@ export function ThreePopupFunnelModal({
               </div>
 
               <div>
-                <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
+                <label className={`block text-xs font-bold uppercase tracking-wider mb-1 ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
                   {phoneLabel}
                 </label>
                 <div className="relative">
@@ -386,7 +426,7 @@ export function ThreePopupFunnelModal({
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder={phonePlaceholder}
-                    className={`w-full pl-10 pr-3.5 py-3 rounded-xl border text-xs font-semibold focus:outline-none ${
+                    className={`w-full pl-10 pr-3.5 py-2.5 rounded-xl border text-xs font-semibold focus:outline-none ${
                       isLightMode ? 'bg-[#F8FAFC] border-gray-300 text-gray-900 placeholder-gray-400' : 'bg-[#131B2A] border-gray-800 text-white placeholder-gray-500'
                     }`}
                   />
@@ -396,7 +436,7 @@ export function ThreePopupFunnelModal({
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full py-3.5 px-4 rounded-xl font-extrabold text-xs uppercase tracking-wider flex flex-col items-center justify-center gap-0.5 shadow-lg transition-all transform active:scale-98 cursor-pointer mt-2"
+                className="w-full py-3.5 px-4 rounded-xl font-extrabold text-xs uppercase tracking-wider flex flex-col items-center justify-center gap-0.5 shadow-lg transition-all cursor-pointer mt-1"
                 style={getButtonStyle()}
               >
                 <span className="flex items-center gap-1.5 text-sm">
@@ -410,10 +450,10 @@ export function ThreePopupFunnelModal({
             </form>
           )}
 
-          {/* STEP 2: DYNAMIC CUSTOMER SURVEY QUESTIONS */}
+          {/* STEP 2: SURVEY QUESTIONS */}
           {step === 2 && (
             <form onSubmit={handleStep2Submit} className="space-y-4">
-              <div className="space-y-4 max-h-[320px] overflow-y-auto pr-1">
+              <div className="space-y-3.5 max-h-[300px] overflow-y-auto pr-1">
                 {surveyQuestions.map((q) => (
                   <div key={q.id} className="space-y-1.5">
                     <div className="flex items-center justify-between">
@@ -483,39 +523,58 @@ export function ThreePopupFunnelModal({
             </form>
           )}
 
-          {/* STEP 3: MEETING TIME SLOT BOOKING */}
+          {/* STEP 3: MEETING DATE SLIDER & TIME SLOTS */}
           {step === 3 && (
             <form onSubmit={handleStep3Submit} className="space-y-4">
+              {/* HORIZONTAL DATE SLIDER CAROUSEL */}
               <div>
-                <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
+                <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
                   {dateLabel}
                 </label>
-                <input
-                  type="date"
-                  required
-                  value={meetingDate}
-                  onChange={(e) => setMeetingDate(e.target.value)}
-                  className={`w-full px-3.5 py-3 rounded-xl border text-xs font-bold ${
-                    isLightMode ? 'bg-[#F8FAFC] border-gray-300 text-gray-900' : 'bg-[#131B2A] border-gray-800 text-white'
-                  }`}
-                />
+                <div className="flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-none">
+                  {upcomingDates.map((item) => {
+                    const isSelected = selectedIsoDate === item.isoDate;
+                    return (
+                      <button
+                        type="button"
+                        key={item.isoDate}
+                        onClick={() => setSelectedIsoDate(item.isoDate)}
+                        className={`flex flex-col items-center justify-center min-w-[62px] py-2 px-1.5 rounded-2xl border text-center transition-all cursor-pointer shrink-0 ${
+                          isSelected
+                            ? 'border-amber-400 bg-amber-500/20 text-white shadow-md font-extrabold'
+                            : isLightMode
+                            ? 'border-gray-200 bg-[#F8FAFC] text-gray-700 hover:bg-gray-100'
+                            : 'border-gray-800 bg-[#131B2A] text-gray-400 hover:border-gray-700'
+                        }`}
+                        style={isSelected ? { borderColor: primaryColor, backgroundColor: `${primaryColor}20` } : {}}
+                      >
+                        <span className="text-[10px] uppercase tracking-wider font-semibold opacity-75">{item.dayName}</span>
+                        <span className="text-base font-extrabold my-0.5" style={{ color: isSelected ? primaryColor : undefined }}>
+                          {item.dayNum}
+                        </span>
+                        <span className="text-[9px] uppercase font-mono text-gray-400">{item.monthName}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
+              {/* CUSTOM TIME SLOTS SELECTOR */}
               <div>
-                <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
+                <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
                   {timeSlotLabel}
                 </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {['09:00 AM', '11:00 AM', '02:00 PM', '04:00 PM'].map((slot) => {
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {availableTimeSlots.map((slot) => {
                     const isSelected = meetingTime === slot;
                     return (
                       <button
                         type="button"
                         key={slot}
                         onClick={() => setMeetingTime(slot)}
-                        className={`p-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border transition-all cursor-pointer ${
+                        className={`p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${
                           isSelected
-                            ? 'border-emerald-500 bg-emerald-500/20 text-emerald-600 shadow-sm'
+                            ? 'border-emerald-500 bg-emerald-500/20 text-emerald-400 shadow-sm'
                             : isLightMode
                             ? 'border-gray-200 bg-[#F8FAFC] text-gray-800 hover:bg-gray-100'
                             : 'border-gray-800 bg-[#131B2A] text-gray-300 hover:border-gray-700'
@@ -541,22 +600,42 @@ export function ThreePopupFunnelModal({
             </form>
           )}
 
-          {/* STEP 4: COMPLETED CONFIRMATION */}
+          {/* STEP 4: COMPLETED CONFIRMATION & ACTION BUTTONS */}
           {step === 4 && (
-            <div className="text-center space-y-4 py-4">
+            <div className="text-center space-y-4 py-2">
               <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 flex items-center justify-center mx-auto shadow-sm">
                 <CheckCircle2 className="w-8 h-8" />
               </div>
 
-              <h4 className={`text-2xl font-extrabold ${isLightMode ? 'text-gray-900' : 'text-white'}`}>
-                Booking Confirmed!
-              </h4>
+              <div className="space-y-1">
+                <h4 className={`text-xl font-extrabold ${isLightMode ? 'text-gray-900' : 'text-white'}`}>
+                  {step4Title}
+                </h4>
+                <p className={`text-xs max-w-xs mx-auto leading-relaxed ${isLightMode ? 'text-gray-600' : 'text-gray-300'}`}>
+                  Thank you <span className="font-bold" style={{ color: primaryColor }}>{name}</span>! Your meeting is set for <span className="font-bold text-emerald-400">{selectedIsoDate} at {meetingTime}</span>.
+                </p>
+              </div>
 
-              <p className={`text-xs max-w-sm mx-auto leading-relaxed ${isLightMode ? 'text-gray-600' : 'text-gray-300'}`}>
-                Thank you <span className="font-bold" style={{ color: primaryColor }}>{name}</span>! Your meeting is locked for <span className="font-bold text-emerald-500">{meetingDate} at {meetingTime}</span>. Details saved to CRM.
-              </p>
+              {/* ACTION BUTTONS (e.g. JOIN WHATSAPP GROUP) */}
+              {successButtons && successButtons.length > 0 && (
+                <div className="space-y-2 pt-1">
+                  {successButtons.map((btn) => (
+                    <a
+                      key={btn.id || btn.label}
+                      href={btn.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="w-full py-3 px-4 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-black shadow-md transition-all cursor-pointer"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      <span>{btn.label}</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  ))}
+                </div>
+              )}
 
-              <Button variant="primary" size="md" onClick={onClose} className="mt-2">
+              <Button variant="outline" size="md" onClick={onClose} className="w-full mt-2">
                 Done
               </Button>
             </div>

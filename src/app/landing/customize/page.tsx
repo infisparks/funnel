@@ -27,8 +27,10 @@ import {
   Trash2,
   X,
   Clock,
+  MessageCircle,
+  ExternalLink,
 } from 'lucide-react';
-import { ThreePopupFunnelModal, PopupThemeConfig, SurveyQuestion } from '@/components/funnel/ThreePopupFunnelModal';
+import { ThreePopupFunnelModal, PopupThemeConfig, SurveyQuestion, SuccessButton } from '@/components/funnel/ThreePopupFunnelModal';
 
 // 21 Premium Curated Luxury Color Palettes
 const PRESET_COLORS = [
@@ -60,7 +62,7 @@ export default function CustomizeStudioPage() {
   const { workspace, saveWorkspaceConfig } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'theme' | 'survey'>('theme');
-  const [activeStepTab, setActiveStepTab] = useState<1 | 2 | 3 | 4>(1);
+  const [activeStepTab, setActiveStepTab] = useState<1 | 2 | 3 | 4 | 5>(1);
 
   // Theme Config State
   const [theme, setTheme] = useState<PopupThemeConfig>({
@@ -86,6 +88,17 @@ export default function CustomizeStudioPage() {
     step3ButtonText: 'CONFIRM & LOCK BOOKING 📅',
     dateLabel: 'Select Preferred Meeting Date *',
     timeSlotLabel: 'Select Strategy Call Time Slot *',
+    meetingSlots: ['09:00 AM', '11:00 AM', '02:00 PM', '04:30 PM', '06:00 PM'],
+    step4Title: 'Booking Confirmed! 🎉',
+    step4Subtitle: 'Your meeting is locked in our calendar and CRM. We look forward to speaking!',
+    step4Buttons: [
+      {
+        id: 'btn1',
+        label: 'Join VIP WhatsApp Group 💬',
+        url: 'https://chat.whatsapp.com/',
+        variant: 'whatsapp',
+      },
+    ],
   });
 
   // Default: EXACTLY 1 Editable Survey Question
@@ -155,6 +168,44 @@ export default function CustomizeStudioPage() {
     setSurveyQuestions(updated);
   };
 
+  // Meeting Slot Handlers
+  const handleAddSlot = () => {
+    const currentSlots = theme.meetingSlots || ['09:00 AM', '11:00 AM', '02:00 PM'];
+    setTheme({
+      ...theme,
+      meetingSlots: [...currentSlots, '08:00 PM'],
+    });
+  };
+
+  const handleRemoveSlot = (idx: number) => {
+    const currentSlots = [...(theme.meetingSlots || [])];
+    currentSlots.splice(idx, 1);
+    setTheme({ ...theme, meetingSlots: currentSlots });
+  };
+
+  // Success Button Handlers
+  const handleAddSuccessButton = () => {
+    const currentBtns = theme.step4Buttons || [];
+    setTheme({
+      ...theme,
+      step4Buttons: [
+        ...currentBtns,
+        {
+          id: `btn_${Date.now()}`,
+          label: 'Join VIP WhatsApp Group 💬',
+          url: 'https://chat.whatsapp.com/',
+          variant: 'whatsapp',
+        },
+      ],
+    });
+  };
+
+  const handleRemoveSuccessButton = (idx: number) => {
+    const currentBtns = [...(theme.step4Buttons || [])];
+    currentBtns.splice(idx, 1);
+    setTheme({ ...theme, step4Buttons: currentBtns });
+  };
+
   const primaryColor = theme.primaryColor || '#F59E0B';
   const isLightMode = theme.themeMode === 'light';
   const isSolidButton = theme.buttonStyle === 'solid';
@@ -184,7 +235,7 @@ export default function CustomizeStudioPage() {
                 Full-Screen 3-Popup Funnel Studio
               </h1>
               <p className="text-xs text-gray-500">
-                21 premium colors, editable field labels, default 1 survey question, and real-time live preview.
+                Design custom meeting slots, date slider, WhatsApp group buttons, and 21 luxury colors.
               </p>
             </div>
           </div>
@@ -245,7 +296,7 @@ export default function CustomizeStudioPage() {
                   <div className="flex items-center gap-1.5 p-1 bg-gray-200/60 rounded-xl overflow-x-auto">
                     <button
                       onClick={() => setActiveStepTab(1)}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold cursor-pointer ${
+                      className={`px-3 py-1 rounded-lg text-xs font-bold cursor-pointer shrink-0 ${
                         activeStepTab === 1 ? 'bg-white text-gray-900 shadow-2xs' : 'text-gray-600'
                       }`}
                     >
@@ -253,7 +304,7 @@ export default function CustomizeStudioPage() {
                     </button>
                     <button
                       onClick={() => setActiveStepTab(2)}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold cursor-pointer ${
+                      className={`px-3 py-1 rounded-lg text-xs font-bold cursor-pointer shrink-0 ${
                         activeStepTab === 2 ? 'bg-white text-gray-900 shadow-2xs' : 'text-gray-600'
                       }`}
                     >
@@ -261,19 +312,27 @@ export default function CustomizeStudioPage() {
                     </button>
                     <button
                       onClick={() => setActiveStepTab(3)}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold cursor-pointer ${
+                      className={`px-3 py-1 rounded-lg text-xs font-bold cursor-pointer shrink-0 ${
                         activeStepTab === 3 ? 'bg-white text-gray-900 shadow-2xs' : 'text-gray-600'
                       }`}
                     >
-                      Step 3 (Meeting)
+                      Step 3 (Slots)
+                    </button>
+                    <button
+                      onClick={() => setActiveStepTab(5)}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold cursor-pointer shrink-0 ${
+                        activeStepTab === 5 ? 'bg-emerald-600 text-white shadow-2xs' : 'text-gray-600'
+                      }`}
+                    >
+                      Step 4 (Success Page)
                     </button>
                     <button
                       onClick={() => setActiveStepTab(4)}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold cursor-pointer ${
+                      className={`px-3 py-1 rounded-lg text-xs font-bold cursor-pointer shrink-0 ${
                         activeStepTab === 4 ? 'bg-indigo-600 text-white shadow-2xs' : 'text-gray-600'
                       }`}
                     >
-                      🎨 21 Theme Colors & Styles
+                      🎨 Colors
                     </button>
                   </div>
 
@@ -302,7 +361,6 @@ export default function CustomizeStudioPage() {
                         />
                       </div>
 
-                      {/* Field Labels */}
                       <div className="p-3.5 rounded-2xl bg-gray-50 border border-gray-200 space-y-3">
                         <h5 className="text-xs font-extrabold text-gray-800 uppercase tracking-wider">
                           Field Titles & Input Placeholders
@@ -422,11 +480,11 @@ export default function CustomizeStudioPage() {
                     </div>
                   )}
 
-                  {/* STEP 3 CONTROLS */}
+                  {/* STEP 3 CONTROLS & CUSTOM TIME SLOTS MANAGER */}
                   {activeStepTab === 3 && (
-                    <div className="space-y-3 bg-white p-4 rounded-2xl border border-gray-200">
+                    <div className="space-y-4 bg-white p-4 rounded-2xl border border-gray-200">
                       <h4 className="text-xs font-extrabold text-amber-600 uppercase tracking-wider">
-                        Form 3 Copy, Date & Time Labels
+                        Form 3 Meeting Booking & Time Slots Manager
                       </h4>
                       <div>
                         <label className="block text-xs font-bold text-gray-700 mb-1">Step 3 Title</label>
@@ -446,24 +504,49 @@ export default function CustomizeStudioPage() {
                           className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs text-gray-700"
                         />
                       </div>
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Meeting Date Field Label</label>
-                        <input
-                          type="text"
-                          value={theme.dateLabel}
-                          onChange={(e) => setTheme({ ...theme, dateLabel: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs text-gray-800"
-                        />
+
+                      {/* Custom Time Slots Manager */}
+                      <div className="p-3.5 rounded-2xl bg-amber-50/60 border border-amber-200 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h5 className="text-xs font-extrabold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
+                            <Clock className="w-4 h-4 text-amber-600" />
+                            <span>Custom Available Time Slots</span>
+                          </h5>
+                          <button
+                            type="button"
+                            onClick={handleAddSlot}
+                            className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs rounded-lg flex items-center gap-1 cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Add Time Slot</span>
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          {(theme.meetingSlots || ['09:00 AM', '11:00 AM', '02:00 PM', '04:30 PM']).map((slot, idx) => (
+                            <div key={idx} className="flex items-center gap-1 bg-white border border-gray-300 rounded-xl px-2.5 py-1.5">
+                              <input
+                                type="text"
+                                value={slot}
+                                onChange={(e) => {
+                                  const updatedSlots = [...(theme.meetingSlots || [])];
+                                  updatedSlots[idx] = e.target.value;
+                                  setTheme({ ...theme, meetingSlots: updatedSlots });
+                                }}
+                                className="w-full text-xs font-bold text-gray-900 bg-transparent focus:outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveSlot(idx)}
+                                className="text-gray-400 hover:text-rose-500 p-1 cursor-pointer"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Time Slot Field Label</label>
-                        <input
-                          type="text"
-                          value={theme.timeSlotLabel}
-                          onChange={(e) => setTheme({ ...theme, timeSlotLabel: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs text-gray-800"
-                        />
-                      </div>
+
                       <div>
                         <label className="block text-xs font-bold text-gray-700 mb-1">Step 3 CTA Button Text</label>
                         <input
@@ -472,6 +555,102 @@ export default function CustomizeStudioPage() {
                           onChange={(e) => setTheme({ ...theme, step3ButtonText: e.target.value })}
                           className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs font-bold text-amber-600"
                         />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* STEP 5: SUCCESS PAGE & WHATSAPP BUTTON BUILDER */}
+                  {activeStepTab === 5 && (
+                    <div className="space-y-4 bg-white p-4 rounded-2xl border border-gray-200">
+                      <h4 className="text-xs font-extrabold text-emerald-600 uppercase tracking-wider flex items-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        <span>Step 4 Success Page & Action Buttons</span>
+                      </h4>
+
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Success Title</label>
+                        <input
+                          type="text"
+                          value={theme.step4Title}
+                          onChange={(e) => setTheme({ ...theme, step4Title: e.target.value })}
+                          placeholder="Booking Confirmed! 🎉"
+                          className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs font-bold text-gray-900"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Success Description</label>
+                        <textarea
+                          rows={2}
+                          value={theme.step4Subtitle}
+                          onChange={(e) => setTheme({ ...theme, step4Subtitle: e.target.value })}
+                          className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs text-gray-700"
+                        />
+                      </div>
+
+                      {/* Success Action Buttons (e.g. Join WhatsApp Group) */}
+                      <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h5 className="text-xs font-extrabold text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
+                            <MessageCircle className="w-4 h-4 text-emerald-600" />
+                            <span>Success Action Buttons (WhatsApp Group, etc.)</span>
+                          </h5>
+                          <button
+                            type="button"
+                            onClick={handleAddSuccessButton}
+                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-lg flex items-center gap-1 cursor-pointer shadow-xs"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Add Button</span>
+                          </button>
+                        </div>
+
+                        <div className="space-y-2.5">
+                          {(theme.step4Buttons || []).map((btn, bIdx) => (
+                            <div key={btn.id || bIdx} className="p-3 bg-white border border-emerald-200 rounded-xl space-y-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-[11px] font-bold text-emerald-800">Action Button #{bIdx + 1}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveSuccessButton(bIdx)}
+                                  className="text-rose-500 hover:bg-rose-50 p-1 rounded-lg cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+
+                              <input
+                                type="text"
+                                value={btn.label}
+                                onChange={(e) => {
+                                  const updatedBtns = [...(theme.step4Buttons || [])];
+                                  updatedBtns[bIdx].label = e.target.value;
+                                  setTheme({ ...theme, step4Buttons: updatedBtns });
+                                }}
+                                placeholder="Button Label (e.g. Join VIP WhatsApp Group 💬)"
+                                className="w-full px-3 py-1.5 rounded-lg border border-gray-300 text-xs font-bold text-gray-900"
+                              />
+
+                              <input
+                                type="text"
+                                value={btn.url}
+                                onChange={(e) => {
+                                  const updatedBtns = [...(theme.step4Buttons || [])];
+                                  updatedBtns[bIdx].url = e.target.value;
+                                  setTheme({ ...theme, step4Buttons: updatedBtns });
+                                }}
+                                placeholder="Target Link URL (e.g. https://chat.whatsapp.com/...)"
+                                className="w-full px-3 py-1.5 rounded-lg border border-gray-300 text-xs font-mono text-gray-700"
+                              />
+                            </div>
+                          ))}
+
+                          {(!theme.step4Buttons || theme.step4Buttons.length === 0) && (
+                            <span className="text-xs text-gray-500 italic block">
+                              No buttons added yet. Click "Add Button" to attach a WhatsApp group or resource link!
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}
@@ -695,7 +874,7 @@ export default function CustomizeStudioPage() {
                   className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border"
                   style={{ backgroundColor: `${primaryColor}15`, borderColor: `${primaryColor}40`, color: primaryColor }}
                 >
-                  <span>Step {activeTab === 'survey' ? 2 : (activeStepTab > 3 ? 1 : activeStepTab)} of 3</span>
+                  <span>Step {activeTab === 'survey' ? 2 : (activeStepTab > 4 ? 3 : activeStepTab)} of 3</span>
                 </div>
 
                 <h3 className={`text-lg font-extrabold ${isLightMode ? 'text-[#111827]' : 'text-white'}`}>
@@ -703,6 +882,7 @@ export default function CustomizeStudioPage() {
                   {activeTab === 'theme' && activeStepTab === 1 && (theme.step1Title || 'Claim Your Consultation')}
                   {activeTab === 'theme' && activeStepTab === 2 && (theme.step2Title || 'Qualify Requirements')}
                   {activeTab === 'theme' && activeStepTab === 3 && (theme.step3Title || 'Lock Strategy Slot')}
+                  {activeTab === 'theme' && activeStepTab === 5 && (theme.step4Title || 'Booking Confirmed! 🎉')}
                 </h3>
 
                 <p className={`text-xs block leading-snug ${isLightMode ? 'text-gray-600' : 'text-gray-400'}`}>
@@ -710,6 +890,7 @@ export default function CustomizeStudioPage() {
                   {activeTab === 'theme' && activeStepTab === 1 && (theme.step1Subtitle || 'Enter your details to reserve your custom strategy session')}
                   {activeTab === 'theme' && activeStepTab === 2 && (theme.step2Subtitle || 'Answer quick questions so we can customize your roadmap')}
                   {activeTab === 'theme' && activeStepTab === 3 && (theme.step3Subtitle || 'Pick a date & time slot for your 1-on-1 session')}
+                  {activeTab === 'theme' && activeStepTab === 5 && (theme.step4Subtitle || 'Your meeting is locked in our calendar.')}
                 </p>
               </div>
 
@@ -807,32 +988,42 @@ export default function CustomizeStudioPage() {
                 </div>
               )}
 
-              {/* LIVE FORM CONTENT STEP 3 */}
+              {/* LIVE FORM CONTENT STEP 3 (HORIZONTAL DATE SLIDER + TIME SLOTS) */}
               {activeTab === 'theme' && activeStepTab === 3 && (
                 <div className="p-5 pt-2 space-y-3">
                   <div>
-                    <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
-                      {theme.dateLabel || 'Select Preferred Meeting Date *'}
+                    <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1.5 ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
+                      {theme.dateLabel || 'SELECT PREFERRED MEETING DATE *'}
                     </label>
-                    <input
-                      type="date"
-                      disabled
-                      value="2026-08-10"
-                      className={`w-full px-3 py-2 rounded-xl border text-xs font-bold ${
-                        isLightMode ? 'bg-[#F8FAFC] border-gray-300 text-gray-900' : 'bg-[#131B2A] border-gray-800 text-white'
-                      }`}
-                    />
+
+                    {/* Date Carousel Slider Preview */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                      {['Wed 11 Aug', 'Thu 12 Aug', 'Fri 13 Aug', 'Sat 14 Aug'].map((d, i) => (
+                        <div
+                          key={d}
+                          className={`px-2.5 py-1.5 rounded-xl border text-[10px] font-bold shrink-0 ${
+                            i === 0
+                              ? 'border-amber-400 bg-amber-500/20 text-white'
+                              : isLightMode
+                              ? 'bg-gray-100 border-gray-200 text-gray-700'
+                              : 'bg-[#131B2A] border-gray-800 text-gray-400'
+                          }`}
+                        >
+                          {d}
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
                   <div>
-                    <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
-                      {theme.timeSlotLabel || 'Select Strategy Call Time Slot *'}
+                    <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1.5 ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
+                      {theme.timeSlotLabel || 'SELECT TIME SLOT *'}
                     </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {['09:00 AM', '11:00 AM', '02:00 PM', '04:00 PM'].map((slot, idx) => (
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {(theme.meetingSlots || ['09:00 AM', '11:00 AM', '02:00 PM', '04:30 PM']).map((slot, idx) => (
                         <div
                           key={slot}
-                          className={`p-2.5 rounded-xl text-[10px] font-bold flex items-center gap-1.5 border ${
+                          className={`p-2 rounded-xl text-[10px] font-bold flex items-center gap-1 border truncate ${
                             idx === 2
                               ? 'border-emerald-500 bg-emerald-500/20 text-emerald-400'
                               : isLightMode
@@ -840,8 +1031,8 @@ export default function CustomizeStudioPage() {
                               : 'bg-[#131B2A] border-gray-800 text-gray-400'
                           }`}
                         >
-                          <Clock className="w-3 h-3 text-amber-400" />
-                          <span>{slot}</span>
+                          <Clock className="w-3 h-3 text-amber-400 shrink-0" />
+                          <span className="truncate">{slot}</span>
                         </div>
                       ))}
                     </div>
@@ -854,6 +1045,39 @@ export default function CustomizeStudioPage() {
                     <Calendar className="w-3.5 h-3.5" />
                     <span>{theme.step3ButtonText || 'CONFIRM & LOCK BOOKING 📅'}</span>
                   </button>
+                </div>
+              )}
+
+              {/* LIVE FORM CONTENT STEP 4 (SUCCESS PAGE & WHATSAPP BUTTON) */}
+              {activeTab === 'theme' && activeStepTab === 5 && (
+                <div className="p-5 pt-2 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 flex items-center justify-center mx-auto shadow-sm">
+                    <CheckCircle2 className="w-6 h-6" />
+                  </div>
+
+                  <div className="space-y-1">
+                    <h4 className={`text-base font-extrabold ${isLightMode ? 'text-gray-900' : 'text-white'}`}>
+                      {theme.step4Title || 'Booking Confirmed! 🎉'}
+                    </h4>
+                    <p className={`text-[11px] leading-relaxed ${isLightMode ? 'text-gray-600' : 'text-gray-300'}`}>
+                      {theme.step4Subtitle || 'Your meeting is locked in our CRM.'}
+                    </p>
+                  </div>
+
+                  {theme.step4Buttons && theme.step4Buttons.length > 0 && (
+                    <div className="space-y-1.5 pt-1">
+                      {theme.step4Buttons.map((btn) => (
+                        <div
+                          key={btn.id}
+                          className="w-full py-2.5 px-3 rounded-xl font-extrabold text-[11px] uppercase flex items-center justify-center gap-1.5 bg-[#25D366] text-black shadow-md"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                          <span className="truncate">{btn.label}</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
