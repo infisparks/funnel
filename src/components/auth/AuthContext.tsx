@@ -49,7 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (err) {
         console.error('Error fetching session:', err);
-      } finally {
+      } font-medium; finally {
         setLoading(false);
       }
     }
@@ -166,9 +166,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/login');
   };
 
-  // Auth Guard: Auto-redirect unauthenticated users to /login
+  // Auth Guard: Auto-redirect unauthenticated users to /login ONLY on protected CRM routes
   useEffect(() => {
-    if (!loading && !user && pathname !== '/login') {
+    const isPublicRoute = pathname === '/login' || pathname === '/landing';
+    const isSubdomainHost =
+      typeof window !== 'undefined' &&
+      window.location.hostname.includes('.') &&
+      !window.location.hostname.includes('localhost') &&
+      !window.location.hostname.includes('vercel.app') &&
+      window.location.hostname !== 'firstoption.cloud' &&
+      window.location.hostname !== 'www.firstoption.cloud';
+
+    if (!loading && !user && !isPublicRoute && !isSubdomainHost) {
       router.push('/login');
     }
   }, [loading, user, pathname, router]);
