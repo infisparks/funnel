@@ -22,15 +22,13 @@ import {
   Plus,
   Trash2,
   Save,
-  Palette,
   Maximize2,
 } from 'lucide-react';
 import { DEFAULT_LANDING_HTML } from '@/lib/defaultLandingHtml';
 import { HtmlCodeEditorModal } from '@/components/landing/HtmlCodeEditorModal';
 import { CustomDomainModal } from '@/components/landing/CustomDomainModal';
 import { ThreePopupFunnelModal, PopupThemeConfig } from '@/components/funnel/ThreePopupFunnelModal';
-import { SurveyBuilderModal, SurveyQuestion } from '@/components/funnel/SurveyBuilderModal';
-import { PopupThemeModal } from '@/components/funnel/PopupThemeModal';
+import { SurveyQuestion } from '@/components/funnel/SurveyBuilderModal';
 
 interface LandingPageClientProps {
   initialHtmlCode: string;
@@ -72,8 +70,6 @@ export function LandingPageClient({
   const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isDomainModalOpen, setIsDomainModalOpen] = useState(false);
-  const [isSurveyModalOpen, setIsSurveyModalOpen] = useState(false);
-  const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
   const [isPopupFunnelOpen, setIsPopupFunnelOpen] = useState(false);
   const [isSavingSupabase, setIsSavingSupabase] = useState(false);
   const [supabaseToastMsg, setSupabaseToastMsg] = useState('');
@@ -204,16 +200,13 @@ export function LandingPageClient({
             const target = e.target.closest('a, button, input[type="submit"]');
             if (!target) return;
 
-            // Explicit opt-out
             if (target.dataset.noPopup === 'true') return;
 
             const clickedText = (target.textContent || '').trim();
             const fullText = clickedText.toLowerCase();
 
-            // ALWAYS send BUTTON_CLICKED event to parent window so picker mode captures ANY clicked button!
             window.parent.postMessage({ type: 'BUTTON_CLICKED', text: clickedText }, '*');
 
-            // If trigger list has items, match exact text. Otherwise default to action keywords if list is empty
             let matchesTrigger = false;
 
             if (validTriggers && validTriggers.length > 0) {
@@ -221,7 +214,6 @@ export function LandingPageClient({
                 return trig && (fullText === trig || fullText.indexOf(trig) !== -1);
               });
             } else {
-              // Default CTA keywords fallback if user hasn't selected any specific triggers yet
               matchesTrigger = target.dataset.popup === 'true' ||
                 fullText.indexOf('book') !== -1 ||
                 fullText.indexOf('strategy') !== -1 ||
@@ -253,7 +245,7 @@ export function LandingPageClient({
     return code;
   }, [htmlCode, triggerButtons, initialWorkspace]);
 
-  // Listen to postMessage from iframe to open 3-popup lead capture modal & register picked button
+  // Listen to postMessage from iframe
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       if (event.data === 'OPEN_FUNNEL_POPUP') {
@@ -269,9 +261,7 @@ export function LandingPageClient({
     return () => window.removeEventListener('message', handleMessage);
   }, [isPickerActive, triggerButtons]);
 
-  // =========================================================================
-  // PUBLIC STANDALONE SUBDOMAIN LANDING PAGE VIEW (ZERO DELAY SERVER RENDER)
-  // =========================================================================
+  // PUBLIC STANDALONE SUBDOMAIN VIEW
   if (isPublicView) {
     return (
       <div className="w-screen h-screen overflow-hidden bg-white relative font-sans">
@@ -282,7 +272,6 @@ export function LandingPageClient({
           sandbox="allow-scripts allow-forms"
         />
 
-        {/* 3-Popup Lead Capture Funnel Modal Engine */}
         <ThreePopupFunnelModal
           isOpen={isPopupFunnelOpen}
           onClose={() => setIsPopupFunnelOpen(false)}
@@ -302,12 +291,10 @@ export function LandingPageClient({
     );
   }
 
-  // =========================================================================
-  // ADMIN STUDIO VIEW (POPPINS FONT, COMPACT, HIGHLY RESPONSIVE PC/MOBILE UI)
-  // =========================================================================
+  // ADMIN STUDIO VIEW
   return (
     <MainLayout>
-      {/* Supabase Success Toast Notification Floating Banner */}
+      {/* Toast Notification Banner */}
       {supabaseToastMsg && (
         <div className="fixed top-6 right-6 z-50 animate-in fade-in slide-in-from-top-4 duration-300 font-sans">
           <div className="p-3.5 rounded-2xl bg-[#059669] text-white font-bold text-xs shadow-2xl flex items-center gap-2.5 border border-emerald-400">
@@ -343,31 +330,21 @@ export function LandingPageClient({
             <span>Sync Supabase</span>
           </Button>
 
-          {/* Dedicated Full-Screen Studio Page Button */}
+          {/* Dedicated Full-Screen Studio Page Primary Action Button */}
           <button
             onClick={() => router.push('/landing/customize')}
-            className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer border border-amber-600"
+            className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer border border-amber-600"
           >
             <Maximize2 className="w-3.5 h-3.5" />
             <span>Full Designer Studio 🖥️</span>
           </button>
-
-          {/* Customize Popup Theme Button */}
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setIsThemeModalOpen(true)}
-            leftIcon={<Palette className="w-3.5 h-3.5 text-amber-500" />}
-          >
-            <span>Customize Theme 🎨</span>
-          </Button>
 
           {/* Interactive Trigger Button Picker Toggle */}
           <button
             onClick={() => {
               const nextPickerState = !isPickerActive;
               setIsPickerActive(nextPickerState);
-              setShowTriggerBar(true); // Reveal trigger bar when user clicks Pick Trigger Button
+              setShowTriggerBar(true);
               if (nextPickerState) {
                 showToast('Click ANY button in the live preview below to select it as trigger! 🎯');
               }
@@ -403,15 +380,6 @@ export function LandingPageClient({
             <ExternalLink className="w-3 h-3 text-emerald-600" />
           </a>
 
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setIsSurveyModalOpen(true)}
-            leftIcon={<ListOrdered className="w-3.5 h-3.5 text-amber-500" />}
-          >
-            <span>Customize Survey</span>
-          </Button>
-
           <button
             onClick={() => setIsDomainModalOpen(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#E5E7EB] bg-white hover:bg-gray-50 text-xs font-bold text-gray-800 shadow-2xs cursor-pointer"
@@ -446,7 +414,6 @@ export function LandingPageClient({
               </span>
             </div>
 
-            {/* Add Manual Trigger Input & Save Triggers Button */}
             <div className="flex flex-wrap items-center gap-1.5">
               <input
                 type="text"
@@ -466,7 +433,6 @@ export function LandingPageClient({
                 <span>Add</span>
               </button>
 
-              {/* Save Triggers to Supabase Button */}
               <button
                 onClick={handleSaveTriggersToSupabase}
                 className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs flex items-center gap-1.5 cursor-pointer shrink-0 shadow-sm border border-emerald-400"
@@ -477,7 +443,6 @@ export function LandingPageClient({
             </div>
           </div>
 
-          {/* Trigger Badges List */}
           <div className="flex flex-wrap items-center gap-2 pt-1">
             {triggerButtons.map((trigText, idx) => (
               <div
@@ -652,20 +617,6 @@ export function LandingPageClient({
         onClose={() => setIsDomainModalOpen(false)}
         currentDomain={customDomain}
         onSaveDomain={handleSaveDomain}
-      />
-
-      <SurveyBuilderModal
-        isOpen={isSurveyModalOpen}
-        onClose={() => setIsSurveyModalOpen(false)}
-        questions={surveyQuestions}
-        onSaveQuestions={(newQ) => setSurveyQuestions(newQ)}
-      />
-
-      <PopupThemeModal
-        isOpen={isThemeModalOpen}
-        onClose={() => setIsThemeModalOpen(false)}
-        themeConfig={popupTheme}
-        onSaveTheme={(newTheme) => setPopupTheme(newTheme)}
       />
 
       <ThreePopupFunnelModal
