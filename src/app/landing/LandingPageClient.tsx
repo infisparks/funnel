@@ -16,11 +16,13 @@ import {
   Lock,
   Zap,
   Database,
+  ListOrdered,
 } from 'lucide-react';
 import { DEFAULT_LANDING_HTML } from '@/lib/defaultLandingHtml';
 import { HtmlCodeEditorModal } from '@/components/landing/HtmlCodeEditorModal';
 import { CustomDomainModal } from '@/components/landing/CustomDomainModal';
 import { ThreePopupFunnelModal } from '@/components/funnel/ThreePopupFunnelModal';
+import { SurveyBuilderModal, SurveyQuestion } from '@/components/funnel/SurveyBuilderModal';
 
 interface LandingPageClientProps {
   initialHtmlCode: string;
@@ -43,9 +45,14 @@ export function LandingPageClient({
   const [htmlCode, setHtmlCode] = useState(initialHtmlCode || DEFAULT_LANDING_HTML);
   const [customDomain, setCustomDomain] = useState(initialWorkspace?.custom_domain || 'firstoption.cloud');
   const [subdomain, setSubdomain] = useState(subdomainName || initialWorkspace?.subdomain || 'client1');
+  const [surveyQuestions, setSurveyQuestions] = useState<SurveyQuestion[]>(
+    initialWorkspace?.survey_questions || []
+  );
+
   const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isDomainModalOpen, setIsDomainModalOpen] = useState(false);
+  const [isSurveyModalOpen, setIsSurveyModalOpen] = useState(false);
   const [isPopupFunnelOpen, setIsPopupFunnelOpen] = useState(false);
   const [isSavingSupabase, setIsSavingSupabase] = useState(false);
   const [supabaseToastMsg, setSupabaseToastMsg] = useState('');
@@ -56,6 +63,7 @@ export function LandingPageClient({
       if (workspace.landing_html) setHtmlCode(workspace.landing_html);
       if (workspace.custom_domain) setCustomDomain(workspace.custom_domain);
       if (workspace.subdomain) setSubdomain(workspace.subdomain);
+      if (workspace.survey_questions) setSurveyQuestions(workspace.survey_questions);
     }
   }, [workspace, isPublicView]);
 
@@ -92,6 +100,7 @@ export function LandingPageClient({
       landing_html: htmlCode,
       subdomain,
       custom_domain: customDomain,
+      survey_questions: surveyQuestions,
     });
     setIsSavingSupabase(false);
     if (ok) {
@@ -161,7 +170,11 @@ export function LandingPageClient({
           onClose={() => setIsPopupFunnelOpen(false)}
           funnelId={initialWorkspace?.id}
           userId={initialWorkspace?.user_id}
-          surveyQuestions={initialWorkspace?.survey_questions}
+          surveyQuestions={
+            surveyQuestions && surveyQuestions.length > 0
+              ? surveyQuestions
+              : initialWorkspace?.survey_questions
+          }
           onComplete={(lead) => {
             console.log('Lead captured via subdomain funnel:', lead);
           }}
@@ -212,10 +225,18 @@ export function LandingPageClient({
 
           <Button
             variant="secondary"
-            onClick={() => setIsPopupFunnelOpen(true)}
-            leftIcon={<Zap className="w-4 h-4 text-amber-500" />}
+            onClick={() => setIsSurveyModalOpen(true)}
+            leftIcon={<ListOrdered className="w-4 h-4 text-amber-500" />}
           >
-            <span>Test 3-Popup Funnel</span>
+            <span>Customize Survey Form</span>
+          </Button>
+
+          <Button
+            variant="secondary"
+            onClick={() => setIsPopupFunnelOpen(true)}
+            leftIcon={<Zap className="w-4 h-4 text-[#8146F0]" />}
+          >
+            <span>Test 3-Popup Flow</span>
           </Button>
 
           <button
@@ -380,12 +401,19 @@ export function LandingPageClient({
         onSaveDomain={handleSaveDomain}
       />
 
+      <SurveyBuilderModal
+        isOpen={isSurveyModalOpen}
+        onClose={() => setIsSurveyModalOpen(false)}
+        questions={surveyQuestions}
+        onSaveQuestions={(newQ) => setSurveyQuestions(newQ)}
+      />
+
       <ThreePopupFunnelModal
         isOpen={isPopupFunnelOpen}
         onClose={() => setIsPopupFunnelOpen(false)}
         funnelId={workspace?.id}
         userId={user?.id}
-        surveyQuestions={workspace?.survey_questions}
+        surveyQuestions={surveyQuestions}
         onComplete={(lead) => {
           console.log('Lead captured via 3-Popup funnel:', lead);
         }}
