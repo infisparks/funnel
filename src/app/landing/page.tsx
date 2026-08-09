@@ -28,7 +28,8 @@ import { ThreePopupFunnelModal } from '@/components/funnel/ThreePopupFunnelModal
 function LandingPageContent() {
   const searchParams = useSearchParams();
   const subdomainQuery = searchParams.get('subdomain');
-  const isPublicView = searchParams.get('isPublic') === 'true' || !!subdomainQuery;
+  const domainQuery = searchParams.get('domain');
+  const isPublicView = searchParams.get('isPublic') === 'true' || !!subdomainQuery || !!domainQuery;
 
   const { accentColor } = useTheme();
   const { user, workspace, saveWorkspaceConfig } = useAuth();
@@ -69,6 +70,28 @@ function LandingPageContent() {
         }
       }
 
+      // Fallback 1: Query the latest saved workspace from Supabase for public visitors
+      if (isPublicView) {
+        try {
+          const { data: latestWorkspace } = await supabase
+            .from('funnel_workspaces')
+            .select('*')
+            .order('updated_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (latestWorkspace) {
+            setTenantWorkspace(latestWorkspace);
+            if (latestWorkspace.landing_html) setHtmlCode(latestWorkspace.landing_html);
+            if (latestWorkspace.custom_domain) setCustomDomain(latestWorkspace.custom_domain);
+            return;
+          }
+        } catch (err) {
+          console.error('Error fetching fallback workspace:', err);
+        }
+      }
+
+      // Admin user workspace in CRM studio
       if (workspace) {
         if (workspace.landing_html) setHtmlCode(workspace.landing_html);
         if (workspace.custom_domain) setCustomDomain(workspace.custom_domain);
@@ -83,7 +106,7 @@ function LandingPageContent() {
     }
 
     fetchSubdomainWorkspace();
-  }, [workspace, subdomainQuery]);
+  }, [workspace, subdomainQuery, isPublicView]);
 
   const showToast = (message: string) => {
     setSupabaseToastMsg(message);
@@ -125,7 +148,7 @@ function LandingPageContent() {
     }
   };
 
-  // Helper: Auto-inject viewport meta tag if missing to ensure proper mobile rendering
+  // Helper: Auto-inject viewport meta tag and click event listener to trigger 3-Popup funnel
   const processedHtmlCode = useMemo(() => {
     if (!htmlCode) return '';
     let code = htmlCode;

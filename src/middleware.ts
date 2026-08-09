@@ -5,17 +5,17 @@ export function middleware(request: NextRequest) {
   const url = request.nextUrl;
   const hostname = (request.headers.get('host') || '').toLowerCase();
 
-  // Main admin platform domains
+  // Root domains that serve the main CRM admin workspace
   const isVercelDomain = hostname.includes('vercel.app');
   const isLocalhost = hostname.includes('localhost');
   const isMainRootDomain = hostname === 'firstoption.cloud' || hostname === 'www.firstoption.cloud';
 
-  // Admin access on main domain/localhost proceeds directly to CRM
-  if ((isVercelDomain || isLocalhost || isMainRootDomain) && !url.searchParams.has('subdomain')) {
+  // If visiting main CRM admin domain or localhost directly (and not a rewritten subdomain), proceed normally
+  if ((isVercelDomain || isLocalhost || isMainRootDomain) && !url.searchParams.has('isPublic')) {
     return NextResponse.next();
   }
 
-  // Extract subdomain for firstoption.cloud (e.g. mudassirs3.firstoption.cloud -> mudassirs3)
+  // Tenant Subdomain Access (e.g. mudassirs3s.firstoption.cloud, mudassir.firstoption.cloud, etc.)
   if (hostname.endsWith('.firstoption.cloud')) {
     const subdomain = hostname.replace('.firstoption.cloud', '');
     if (subdomain && subdomain !== 'www') {
@@ -26,7 +26,11 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  return NextResponse.next();
+  // External Custom Domain Access (e.g. leads.clientbrand.com)
+  url.pathname = `/landing`;
+  url.searchParams.set('domain', hostname);
+  url.searchParams.set('isPublic', 'true');
+  return NextResponse.rewrite(url);
 }
 
 export const config = {
