@@ -12,15 +12,18 @@ interface SearchParamsProps {
   isPublic?: string;
 }
 
-// Server Component: Performs zero-delay server-side fetch from Supabase
+// Server Component: Performs zero-delay server-side fetch from Supabase with no-store cache
 async function fetchSupabaseWorkspaceOnServer(subdomain?: string, domain?: string) {
   try {
+    let targetSub = subdomain || domain || '';
+    if (targetSub.endsWith('.firstoption.cloud')) {
+      targetSub = targetSub.replace('.firstoption.cloud', '');
+    }
+
     let url = `${SUPABASE_URL}/rest/v1/funnel_workspaces?select=*`;
 
-    if (subdomain) {
-      url += `&subdomain=eq.${encodeURIComponent(subdomain)}`;
-    } else if (domain) {
-      url += `&custom_domain=eq.${encodeURIComponent(domain)}`;
+    if (targetSub) {
+      url += `&or=(subdomain.eq.${encodeURIComponent(targetSub)},custom_domain.ilike.%${encodeURIComponent(targetSub)}%)`;
     } else {
       url += `&order=updated_at.desc&limit=1`;
     }
@@ -30,13 +33,29 @@ async function fetchSupabaseWorkspaceOnServer(subdomain?: string, domain?: strin
         apikey: SUPABASE_ANON_KEY,
         Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
       },
-      next: { revalidate: 10 }, // Revalidate cache every 10 seconds
+      cache: 'no-store', // Always fetch fresh saved HTML from Supabase with ZERO caching delay
     });
 
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         return data[0];
+      }
+    }
+
+    // Fallback: Fetch latest workspace row if specific subdomain query had no match
+    const fallbackRes = await fetch(`${SUPABASE_URL}/rest/v1/funnel_workspaces?select=*&order=updated_at.desc&limit=1`, {
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+      cache: 'no-store',
+    });
+
+    if (fallbackRes.ok) {
+      const fallbackData = await fallbackRes.json();
+      if (Array.isArray(fallbackData) && fallbackData.length > 0) {
+        return fallbackData[0];
       }
     }
   } catch (err) {
@@ -61,7 +80,7 @@ export default async function LandingPage({
     host !== 'firstoption.cloud' &&
     host !== 'www.firstoption.cloud';
 
-  let subdomainName = resolvedParams.subdomain || '';
+  let subdomainName = resolvedParams.subdomain || resolvedParams.domain || '';
   if (!subdomainName && host.endsWith('.firstoption.cloud')) {
     subdomainName = host.replace('.firstoption.cloud', '');
   }
