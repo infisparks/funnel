@@ -29,7 +29,10 @@ function LandingPageContent() {
   const searchParams = useSearchParams();
   const subdomainQuery = searchParams.get('subdomain');
   const domainQuery = searchParams.get('domain');
-  const isPublicView = searchParams.get('isPublic') === 'true' || !!subdomainQuery || !!domainQuery;
+
+  // Track if this is a public subdomain request (e.g. mudassirs.firstoption.cloud)
+  const [isPublicSubdomain, setIsPublicSubdomain] = useState(false);
+  const [activeSubdomain, setActiveSubdomain] = useState(subdomainQuery || '');
 
   const { accentColor } = useTheme();
   const { user, workspace, saveWorkspaceConfig } = useAuth();
@@ -37,7 +40,7 @@ function LandingPageContent() {
   // State for HTML code, custom domain, viewports, and modals
   const [htmlCode, setHtmlCode] = useState(DEFAULT_LANDING_HTML);
   const [customDomain, setCustomDomain] = useState('firstoption.cloud');
-  const [subdomain, setSubdomain] = useState(subdomainQuery || 'client1');
+  const [subdomain, setSubdomain] = useState('client1');
   const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isDomainModalOpen, setIsDomainModalOpen] = useState(false);
@@ -48,18 +51,48 @@ function LandingPageContent() {
   // Public subdomain tenant details
   const [tenantWorkspace, setTenantWorkspace] = useState<any>(null);
 
+  // Check window hostname on client mount to determine if on subdomain
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const host = window.location.hostname.toLowerCase();
+      const search = new URLSearchParams(window.location.search);
+      const isSubParam = search.get('isPublic') === 'true' || !!search.get('subdomain') || !!search.get('domain');
+
+      let extractedSub = search.get('subdomain') || '';
+      if (!extractedSub && host.endsWith('.firstoption.cloud')) {
+        extractedSub = host.replace('.firstoption.cloud', '');
+      }
+
+      const isSub =
+        isSubParam ||
+        (host.includes('.') &&
+          !host.includes('localhost') &&
+          !host.includes('vercel.app') &&
+          host !== 'firstoption.cloud' &&
+          host !== 'www.firstoption.cloud');
+
+      setIsPublicSubdomain(isSub);
+      if (extractedSub && extractedSub !== 'www') {
+        setActiveSubdomain(extractedSub);
+      }
+    }
+  }, [subdomainQuery, domainQuery]);
+
   // Load from Supabase workspace single-row record
   useEffect(() => {
     async function fetchSubdomainWorkspace() {
-      if (subdomainQuery) {
+      const targetSub = activeSubdomain || subdomainQuery;
+      if (targetSub) {
         try {
+          console.log('[Subdomain Router] Querying Supabase for subdomain:', targetSub);
           const { data, error } = await supabase
             .from('funnel_workspaces')
             .select('*')
-            .eq('subdomain', subdomainQuery)
+            .eq('subdomain', targetSub)
             .maybeSingle();
 
           if (data) {
+            console.log('[Subdomain Router] Found workspace for subdomain:', data);
             setTenantWorkspace(data);
             if (data.landing_html) setHtmlCode(data.landing_html);
             if (data.custom_domain) setCustomDomain(data.custom_domain);
@@ -71,8 +104,9 @@ function LandingPageContent() {
       }
 
       // Fallback 1: Query the latest saved workspace from Supabase for public visitors
-      if (isPublicView) {
+      if (isPublicSubdomain) {
         try {
+          console.log('[Subdomain Router] Querying latest workspace fallback from Supabase');
           const { data: latestWorkspace } = await supabase
             .from('funnel_workspaces')
             .select('*')
@@ -81,6 +115,7 @@ function LandingPageContent() {
             .maybeSingle();
 
           if (latestWorkspace) {
+            console.log('[Subdomain Router] Loaded latest workspace fallback:', latestWorkspace);
             setTenantWorkspace(latestWorkspace);
             if (latestWorkspace.landing_html) setHtmlCode(latestWorkspace.landing_html);
             if (latestWorkspace.custom_domain) setCustomDomain(latestWorkspace.custom_domain);
@@ -106,7 +141,7 @@ function LandingPageContent() {
     }
 
     fetchSubdomainWorkspace();
-  }, [workspace, subdomainQuery, isPublicView]);
+  }, [workspace, activeSubdomain, subdomainQuery, isPublicSubdomain]);
 
   const showToast = (message: string) => {
     setSupabaseToastMsg(message);
@@ -117,7 +152,7 @@ function LandingPageContent() {
     setHtmlCode(newCode);
     localStorage.setItem('landing_custom_html', newCode);
     setIsSavingSupabase(true);
-    const ok = await saveWorkspaceConfig({ landing_html: newCode, subdomain, custom_domain: customDomain });
+    const ok = await saveWorkspaceConfig({ landing_html: newCode, subdomain: activeSubdomain || subdomain, custom_domain: customDomain });
     setIsSavingSupabase(false);
     if (ok) {
       showToast('Landing Page HTML successfully saved to Supabase (funnel_workspaces table)! ✅');
@@ -128,7 +163,7 @@ function LandingPageContent() {
     setCustomDomain(newDomain);
     localStorage.setItem('landing_custom_domain', newDomain);
     setIsSavingSupabase(true);
-    const ok = await saveWorkspaceConfig({ landing_html: htmlCode, subdomain, custom_domain: newDomain });
+    const ok = await saveWorkspaceConfig({ landing_html: htmlCode, subdomain: activeSubdomain || subdomain, custom_domain: newDomain });
     setIsSavingSupabase(false);
     if (ok) {
       showToast('Custom Domain configuration saved to Supabase table! 🌐');
@@ -139,7 +174,7 @@ function LandingPageContent() {
     setIsSavingSupabase(true);
     const ok = await saveWorkspaceConfig({
       landing_html: htmlCode,
-      subdomain,
+      subdomain: activeSubdomain || subdomain,
       custom_domain: customDomain,
     });
     setIsSavingSupabase(false);
@@ -194,14 +229,14 @@ function LandingPageContent() {
   // =========================================================================
   // PUBLIC STANDALONE SUBDOMAIN LANDING PAGE VIEW (NO SIDEBAR / ADMIN STUDIO)
   // =========================================================================
-  if (isPublicView) {
+  if (isPublicSubdomain) {
     return (
       <div className="w-screen h-screen overflow-hidden bg-white relative">
         <iframe
           srcDoc={processedHtmlCode}
           title="Live Landing Page"
           className="w-full h-full border-0"
-          sandbox="allow-scripts allow-same-origin allow-forms"
+          sandbox="allow-scripts allow-forms"
         />
 
         {/* 3-Popup Lead Capture Funnel Modal Engine */}
@@ -275,7 +310,7 @@ function LandingPageContent() {
             className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-[#E5E7EB] bg-white hover:bg-gray-50 text-xs font-bold text-gray-800 shadow-2xs transition-all cursor-pointer"
           >
             <Globe className="w-4 h-4 text-indigo-600" />
-            <span className="font-mono text-gray-900">https://{subdomain}.firstoption.cloud</span>
+            <span className="font-mono text-gray-900">https://{activeSubdomain || subdomain}.firstoption.cloud</span>
             <span className="w-2 h-2 rounded-full bg-emerald-500" />
           </button>
 
@@ -306,7 +341,7 @@ function LandingPageContent() {
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white border border-gray-200 text-xs text-gray-600 max-w-sm w-full truncate shadow-2xs">
               <Lock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
               <span className="text-gray-400">https://</span>
-              <span className="font-semibold text-gray-800 truncate">{subdomain}.firstoption.cloud</span>
+              <span className="font-semibold text-gray-800 truncate">{activeSubdomain || subdomain}.firstoption.cloud</span>
             </div>
           </div>
 
@@ -381,7 +416,7 @@ function LandingPageContent() {
                 srcDoc={processedHtmlCode}
                 title="Live Landing Page Preview Desktop"
                 className="w-full h-[750px] border-0"
-                sandbox="allow-scripts allow-same-origin allow-forms"
+                sandbox="allow-scripts allow-forms"
               />
             </div>
           )}
@@ -394,7 +429,7 @@ function LandingPageContent() {
                   srcDoc={processedHtmlCode}
                   title="Live Landing Page Preview Tablet"
                   className="w-full h-[720px] border-0"
-                  sandbox="allow-scripts allow-same-origin allow-forms"
+                  sandbox="allow-scripts allow-forms"
                 />
               </div>
             </div>
@@ -416,7 +451,7 @@ function LandingPageContent() {
                   srcDoc={processedHtmlCode}
                   title="Live Landing Page Preview Mobile"
                   className="w-full h-full border-0"
-                  sandbox="allow-scripts allow-same-origin allow-forms"
+                  sandbox="allow-scripts allow-forms"
                 />
               </div>
 
