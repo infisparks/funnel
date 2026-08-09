@@ -114,19 +114,45 @@ export function LandingPageClient({
     }
   };
 
-  // Helper: Auto-inject viewport meta tag and click event listener to trigger 3-Popup funnel
+  // Helper: Auto-inject viewport meta tag and smart click event listener for targeted CTA trigger buttons
   const processedHtmlCode = useMemo(() => {
     if (!htmlCode) return '';
     let code = htmlCode;
 
-    // Inject trigger script so buttons trigger 3-Popup Flow & picker mode highlights buttons on click
+    const targetTriggerText = selectedButtonText ? selectedButtonText.toLowerCase().trim() : '';
+
+    // Smart trigger script: Only action CTA buttons (containing Book, Strategy, Get Started, Claim, etc.) open popup
     const triggerScript = `
       <script>
         document.addEventListener('click', function(e) {
           const target = e.target.closest('a, button, input[type="submit"]');
-          if (target && !target.dataset.noPopup) {
+          if (!target) return;
+
+          // If button explicitly disables popup
+          if (target.dataset.noPopup === 'true') return;
+
+          const text = (target.textContent || '').toLowerCase().trim();
+          const selectedTarget = "${targetTriggerText}";
+
+          // Check if element matches picked target button text or is a CTA action button
+          const isExplicitTargetMatch = selectedTarget && text.includes(selectedTarget);
+          const isCtaKeyword =
+            target.dataset.popup === 'true' ||
+            target.classList.contains('popup-trigger') ||
+            target.id === 'popup-trigger' ||
+            text.includes('book') ||
+            text.includes('strategy') ||
+            text.includes('claim') ||
+            text.includes('schedule') ||
+            text.includes('consultation') ||
+            text.includes('get started') ||
+            text.includes('start free') ||
+            text.includes('demo') ||
+            text.includes('trial') ||
+            text.includes('reserve');
+
+          if (isExplicitTargetMatch || (!selectedTarget && isCtaKeyword)) {
             e.preventDefault();
-            const text = (target.textContent || '').trim();
             window.parent.postMessage({ type: 'BUTTON_CLICKED', text: text }, '*');
             window.parent.postMessage('OPEN_FUNNEL_POPUP', '*');
           }
@@ -146,7 +172,7 @@ export function LandingPageClient({
       code = code.replace('</head>', triggerScript + '\n</head>');
     }
     return code;
-  }, [htmlCode]);
+  }, [htmlCode, selectedButtonText]);
 
   // Listen to postMessage from iframe to open 3-popup lead capture modal & register picked button
   useEffect(() => {
