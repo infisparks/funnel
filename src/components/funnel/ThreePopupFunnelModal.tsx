@@ -12,6 +12,8 @@ import {
   ChevronRight,
   Clock,
   RotateCcw,
+  Square,
+  CheckSquare,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 
@@ -19,11 +21,13 @@ export interface SurveyQuestion {
   id: string;
   label: string;
   options: string[];
+  allowMultiple?: boolean;
 }
 
 export interface PopupThemeConfig {
   primaryColor?: string;
   themeMode?: 'dark' | 'light';
+  buttonStyle?: 'solid' | 'gradient';
   badgeText?: string;
   step1Title?: string;
   step1Subtitle?: string;
@@ -60,11 +64,13 @@ export function ThreePopupFunnelModal({
       id: 'q1',
       label: 'Select Your Primary Industry',
       options: ['Service Business', 'Manufacturer / B2B', 'Medical / Clinic', 'E-commerce Store'],
+      allowMultiple: false,
     },
     {
       id: 'q2',
-      label: 'Are You Ready to Invest in Automated Growth?',
-      options: ['Yes, Immediate Priority', 'Exploring Options', 'Not Yet'],
+      label: 'Which Growth Services Do You Need? (Select Multiple)',
+      options: ['Funnel Building', 'WhatsApp CRM Automation', 'Meta / Google Ads', 'Lead Nurturing'],
+      allowMultiple: true,
     },
   ],
   popupTheme = {},
@@ -75,6 +81,7 @@ export function ThreePopupFunnelModal({
   // Theme & Mode Configs
   const primaryColor = popupTheme.primaryColor || '#F59E0B';
   const isLightMode = popupTheme.themeMode === 'light';
+  const isSolidButton = popupTheme.buttonStyle === 'solid';
 
   const badgeText = popupTheme.badgeText || 'FAST 30-SEC BOOKING';
   const step1Title = popupTheme.step1Title || 'Claim Your 1-on-1 Growth Consultation';
@@ -107,8 +114,8 @@ export function ThreePopupFunnelModal({
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
 
-  // Popup 2 State: Survey Responses
-  const [surveyAnswers, setSurveyAnswers] = useState<Record<string, string>>({});
+  // Popup 2 State: Survey Responses (supports single or multi-select arrays)
+  const [surveyAnswers, setSurveyAnswers] = useState<Record<string, any>>({});
 
   // Popup 3 State: Meeting Booking
   const [meetingDate, setMeetingDate] = useState('2026-08-10');
@@ -126,7 +133,6 @@ export function ThreePopupFunnelModal({
             setEmail(parsed.email);
             setPhone(parsed.phone || '');
             if (parsed.leadId) setExistingLeadId(parsed.leadId);
-            // Auto resume to Step 2!
             setStep(2);
           }
         }
@@ -161,7 +167,6 @@ export function ThreePopupFunnelModal({
 
       if (data?.id) {
         setExistingLeadId(data.id);
-        // Store in localStorage so returning visitors resume at Step 2
         localStorage.setItem(
           'lead_funnel_session',
           JSON.stringify({ name, email, phone, leadId: data.id })
@@ -198,7 +203,6 @@ export function ThreePopupFunnelModal({
 
     try {
       if (existingLeadId) {
-        // Update existing lead row in Supabase
         await supabase
           .from('leads')
           .update(finalLeadPayload)
@@ -215,6 +219,19 @@ export function ThreePopupFunnelModal({
     }
   };
 
+  const handleOptionToggle = (qId: string, opt: string, isMultiple?: boolean) => {
+    if (isMultiple) {
+      const currentList: string[] = Array.isArray(surveyAnswers[qId]) ? surveyAnswers[qId] : [];
+      if (currentList.includes(opt)) {
+        setSurveyAnswers({ ...surveyAnswers, [qId]: currentList.filter((item) => item !== opt) });
+      } else {
+        setSurveyAnswers({ ...surveyAnswers, [qId]: [...currentList, opt] });
+      }
+    } else {
+      setSurveyAnswers({ ...surveyAnswers, [qId]: opt });
+    }
+  };
+
   const resetLeadSession = () => {
     localStorage.removeItem('lead_funnel_session');
     setName('');
@@ -222,6 +239,19 @@ export function ThreePopupFunnelModal({
     setPhone('');
     setExistingLeadId(null);
     setStep(1);
+  };
+
+  const getButtonStyle = () => {
+    if (isSolidButton) {
+      return {
+        backgroundColor: primaryColor,
+        color: '#000000',
+      };
+    }
+    return {
+      background: `linear-gradient(to right, ${primaryColor}, #FCD34D)`,
+      color: '#000000',
+    };
   };
 
   return (
@@ -352,10 +382,8 @@ export function ThreePopupFunnelModal({
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full py-3.5 px-4 rounded-xl text-black font-extrabold text-xs uppercase tracking-wider flex flex-col items-center justify-center gap-0.5 shadow-lg transition-all transform active:scale-98 cursor-pointer mt-2"
-                style={{
-                  background: `linear-gradient(to right, ${primaryColor}, #FCD34D)`,
-                }}
+                className="w-full py-3.5 px-4 rounded-xl font-extrabold text-xs uppercase tracking-wider flex flex-col items-center justify-center gap-0.5 shadow-lg transition-all transform active:scale-98 cursor-pointer mt-2"
+                style={getButtonStyle()}
               >
                 <span className="flex items-center gap-1.5 text-sm">
                   <span>{isSubmitting ? 'Saving...' : step1BtnText}</span>
@@ -368,26 +396,34 @@ export function ThreePopupFunnelModal({
             </form>
           )}
 
-          {/* STEP 2: DYNAMIC CUSTOMER SURVEY QUESTIONS */}
+          {/* STEP 2: DYNAMIC CUSTOMER SURVEY QUESTIONS (SINGLE OR MULTI-SELECT TICKS) */}
           {step === 2 && (
             <form onSubmit={handleStep2Submit} className="space-y-4">
               <div className="space-y-4 max-h-[320px] overflow-y-auto pr-1">
                 {surveyQuestions.map((q) => (
                   <div key={q.id} className="space-y-1.5">
-                    <label className="block text-xs font-bold" style={{ color: primaryColor }}>
-                      {q.label}
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold" style={{ color: primaryColor }}>
+                        {q.label}
+                      </label>
+                      {q.allowMultiple && (
+                        <span className="text-[10px] text-gray-400 font-mono">(Select Multiple)</span>
+                      )}
+                    </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {q.options.map((opt) => {
-                        const isSelected = surveyAnswers[q.id] === opt;
+                        const isMultiple = q.allowMultiple;
+                        const isSelected = isMultiple
+                          ? Array.isArray(surveyAnswers[q.id]) && surveyAnswers[q.id].includes(opt)
+                          : surveyAnswers[q.id] === opt;
+
                         return (
                           <button
                             type="button"
                             key={opt}
-                            onClick={() =>
-                              setSurveyAnswers({ ...surveyAnswers, [q.id]: opt })
-                            }
-                            className={`p-2.5 rounded-xl text-xs font-bold text-left border transition-all cursor-pointer ${
+                            onClick={() => handleOptionToggle(q.id, opt, isMultiple)}
+                            className={`p-2.5 rounded-xl text-xs font-bold text-left border transition-all cursor-pointer flex items-center justify-between gap-2 ${
                               isSelected
                                 ? 'shadow-sm'
                                 : isLightMode
@@ -404,7 +440,16 @@ export function ThreePopupFunnelModal({
                                 : {}
                             }
                           >
-                            {opt}
+                            <span>{opt}</span>
+                            {isMultiple && (
+                              <span className="shrink-0">
+                                {isSelected ? (
+                                  <CheckSquare className="w-4 h-4 text-emerald-400" />
+                                ) : (
+                                  <Square className="w-4 h-4 text-gray-500" />
+                                )}
+                              </span>
+                            )}
                           </button>
                         );
                       })}
@@ -415,10 +460,8 @@ export function ThreePopupFunnelModal({
 
               <button
                 type="submit"
-                className="w-full py-3.5 px-4 rounded-xl text-black font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg transition-all cursor-pointer"
-                style={{
-                  background: `linear-gradient(to right, ${primaryColor}, #FCD34D)`,
-                }}
+                className="w-full py-3.5 px-4 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg transition-all cursor-pointer"
+                style={getButtonStyle()}
               >
                 <span>{step2BtnText}</span>
                 <ChevronRight className="w-4 h-4" />
@@ -475,10 +518,8 @@ export function ThreePopupFunnelModal({
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full py-3.5 px-4 rounded-xl text-black font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer mt-2"
-                style={{
-                  background: `linear-gradient(to right, ${primaryColor}, #FCD34D)`,
-                }}
+                className="w-full py-3.5 px-4 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer mt-2"
+                style={getButtonStyle()}
               >
                 <Calendar className="w-4 h-4" />
                 <span>{isSubmitting ? 'Securing Slot...' : step3BtnText}</span>

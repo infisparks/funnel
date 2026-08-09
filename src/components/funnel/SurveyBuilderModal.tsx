@@ -9,7 +9,8 @@ import {
   Save,
   CheckCircle2,
   ListOrdered,
-  HelpCircle,
+  CheckSquare,
+  Square,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 
@@ -17,6 +18,7 @@ export interface SurveyQuestion {
   id: string;
   label: string;
   options: string[];
+  allowMultiple?: boolean;
 }
 
 interface SurveyBuilderModalProps {
@@ -41,11 +43,13 @@ export function SurveyBuilderModal({
             id: 'q1',
             label: 'Select Your Primary Industry',
             options: ['Service Business', 'Manufacturer / B2B', 'Medical / Clinic', 'E-commerce Store'],
+            allowMultiple: false,
           },
           {
             id: 'q2',
-            label: 'Are You Ready to Invest in Growth?',
-            options: ['Yes, Immediate Priority', 'Exploring Options', 'Not Yet'],
+            label: 'Which Growth Services Do You Need?',
+            options: ['Funnel Building', 'WhatsApp CRM Automation', 'Meta Ads', 'Lead Nurturing'],
+            allowMultiple: true,
           },
         ]
   );
@@ -63,6 +67,7 @@ export function SurveyBuilderModal({
         id: newId,
         label: 'New Qualification Question',
         options: ['Option A', 'Option B'],
+        allowMultiple: false,
       },
     ]);
   };
@@ -76,6 +81,12 @@ export function SurveyBuilderModal({
   const handleQuestionLabelChange = (index: number, newLabel: string) => {
     const updated = [...questions];
     updated[index].label = newLabel;
+    setQuestions(updated);
+  };
+
+  const handleToggleAllowMultiple = (index: number) => {
+    const updated = [...questions];
+    updated[index].allowMultiple = !updated[index].allowMultiple;
     setQuestions(updated);
   };
 
@@ -115,7 +126,7 @@ export function SurveyBuilderModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/50 backdrop-blur-xs">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-xs font-sans">
       <div className="bg-white border border-[#E5E7EB] rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Modal Header */}
         <div className="p-5 border-b border-[#E5E7EB] flex items-center justify-between bg-white">
@@ -128,14 +139,14 @@ export function SurveyBuilderModal({
                 Custom Survey Form Builder (Popup Step 2)
               </h3>
               <p className="text-xs text-gray-500 mt-0.5">
-                Customize the qualification survey questions for your unique landing page.
+                Customize qualification survey questions and single / multi-select tick boxes.
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+            className="p-2 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -168,10 +179,30 @@ export function SurveyBuilderModal({
 
                   <button
                     onClick={() => handleRemoveQuestion(qIdx)}
-                    className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors shrink-0 mt-5"
+                    className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors shrink-0 mt-5 cursor-pointer"
                     title="Delete Question"
                   >
                     <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Multi-Select Checkbox Toggle */}
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleAllowMultiple(qIdx)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                      q.allowMultiple
+                        ? 'bg-amber-50 border-amber-300 text-amber-900'
+                        : 'bg-white border-gray-200 text-gray-600'
+                    }`}
+                  >
+                    {q.allowMultiple ? (
+                      <CheckSquare className="w-4 h-4 text-amber-600" />
+                    ) : (
+                      <Square className="w-4 h-4 text-gray-400" />
+                    )}
+                    <span>Allow Multi-Select Checkboxes (Tick 1 or Multiple)</span>
                   </button>
                 </div>
 
@@ -191,7 +222,7 @@ export function SurveyBuilderModal({
                         />
                         <button
                           onClick={() => handleRemoveOption(qIdx, optIdx)}
-                          className="text-gray-400 hover:text-rose-500 p-1"
+                          className="text-gray-400 hover:text-rose-500 p-1 cursor-pointer"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -223,7 +254,7 @@ export function SurveyBuilderModal({
         {/* Footer */}
         <div className="p-4 sm:p-5 border-t border-[#E5E7EB] bg-gray-50 flex items-center justify-between">
           <span className="text-xs text-gray-500">
-            Step 1 (Contact) & Step 3 (Meeting Slot) stay standard for all leads.
+            Saved questions render on your public subdomain and /survey route.
           </span>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="md" onClick={onClose}>
@@ -236,7 +267,7 @@ export function SurveyBuilderModal({
               isLoading={isSaving}
               leftIcon={<Save className="w-4 h-4" />}
             >
-              Save Survey Form
+              Save Survey Form 💾
             </Button>
           </div>
         </div>

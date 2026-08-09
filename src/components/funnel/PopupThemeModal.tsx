@@ -15,12 +15,14 @@ import {
   ChevronRight,
   Sun,
   Moon,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 
 export interface PopupThemeConfig {
   primaryColor?: string;
   themeMode?: 'dark' | 'light';
+  buttonStyle?: 'solid' | 'gradient';
   badgeText?: string;
   step1Title?: string;
   step1Subtitle?: string;
@@ -69,6 +71,7 @@ export function PopupThemeModal({
   const [theme, setTheme] = useState<PopupThemeConfig>({
     primaryColor: initialTheme?.primaryColor || '#F59E0B',
     themeMode: initialTheme?.themeMode || 'dark',
+    buttonStyle: initialTheme?.buttonStyle || 'gradient',
     badgeText: initialTheme?.badgeText || 'FAST 30-SEC BOOKING',
     step1Title: initialTheme?.step1Title || 'Claim Your 1-on-1 Growth Consultation',
     step1Subtitle: initialTheme?.step1Subtitle || 'Enter your details to reserve your custom revenue strategy session',
@@ -92,6 +95,20 @@ export function PopupThemeModal({
 
   const primaryColor = theme.primaryColor || '#F59E0B';
   const isLightMode = theme.themeMode === 'light';
+  const isSolidButton = theme.buttonStyle === 'solid';
+
+  const getButtonStyle = () => {
+    if (isSolidButton) {
+      return {
+        backgroundColor: primaryColor,
+        color: '#000000',
+      };
+    }
+    return {
+      background: `linear-gradient(to right, ${primaryColor}, #FCD34D)`,
+      color: '#000000',
+    };
+  };
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -125,7 +142,7 @@ export function PopupThemeModal({
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">Real-Time Studio</span>
               </h3>
               <p className="text-xs text-gray-400">
-                Customize colors, dark/light themes, custom placeholders, and copy with real-time live preview.
+                Customize colors, dark/light themes, solid/gradient buttons, custom placeholders, and copy.
               </p>
             </div>
           </div>
@@ -183,7 +200,7 @@ export function PopupThemeModal({
                 : 'bg-gray-800/60 text-gray-300 hover:bg-gray-800'
             }`}
           >
-            🎨 Colors & Light/Dark Mode
+            🎨 Colors & Button Style
           </button>
         </div>
 
@@ -403,7 +420,7 @@ export function PopupThemeModal({
               </div>
             )}
 
-            {/* TAB 4: COLORS & LIGHT/DARK MODE */}
+            {/* TAB 4: COLORS, LIGHT/DARK MODE & BUTTON STYLE */}
             {activeStepTab === 4 && (
               <div className="space-y-5 animate-in fade-in duration-200">
                 {/* Dark vs Light Theme Mode Toggle */}
@@ -440,6 +457,40 @@ export function PopupThemeModal({
                   </div>
                 </div>
 
+                {/* Solid vs Gradient Button Style Toggle */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-amber-400 uppercase tracking-wider">
+                    CTA Button Background Style
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTheme({ ...theme, buttonStyle: 'gradient' })}
+                      className={`p-3 rounded-2xl border text-xs font-extrabold flex items-center justify-center gap-2 cursor-pointer transition-all ${
+                        theme.buttonStyle === 'gradient' || !theme.buttonStyle
+                          ? 'border-amber-400 bg-gradient-to-r from-amber-500 to-yellow-400 text-black shadow-md'
+                          : 'border-gray-800 bg-[#131B2A] text-gray-400'
+                      }`}
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      <span>Gradient Accent</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setTheme({ ...theme, buttonStyle: 'solid' })}
+                      className={`p-3 rounded-2xl border text-xs font-extrabold flex items-center justify-center gap-2 cursor-pointer transition-all ${
+                        theme.buttonStyle === 'solid'
+                          ? 'border-amber-400 text-black shadow-md'
+                          : 'border-gray-800 bg-[#131B2A] text-gray-400'
+                      }`}
+                      style={{ backgroundColor: theme.buttonStyle === 'solid' ? primaryColor : undefined }}
+                    >
+                      <span>Solid Accent Color</span>
+                    </button>
+                  </div>
+                </div>
+
                 {/* Color Palette & Custom Hex Selector */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -447,7 +498,6 @@ export function PopupThemeModal({
                       Primary Theme Accent Color
                     </label>
 
-                    {/* Custom Hex Input */}
                     <div className="flex items-center gap-1">
                       <span className="text-xs text-gray-400">Hex:</span>
                       <input
@@ -568,11 +618,26 @@ export function PopupThemeModal({
                     </div>
                   </div>
 
+                  <div>
+                    <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
+                      WhatsApp Phone Number *
+                    </label>
+                    <div className="relative">
+                      <Phone className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="tel"
+                        disabled
+                        placeholder={theme.phonePlaceholder || '+91 9876543210'}
+                        className={`w-full pl-9 pr-3 py-2 rounded-xl border text-xs font-semibold ${
+                          isLightMode ? 'bg-[#F8FAFC] border-gray-300 text-gray-900 placeholder-gray-400' : 'bg-[#131B2A] border-gray-800 text-white placeholder-gray-500'
+                        }`}
+                      />
+                    </div>
+                  </div>
+
                   <button
                     className="w-full py-3 px-3 rounded-xl text-black font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-1 shadow-lg transition-all cursor-pointer mt-1"
-                    style={{
-                      background: `linear-gradient(to right, ${primaryColor}, #FCD34D)`,
-                    }}
+                    style={getButtonStyle()}
                   >
                     <span>{theme.step1ButtonText || 'CONTINUE TO SELECT SLOT'}</span>
                     <ChevronRight className="w-3.5 h-3.5" />
@@ -606,9 +671,7 @@ export function PopupThemeModal({
 
                   <button
                     className="w-full py-3 px-3 rounded-xl text-black font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-1 shadow-lg transition-all cursor-pointer mt-2"
-                    style={{
-                      background: `linear-gradient(to right, ${primaryColor}, #FCD34D)`,
-                    }}
+                    style={getButtonStyle()}
                   >
                     <span>{theme.step2ButtonText || 'PROCEED TO TIME SLOT'}</span>
                     <ChevronRight className="w-3.5 h-3.5" />
@@ -635,9 +698,7 @@ export function PopupThemeModal({
 
                   <button
                     className="w-full py-3 px-3 rounded-xl text-black font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg transition-all cursor-pointer mt-1"
-                    style={{
-                      background: `linear-gradient(to right, ${primaryColor}, #FCD34D)`,
-                    }}
+                    style={getButtonStyle()}
                   >
                     <Calendar className="w-3.5 h-3.5" />
                     <span>{theme.step3ButtonText || 'CONFIRM & LOCK BOOKING 📅'}</span>

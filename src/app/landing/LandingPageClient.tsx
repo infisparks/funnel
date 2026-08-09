@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button, Badge } from '@/components/ui';
 import { useTheme } from '@/components/theme/ThemeProvider';
@@ -23,6 +23,7 @@ import {
   Trash2,
   Save,
   Palette,
+  Maximize2,
 } from 'lucide-react';
 import { DEFAULT_LANDING_HTML } from '@/lib/defaultLandingHtml';
 import { HtmlCodeEditorModal } from '@/components/landing/HtmlCodeEditorModal';
@@ -44,6 +45,7 @@ export function LandingPageClient({
   isPublicView,
   subdomainName,
 }: LandingPageClientProps) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { accentColor } = useTheme();
   const { user, workspace, saveWorkspaceConfig } = useAuth();
@@ -340,6 +342,15 @@ export function LandingPageClient({
           >
             <span>Sync Supabase</span>
           </Button>
+
+          {/* Dedicated Full-Screen Studio Page Button */}
+          <button
+            onClick={() => router.push('/landing/customize')}
+            className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer border border-amber-600"
+          >
+            <Maximize2 className="w-3.5 h-3.5" />
+            <span>Full Designer Studio 🖥️</span>
+          </button>
 
           {/* Customize Popup Theme Button */}
           <Button
