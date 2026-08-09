@@ -18,6 +18,7 @@ import {
   ExternalLink,
   Globe,
   Link as LinkIcon,
+  ArrowLeft,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 
@@ -186,6 +187,7 @@ export function ThreePopupFunnelModal({
 
   // Active popup step: 1 (Contact), 2 (Survey), 3 (Meeting), 4 (Completed Confirmation)
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [existingLeadId, setExistingLeadId] = useState<string | null>(null);
 
@@ -256,12 +258,23 @@ export function ThreePopupFunnelModal({
     } finally {
       setIsSubmitting(false);
       setStep(2);
+      setCurrentQuestionIndex(0);
     }
   };
 
-  const handleStep2Submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setStep(3);
+  const handleNextQuestion = () => {
+    if (currentQuestionIndex < surveyQuestions.length - 1) {
+      setCurrentQuestionIndex((prev) => prev + 1);
+    } else {
+      // Finished all survey questions -> go to Step 3!
+      setStep(3);
+    }
+  };
+
+  const handlePrevQuestion = () => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex((prev) => prev - 1);
+    }
   };
 
   const handleStep3Submit = async (e: React.FormEvent) => {
@@ -298,7 +311,7 @@ export function ThreePopupFunnelModal({
     }
   };
 
-  const handleOptionToggle = (qId: string, opt: string, isMultiple?: boolean) => {
+  const handleOptionSelect = (qId: string, opt: string, isMultiple?: boolean) => {
     if (isMultiple) {
       const currentList: string[] = Array.isArray(surveyAnswers[qId]) ? surveyAnswers[qId] : [];
       if (currentList.includes(opt)) {
@@ -308,6 +321,14 @@ export function ThreePopupFunnelModal({
       }
     } else {
       setSurveyAnswers({ ...surveyAnswers, [qId]: opt });
+      // Single-select auto advances after 180ms delay for smooth feedback
+      setTimeout(() => {
+        if (currentQuestionIndex < surveyQuestions.length - 1) {
+          setCurrentQuestionIndex((prev) => prev + 1);
+        } else {
+          setStep(3);
+        }
+      }, 180);
     }
   };
 
@@ -318,6 +339,7 @@ export function ThreePopupFunnelModal({
     setPhone('');
     setExistingLeadId(null);
     setStep(1);
+    setCurrentQuestionIndex(0);
   };
 
   const getButtonStyle = () => {
@@ -326,6 +348,9 @@ export function ThreePopupFunnelModal({
     }
     return { background: `linear-gradient(to right, ${primaryColor}, #FCD34D)`, color: '#000000' };
   };
+
+  const currentQ = surveyQuestions[currentQuestionIndex] || surveyQuestions[0];
+  const totalQuestions = surveyQuestions.length;
 
   // Icon & Style Helper for Success Buttons
   const renderSuccessButton = (btn: SuccessButton) => {
@@ -445,21 +470,23 @@ export function ThreePopupFunnelModal({
             }}
           >
             <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: primaryColor }} />
-            <span>Step {step > 3 ? 3 : step} of 3</span>
+            <span>
+              {step === 2 ? `Question ${currentQuestionIndex + 1} of ${totalQuestions}` : `Step ${step > 3 ? 3 : step} of 3`}
+            </span>
             <span className="text-gray-400">•</span>
             <span>{badgeText}</span>
           </div>
 
           <h3 className={`text-xl sm:text-2xl font-extrabold tracking-tight ${isLightMode ? 'text-[#111827]' : 'text-white'}`}>
             {step === 1 && step1Title}
-            {step === 2 && step2Title}
+            {step === 2 && (step2Title || 'Qualify Your Business Requirements')}
             {step === 3 && step3Title}
             {step === 4 && step4Title}
           </h3>
 
           <p className={`text-xs block leading-relaxed ${isLightMode ? 'text-gray-600' : 'text-gray-300'}`}>
             {step === 1 && step1Subtitle}
-            {step === 2 && step2Subtitle}
+            {step === 2 && (step2Subtitle || 'Answer quick questions so we can customize your growth roadmap')}
             {step === 3 && step3Subtitle}
             {step === 4 && step4Subtitle}
           </p>
@@ -544,77 +571,103 @@ export function ThreePopupFunnelModal({
             </form>
           )}
 
-          {/* STEP 2: SURVEY QUESTIONS */}
-          {step === 2 && (
-            <form onSubmit={handleStep2Submit} className="space-y-4">
-              <div className="space-y-3.5 max-h-[300px] overflow-y-auto pr-1">
-                {surveyQuestions.map((q) => (
-                  <div key={q.id} className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <label className="block text-xs font-bold" style={{ color: primaryColor }}>
-                        {q.label}
-                      </label>
-                      {q.allowMultiple && (
-                        <span className="text-[10px] text-gray-400 font-mono">(Select Multiple)</span>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {q.options.map((opt) => {
-                        const isMultiple = q.allowMultiple;
-                        const isSelected = isMultiple
-                          ? Array.isArray(surveyAnswers[q.id]) && surveyAnswers[q.id].includes(opt)
-                          : surveyAnswers[q.id] === opt;
-
-                        return (
-                          <button
-                            type="button"
-                            key={opt}
-                            onClick={() => handleOptionToggle(q.id, opt, isMultiple)}
-                            className={`p-2.5 rounded-xl text-xs font-bold text-left border transition-all cursor-pointer flex items-center justify-between gap-2 ${
-                              isSelected
-                                ? 'shadow-sm'
-                                : isLightMode
-                                ? 'border-gray-200 bg-[#F8FAFC] text-gray-800 hover:border-gray-300'
-                                : 'border-gray-800 bg-[#131B2A] text-gray-300 hover:border-gray-700'
-                            }`}
-                            style={
-                              isSelected
-                                ? {
-                                    borderColor: primaryColor,
-                                    backgroundColor: `${primaryColor}20`,
-                                    color: isLightMode ? '#111827' : '#FFFFFF',
-                                  }
-                                : {}
-                            }
-                          >
-                            <span>{opt}</span>
-                            {isMultiple && (
-                              <span className="shrink-0">
-                                {isSelected ? (
-                                  <CheckSquare className="w-4 h-4 text-emerald-400" />
-                                ) : (
-                                  <Square className="w-4 h-4 text-gray-500" />
-                                )}
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
+          {/* STEP 2: ONE QUESTION AT A TIME PROGRESSIVE SURVEY */}
+          {step === 2 && currentQ && (
+            <div className="space-y-4 animate-in fade-in duration-200">
+              {/* Question Progress Bar */}
+              <div className="w-full bg-gray-200 dark:bg-gray-800 h-1.5 rounded-full overflow-hidden">
+                <div
+                  className="h-full transition-all duration-300"
+                  style={{
+                    width: `${((currentQuestionIndex + 1) / totalQuestions) * 100}%`,
+                    backgroundColor: primaryColor,
+                  }}
+                />
               </div>
 
-              <button
-                type="submit"
-                className="w-full py-3.5 px-4 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg transition-all cursor-pointer"
-                style={getButtonStyle()}
-              >
-                <span>{step2BtnText}</span>
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </form>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs sm:text-sm font-extrabold" style={{ color: primaryColor }}>
+                    Q{currentQuestionIndex + 1}. {currentQ.label}
+                  </label>
+                  {currentQ.allowMultiple && (
+                    <span className="text-[10px] text-gray-400 font-mono">(Tick 1 or Multiple)</span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                  {currentQ.options.map((opt) => {
+                    const isMultiple = currentQ.allowMultiple;
+                    const isSelected = isMultiple
+                      ? Array.isArray(surveyAnswers[currentQ.id]) && surveyAnswers[currentQ.id].includes(opt)
+                      : surveyAnswers[currentQ.id] === opt;
+
+                    return (
+                      <button
+                        type="button"
+                        key={opt}
+                        onClick={() => handleOptionSelect(currentQ.id, opt, isMultiple)}
+                        className={`p-3 rounded-xl text-xs font-bold text-left border transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                          isSelected
+                            ? 'shadow-md scale-[1.01]'
+                            : isLightMode
+                            ? 'border-gray-200 bg-[#F8FAFC] text-gray-800 hover:border-gray-300'
+                            : 'border-gray-800 bg-[#131B2A] text-gray-300 hover:border-gray-700'
+                        }`}
+                        style={
+                          isSelected
+                            ? {
+                                borderColor: primaryColor,
+                                backgroundColor: `${primaryColor}25`,
+                                color: isLightMode ? '#111827' : '#FFFFFF',
+                              }
+                            : {}
+                        }
+                      >
+                        <span>{opt}</span>
+                        {isMultiple ? (
+                          <span className="shrink-0">
+                            {isSelected ? (
+                              <CheckSquare className="w-4 h-4 text-emerald-400" />
+                            ) : (
+                              <Square className="w-4 h-4 text-gray-500" />
+                            )}
+                          </span>
+                        ) : (
+                          isSelected && <CheckCircle2 className="w-4 h-4 shrink-0" style={{ color: primaryColor }} />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Navigation controls for survey step */}
+              <div className="flex items-center justify-between gap-2 pt-2">
+                {currentQuestionIndex > 0 ? (
+                  <button
+                    type="button"
+                    onClick={handlePrevQuestion}
+                    className="px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1 border border-gray-300 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Previous</span>
+                  </button>
+                ) : <div />}
+
+                <button
+                  type="button"
+                  onClick={handleNextQuestion}
+                  className="px-4 py-2.5 rounded-xl font-extrabold text-xs uppercase flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer"
+                  style={getButtonStyle()}
+                >
+                  <span>
+                    {currentQuestionIndex < totalQuestions - 1 ? 'Next Question' : (step2BtnText || 'Proceed to Time Slot')}
+                  </span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
           )}
 
           {/* STEP 3: SLIDABLE MEETING DATE CAROUSEL & 3-PER-ROW TIME SLOTS GRID */}

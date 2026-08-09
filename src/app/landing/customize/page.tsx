@@ -263,7 +263,7 @@ export default function CustomizeStudioPage() {
                 Full-Screen 3-Popup Funnel Studio
               </h1>
               <p className="text-xs text-gray-500">
-                Slidable date, 3 per row time slots, WhatsApp/Instagram buttons, and 21 luxury color palettes.
+                Progressive 1-question survey flow, slidable date, 3 per row time slots, and 21 luxury color palettes.
               </p>
             </div>
           </div>
@@ -886,7 +886,9 @@ export default function CustomizeStudioPage() {
                   className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border"
                   style={{ backgroundColor: `${primaryColor}15`, borderColor: `${primaryColor}40`, color: primaryColor }}
                 >
-                  <span>Step {activeStepTab > 4 ? 3 : activeStepTab} of 3</span>
+                  <span>
+                    {activeStepTab === 2 ? `Question 1 of ${surveyQuestions.length}` : `Step ${activeStepTab > 4 ? 3 : activeStepTab} of 3`}
+                  </span>
                 </div>
 
                 <h3 className={`text-lg font-extrabold ${isLightMode ? 'text-[#111827]' : 'text-white'}`}>
@@ -959,40 +961,40 @@ export default function CustomizeStudioPage() {
                 </div>
               )}
 
-              {/* LIVE FORM CONTENT STEP 2 (REAL-TIME SURVEY QUESTIONS) */}
+              {/* LIVE FORM CONTENT STEP 2 (PROGRESSIVE 1 QUESTION PREVIEW) */}
               {activeStepTab === 2 && (
                 <div className="p-5 pt-2 space-y-3">
-                  <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
-                    {surveyQuestions.map((q) => (
-                      <div key={q.id} className="space-y-1.5">
-                        <label className="block text-[11px] font-bold" style={{ color: primaryColor }}>
-                          {q.label}
-                        </label>
-                        <div className="grid grid-cols-2 gap-1.5">
-                          {q.options.map((opt, idx) => (
-                            <div
-                              key={opt}
-                              className={`p-2 rounded-xl text-[10px] font-bold border truncate ${
-                                idx === 0
-                                  ? 'border-amber-500/50 bg-amber-500/20 text-white'
-                                  : isLightMode
-                                  ? 'bg-[#F8FAFC] border-gray-200 text-gray-700'
-                                  : 'bg-[#131B2A] border-gray-800 text-gray-400'
-                              }`}
-                            >
-                              {opt}
-                            </div>
-                          ))}
+                  <div className="w-full bg-gray-200 dark:bg-gray-800 h-1.5 rounded-full overflow-hidden">
+                    <div className="h-full w-1/2 transition-all" style={{ backgroundColor: primaryColor }} />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-xs font-extrabold" style={{ color: primaryColor }}>
+                      Q1. {surveyQuestions[0]?.label || 'Select Your Primary Industry'}
+                    </label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {(surveyQuestions[0]?.options || ['Service Business', 'Manufacturer / B2B', 'Medical / Clinic', 'E-commerce']).map((opt, idx) => (
+                        <div
+                          key={opt}
+                          className={`p-2 rounded-xl text-[10px] font-bold border truncate ${
+                            idx === 0
+                              ? 'border-amber-500/50 bg-amber-500/20 text-white'
+                              : isLightMode
+                              ? 'bg-[#F8FAFC] border-gray-200 text-gray-700'
+                              : 'bg-[#131B2A] border-gray-800 text-gray-400'
+                          }`}
+                        >
+                          {opt}
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
 
                   <button
                     className="w-full py-3 px-3 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-1 shadow-lg mt-2"
                     style={getButtonStyle()}
                   >
-                    <span>{theme.step2ButtonText || 'PROCEED TO TIME SLOT'}</span>
+                    <span>{surveyQuestions.length > 1 ? 'NEXT QUESTION ➡️' : (theme.step2ButtonText || 'PROCEED TO TIME SLOT')}</span>
                     <ChevronRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -1112,7 +1114,7 @@ export default function CustomizeStudioPage() {
                             >
                               <Globe className="w-3.5 h-3.5" />
                               <span className="truncate">{btn.label}</span>
-                              <ExternalLink className="w-3 h-3 ml-auto" />
+                              <ExternalLink className="w-3.5 h-3 ml-auto" />
                             </div>
                           );
                         }
