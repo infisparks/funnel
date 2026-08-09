@@ -32,6 +32,10 @@ import {
   Globe,
   Link as LinkIcon,
   Hash,
+  Code,
+  Copy,
+  Check,
+  Zap,
 } from 'lucide-react';
 import { ThreePopupFunnelModal, PopupThemeConfig, SurveyQuestion, SuccessButton } from '@/components/funnel/ThreePopupFunnelModal';
 
@@ -130,6 +134,12 @@ export default function CustomizeStudioPage() {
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // ChatGPT JSON Modal State
+  const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
+  const [jsonInputText, setJsonInputText] = useState('');
+  const [jsonCopied, setJsonCopied] = useState(false);
+  const [jsonError, setJsonError] = useState<string | null>(null);
 
   useEffect(() => {
     if (workspace) {
@@ -234,6 +244,45 @@ export default function CustomizeStudioPage() {
     setTheme({ ...theme, step4Buttons: currentBtns });
   };
 
+  // ChatGPT JSON Modal Handlers
+  const handleOpenJsonModal = () => {
+    const fullConfig = {
+      popup_theme: theme,
+      survey_questions: surveyQuestions,
+    };
+    setJsonInputText(JSON.stringify(fullConfig, null, 2));
+    setJsonError(null);
+    setIsJsonModalOpen(true);
+  };
+
+  const handleCopyJson = () => {
+    navigator.clipboard.writeText(jsonInputText);
+    setJsonCopied(true);
+    setTimeout(() => setJsonCopied(false), 2500);
+  };
+
+  const handleApplyJson = () => {
+    try {
+      const parsed = JSON.parse(jsonInputText);
+      if (parsed.popup_theme) {
+        setTheme(parsed.popup_theme);
+      } else if (parsed.primaryColor || parsed.step1Title) {
+        setTheme(parsed);
+      }
+
+      if (Array.isArray(parsed.survey_questions)) {
+        setSurveyQuestions(parsed.survey_questions);
+      } else if (Array.isArray(parsed) && parsed[0]?.label) {
+        setSurveyQuestions(parsed);
+      }
+
+      setJsonError(null);
+      setIsJsonModalOpen(false);
+    } catch (err: any) {
+      setJsonError('Invalid JSON format. Please make sure the JSON syntax is correct.');
+    }
+  };
+
   const primaryColor = theme.primaryColor || '#F59E0B';
   const isLightMode = theme.themeMode === 'light';
   const isSolidButton = theme.buttonStyle === 'solid';
@@ -267,12 +316,20 @@ export default function CustomizeStudioPage() {
                 Full-Screen 3-Popup Funnel Studio
               </h1>
               <p className="text-xs text-gray-500">
-                Custom #HEX color input, progressive survey flow, 3 per row time slots, and 21 luxury colors.
+                ChatGPT JSON import/export, custom #HEX colors, progressive survey, and 3 per row time slots.
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleOpenJsonModal}
+              className="px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 font-extrabold text-xs flex items-center gap-1.5 cursor-pointer hover:bg-amber-500/20 shadow-2xs transition-all"
+            >
+              <Code className="w-4 h-4 text-amber-600" />
+              <span>ChatGPT JSON View 🤖</span>
+            </button>
+
             {saveSuccess && (
               <span className="text-xs font-bold text-emerald-600 flex items-center gap-1 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
@@ -1167,7 +1224,7 @@ export default function CustomizeStudioPage() {
                           >
                             <LinkIcon className="w-3.5 h-3.5" />
                             <span className="truncate">{btn.label}</span>
-                            <ExternalLink className="w-3 h-3 ml-auto" />
+                            <ExternalLink className="w-3.5 h-3 ml-auto" />
                           </div>
                         );
                       })}
@@ -1178,6 +1235,94 @@ export default function CustomizeStudioPage() {
             </div>
           </div>
         </div>
+
+        {/* CHATGPT JSON IMPORT / EXPORT MODAL */}
+        {isJsonModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-[#0B0F17] text-white border border-amber-500/40 rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh]">
+              {/* Modal Header */}
+              <div className="p-5 border-b border-gray-800 flex items-center justify-between bg-[#131B2A]">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400">
+                    <Code className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-white flex items-center gap-2">
+                      <span>ChatGPT Funnel JSON View</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                        AI Import & Export 🤖
+                      </span>
+                    </h3>
+                    <p className="text-xs text-gray-400">
+                      Copy schema to prompt ChatGPT, or paste ChatGPT generated JSON to update your funnel live!
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setIsJsonModalOpen(false)}
+                  className="p-1.5 rounded-full bg-white/10 text-gray-400 hover:text-white cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-5 flex-1 overflow-y-auto space-y-4">
+                <div className="flex items-center justify-between bg-amber-500/10 border border-amber-500/20 p-3 rounded-2xl">
+                  <span className="text-xs text-amber-200 font-semibold flex items-center gap-1.5">
+                    <Zap className="w-4 h-4 text-amber-400" />
+                    <span>Ask ChatGPT: "Generate funnel JSON for a Real Estate business using this schema..."</span>
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={handleCopyJson}
+                    className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs flex items-center gap-1 cursor-pointer transition-all shrink-0"
+                  >
+                    {jsonCopied ? <Check className="w-3.5 h-3.5 text-black" /> : <Copy className="w-3.5 h-3.5 text-black" />}
+                    <span>{jsonCopied ? 'Copied!' : 'Copy Schema'}</span>
+                  </button>
+                </div>
+
+                {jsonError && (
+                  <div className="p-3 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold">
+                    ⚠️ {jsonError}
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1.5">
+                    Funnel & Survey Config JSON Code
+                  </label>
+                  <textarea
+                    rows={12}
+                    value={jsonInputText}
+                    onChange={(e) => setJsonInputText(e.target.value)}
+                    placeholder="Paste JSON generated from ChatGPT here..."
+                    className="w-full p-4 rounded-2xl bg-[#05080E] border border-gray-800 text-emerald-400 font-mono text-xs focus:outline-none focus:border-amber-500/60 leading-relaxed shadow-inner"
+                  />
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-4 border-t border-gray-800 bg-[#131B2A] flex items-center justify-between gap-3">
+                <Button variant="ghost" size="sm" onClick={() => setIsJsonModalOpen(false)}>
+                  Cancel
+                </Button>
+
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={handleApplyJson}
+                  leftIcon={<Zap className="w-4 h-4" />}
+                >
+                  Apply & Load ChatGPT JSON ⚡
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </MainLayout>
   );
