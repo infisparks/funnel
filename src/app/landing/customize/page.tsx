@@ -245,6 +245,9 @@ export default function CustomizeStudioPage() {
     return { background: `linear-gradient(to right, ${primaryColor}, #FCD34D)`, color: '#000000' };
   };
 
+  const previewQ = surveyQuestions[0];
+  const previewHasLongOption = previewQ?.options?.some((opt) => opt.length > 20);
+
   return (
     <MainLayout>
       <div className="flex flex-col h-[calc(100vh-100px)] font-sans">
@@ -263,7 +266,7 @@ export default function CustomizeStudioPage() {
                 Full-Screen 3-Popup Funnel Studio
               </h1>
               <p className="text-xs text-gray-500">
-                Progressive 1-question survey flow, slidable date, 3 per row time slots, and 21 luxury color palettes.
+                Auto 1-column long text option layout, progressive survey flow, 3 per row time slots, and 21 luxury colors.
               </p>
             </div>
           </div>
@@ -961,7 +964,7 @@ export default function CustomizeStudioPage() {
                 </div>
               )}
 
-              {/* LIVE FORM CONTENT STEP 2 (PROGRESSIVE 1 QUESTION PREVIEW) */}
+              {/* LIVE FORM CONTENT STEP 2 (PROGRESSIVE 1 QUESTION PREVIEW WITH AUTO LAYOUT) */}
               {activeStepTab === 2 && (
                 <div className="p-5 pt-2 space-y-3">
                   <div className="w-full bg-gray-200 dark:bg-gray-800 h-1.5 rounded-full overflow-hidden">
@@ -972,11 +975,11 @@ export default function CustomizeStudioPage() {
                     <label className="block text-xs font-extrabold" style={{ color: primaryColor }}>
                       Q1. {surveyQuestions[0]?.label || 'Select Your Primary Industry'}
                     </label>
-                    <div className="grid grid-cols-2 gap-1.5">
+                    <div className={`grid gap-1.5 ${previewHasLongOption ? 'grid-cols-1' : 'grid-cols-2'}`}>
                       {(surveyQuestions[0]?.options || ['Service Business', 'Manufacturer / B2B', 'Medical / Clinic', 'E-commerce']).map((opt, idx) => (
                         <div
                           key={opt}
-                          className={`p-2 rounded-xl text-[10px] font-bold border truncate ${
+                          className={`p-2 rounded-xl text-[10px] font-bold border whitespace-normal break-words leading-tight ${
                             idx === 0
                               ? 'border-amber-500/50 bg-amber-500/20 text-white'
                               : isLightMode
@@ -1102,7 +1105,7 @@ export default function CustomizeStudioPage() {
                             >
                               <InstagramIcon className="w-3.5 h-3.5" />
                               <span className="truncate">{btn.label}</span>
-                              <ExternalLink className="w-3 h-3 ml-auto" />
+                              <ExternalLink className="w-3.5 h-3 ml-auto" />
                             </div>
                           );
                         }

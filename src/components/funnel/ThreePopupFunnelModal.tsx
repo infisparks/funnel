@@ -266,7 +266,6 @@ export function ThreePopupFunnelModal({
     if (currentQuestionIndex < surveyQuestions.length - 1) {
       setCurrentQuestionIndex((prev) => prev + 1);
     } else {
-      // Finished all survey questions -> go to Step 3!
       setStep(3);
     }
   };
@@ -321,7 +320,6 @@ export function ThreePopupFunnelModal({
       }
     } else {
       setSurveyAnswers({ ...surveyAnswers, [qId]: opt });
-      // Single-select auto advances after 180ms delay for smooth feedback
       setTimeout(() => {
         if (currentQuestionIndex < surveyQuestions.length - 1) {
           setCurrentQuestionIndex((prev) => prev + 1);
@@ -351,6 +349,8 @@ export function ThreePopupFunnelModal({
 
   const currentQ = surveyQuestions[currentQuestionIndex] || surveyQuestions[0];
   const totalQuestions = surveyQuestions.length;
+  // Dynamic layout: if any option text is > 20 characters, show 1 option per row (grid-cols-1)
+  const hasLongOption = currentQ?.options?.some((opt) => opt.length > 20);
 
   // Icon & Style Helper for Success Buttons
   const renderSuccessButton = (btn: SuccessButton) => {
@@ -595,7 +595,8 @@ export function ThreePopupFunnelModal({
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                {/* DYNAMIC GRID: 1 OPTION PER ROW IF TEXT LENGTH > 20, ELSE 2-COLUMN */}
+                <div className={`grid gap-2 pt-1 max-h-[280px] overflow-y-auto pr-1 ${hasLongOption ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'}`}>
                   {currentQ.options.map((opt) => {
                     const isMultiple = currentQ.allowMultiple;
                     const isSelected = isMultiple
@@ -607,7 +608,7 @@ export function ThreePopupFunnelModal({
                         type="button"
                         key={opt}
                         onClick={() => handleOptionSelect(currentQ.id, opt, isMultiple)}
-                        className={`p-3 rounded-xl text-xs font-bold text-left border transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                        className={`p-3 rounded-xl text-xs font-bold text-left leading-relaxed whitespace-normal break-words border transition-all cursor-pointer flex items-center justify-between gap-2 ${
                           isSelected
                             ? 'shadow-md scale-[1.01]'
                             : isLightMode
@@ -624,9 +625,9 @@ export function ThreePopupFunnelModal({
                             : {}
                         }
                       >
-                        <span>{opt}</span>
+                        <span className="flex-1">{opt}</span>
                         {isMultiple ? (
-                          <span className="shrink-0">
+                          <span className="shrink-0 ml-1">
                             {isSelected ? (
                               <CheckSquare className="w-4 h-4 text-emerald-400" />
                             ) : (
@@ -634,7 +635,7 @@ export function ThreePopupFunnelModal({
                             )}
                           </span>
                         ) : (
-                          isSelected && <CheckCircle2 className="w-4 h-4 shrink-0" style={{ color: primaryColor }} />
+                          isSelected && <CheckCircle2 className="w-4 h-4 shrink-0 ml-1" style={{ color: primaryColor }} />
                         )}
                       </button>
                     );
