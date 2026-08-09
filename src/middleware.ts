@@ -3,42 +3,38 @@ import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
   const url = request.nextUrl;
-  const hostname = request.headers.get('host') || '';
+  const hostname = (request.headers.get('host') || '').toLowerCase();
 
-  // Get main root domain from env or default
-  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'localhost:3000';
+  // Root domains that serve the main CRM platform
+  const isVercelDomain = hostname.includes('vercel.app');
+  const isLocalhost = hostname.includes('localhost');
+  const isMainRootDomain = hostname === 'firstoption.cloud' || hostname === 'www.firstoption.cloud';
 
-  // Extract subdomain (e.g. client1.yourdomain.com -> client1)
-  let currentHost = hostname.replace(`.${rootDomain}`, '');
-
-  // If visiting main domain or localhost directly, proceed normally
-  if (
-    hostname === rootDomain ||
-    hostname.includes('localhost') ||
-    hostname.includes('vercel.app') ||
-    currentHost === hostname
-  ) {
+  // If visiting CRM main app directly, proceed normally to CRM Dashboard
+  if (isVercelDomain || isLocalhost || isMainRootDomain) {
     return NextResponse.next();
   }
 
-  // Rewrite request for subdomain (e.g., client1 -> /landing?subdomain=client1)
-  if (currentHost && currentHost !== 'www') {
-    url.pathname = `/landing`;
-    url.searchParams.set('subdomain', currentHost);
-    return NextResponse.rewrite(url);
+  // Extract subdomain for firstoption.cloud (e.g. mkmods.firstoption.cloud -> mkmods)
+  if (hostname.endsWith('.firstoption.cloud')) {
+    const subdomain = hostname.replace('.firstoption.cloud', '');
+    if (subdomain && subdomain !== 'www') {
+      url.pathname = `/landing`;
+      url.searchParams.set('subdomain', subdomain);
+      return NextResponse.rewrite(url);
+    }
   }
 
-  return NextResponse.next();
+  // Custom Domain Fallback (e.g. leads.customclient.com -> /landing)
+  url.pathname = `/landing`;
+  url.searchParams.set('domain', hostname);
+  return NextResponse.rewrite(url);
 }
 
 export const config = {
   matcher: [
     /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
+     * Match all request paths except static files & API routes
      */
     '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
