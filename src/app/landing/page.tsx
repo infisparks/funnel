@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button, Card, Badge, SectionHeader } from '@/components/ui';
 import { useTheme } from '@/components/theme/ThemeProvider';
+import { useAuth } from '@/components/auth/AuthContext';
 import {
   Code2,
   Globe,
@@ -12,8 +13,11 @@ import {
   Smartphone,
   Sparkles,
   Lock,
-  Layers,
   Zap,
+  Save,
+  CheckCircle2,
+  Database,
+  CloudCheck,
 } from 'lucide-react';
 import { DEFAULT_LANDING_HTML } from '@/lib/defaultLandingHtml';
 import { HtmlCodeEditorModal } from '@/components/landing/HtmlCodeEditorModal';
@@ -22,32 +26,72 @@ import { ThreePopupFunnelModal } from '@/components/funnel/ThreePopupFunnelModal
 
 export default function LandingPage() {
   const { accentColor } = useTheme();
+  const { user, workspace, saveWorkspaceConfig } = useAuth();
 
   // State for HTML code, custom domain, viewports, and modals
   const [htmlCode, setHtmlCode] = useState(DEFAULT_LANDING_HTML);
-  const [customDomain, setCustomDomain] = useState('funnel.mycompany.com');
+  const [customDomain, setCustomDomain] = useState('firstoption.cloud');
+  const [subdomain, setSubdomain] = useState('client1');
   const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isDomainModalOpen, setIsDomainModalOpen] = useState(false);
   const [isPopupFunnelOpen, setIsPopupFunnelOpen] = useState(false);
+  const [isSavingSupabase, setIsSavingSupabase] = useState(false);
+  const [supabaseToastMsg, setSupabaseToastMsg] = useState('');
 
-  // Load from localStorage if present
+  // Load from Supabase workspace single-row record or localStorage fallback
   useEffect(() => {
-    const savedHtml = localStorage.getItem('landing_custom_html');
-    if (savedHtml) setHtmlCode(savedHtml);
+    if (workspace) {
+      if (workspace.landing_html) setHtmlCode(workspace.landing_html);
+      if (workspace.custom_domain) setCustomDomain(workspace.custom_domain);
+      if (workspace.subdomain) setSubdomain(workspace.subdomain);
+    } else {
+      const savedHtml = localStorage.getItem('landing_custom_html');
+      if (savedHtml) setHtmlCode(savedHtml);
 
-    const savedDomain = localStorage.getItem('landing_custom_domain');
-    if (savedDomain) setCustomDomain(savedDomain);
-  }, []);
+      const savedDomain = localStorage.getItem('landing_custom_domain');
+      if (savedDomain) setCustomDomain(savedDomain);
+    }
+  }, [workspace]);
 
-  const handleSaveHtml = (newCode: string) => {
-    setHtmlCode(newCode);
-    localStorage.setItem('landing_custom_html', newCode);
+  const showToast = (message: string) => {
+    setSupabaseToastMsg(message);
+    setTimeout(() => setSupabaseToastMsg(''), 4000);
   };
 
-  const handleSaveDomain = (newDomain: string) => {
+  const handleSaveHtml = async (newCode: string) => {
+    setHtmlCode(newCode);
+    localStorage.setItem('landing_custom_html', newCode);
+    setIsSavingSupabase(true);
+    const ok = await saveWorkspaceConfig({ landing_html: newCode, subdomain, custom_domain: customDomain });
+    setIsSavingSupabase(false);
+    if (ok) {
+      showToast('Landing Page HTML successfully saved to Supabase (funnel_workspaces table)! ✅');
+    }
+  };
+
+  const handleSaveDomain = async (newDomain: string) => {
     setCustomDomain(newDomain);
     localStorage.setItem('landing_custom_domain', newDomain);
+    setIsSavingSupabase(true);
+    const ok = await saveWorkspaceConfig({ landing_html: htmlCode, subdomain, custom_domain: newDomain });
+    setIsSavingSupabase(false);
+    if (ok) {
+      showToast('Custom Domain configuration saved to Supabase table! 🌐');
+    }
+  };
+
+  const handleSyncToSupabase = async () => {
+    setIsSavingSupabase(true);
+    const ok = await saveWorkspaceConfig({
+      landing_html: htmlCode,
+      subdomain,
+      custom_domain: customDomain,
+    });
+    setIsSavingSupabase(false);
+    if (ok) {
+      showToast('Synced workspace configuration to Supabase table! 🚀');
+    }
   };
 
   // Helper: Auto-inject viewport meta tag if missing to ensure proper mobile rendering
@@ -68,6 +112,16 @@ export default function LandingPage() {
 
   return (
     <MainLayout>
+      {/* Supabase Success Toast Notification Floating Banner */}
+      {supabaseToastMsg && (
+        <div className="fixed top-6 right-6 z-50 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="p-4 rounded-2xl bg-[#059669] text-white font-bold text-xs shadow-2xl flex items-center gap-3 border border-emerald-400">
+            <Database className="w-5 h-5 text-emerald-200" />
+            <span>{supabaseToastMsg}</span>
+          </div>
+        </div>
+      )}
+
       {/* Top Header Controls */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-1">
         <div>
@@ -75,15 +129,25 @@ export default function LandingPage() {
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#111827]">
               Landing Page Studio & Subdomain Host
             </h1>
-            <Badge variant="success">Supabase Ready</Badge>
+            <Badge variant="success">Supabase Sync Live</Badge>
           </div>
           <p className="text-sm text-gray-500 mt-1">
-            Custom HTML landing page renderer, 3-popup lead survey engine, and subdomain hosting.
+            Custom HTML landing page renderer, 3-popup lead survey engine, and single-row Supabase workspace config.
           </p>
         </div>
 
         {/* Control Buttons */}
         <div className="flex flex-wrap items-center gap-2.5">
+          {/* Sync to Supabase Row Button */}
+          <Button
+            variant="outline"
+            onClick={handleSyncToSupabase}
+            isLoading={isSavingSupabase}
+            leftIcon={<Database className="w-4 h-4 text-emerald-600" />}
+          >
+            <span>Sync to Supabase Table</span>
+          </Button>
+
           {/* Test 3-Popup Funnel Modal Button */}
           <Button
             variant="secondary"

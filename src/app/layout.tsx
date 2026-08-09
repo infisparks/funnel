@@ -3,6 +3,7 @@ import { Poppins } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme/ThemeProvider';
 import { ClientDrawerProvider } from '@/components/client/ClientDrawerContext';
+import { AuthProvider } from '@/components/auth/AuthContext';
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -25,9 +26,11 @@ export default function RootLayout({
     <html lang="en" className={`${poppins.variable} ${poppins.className} h-full antialiased`}>
       <body className={`${poppins.className} min-h-full flex flex-col font-sans bg-[#F5F6F8] text-[#111827]`}>
         <ThemeProvider>
-          <ClientDrawerProvider>
-            {children}
-          </ClientDrawerProvider>
+          <AuthProvider>
+            <ClientDrawerProvider>
+              {children}
+            </ClientDrawerProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
