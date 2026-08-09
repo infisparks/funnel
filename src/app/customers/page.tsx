@@ -1,28 +1,28 @@
+'use client';
+
 import React from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { TaskTable } from '@/components/dashboard/TaskTable';
-import { Button, SectionHeader } from '@/components/ui';
-import { UserPlus, Download } from 'lucide-react';
+import { LeadsTable } from '@/components/funnel/LeadsTable';
+import { SectionHeader } from '@/components/ui';
+import { Shield } from 'lucide-react';
 
 export default function CustomersPage() {
   return (
     <MainLayout>
       <SectionHeader
-        title="Customers Directory"
-        subtitle="Manage customer relations, account records, and contact directories."
+        title="Landing Page Leads & Customers Directory"
+        subtitle="View and manage leads captured strictly from your landing page and 3-popup funnel."
         actions={
-          <>
-            <Button variant="outline" leftIcon={<Download className="w-4 h-4" />}>
-              Export CSV
-            </Button>
-            <Button variant="primary" leftIcon={<UserPlus className="w-4 h-4" />}>
-              Add Customer
-            </Button>
-          </>
+          <div className="flex items-center gap-2">
+            <span className="px-3 py-1 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 font-extrabold text-xs flex items-center gap-1.5">
+              <Shield className="w-4 h-4 text-amber-600" />
+              <span>Isolated Workspace Privacy</span>
+            </span>
+          </div>
         }
       />
 
-      <TaskTable />
+      <LeadsTable />
     </MainLayout>
   );
 }
