@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { Button, Card, Badge, SectionHeader } from '@/components/ui';
+import { Button, Card, Badge } from '@/components/ui';
 import { useTheme } from '@/components/theme/ThemeProvider';
 import { useAuth } from '@/components/auth/AuthContext';
+import { supabase } from '@/lib/supabaseClient';
 import {
   Code2,
   Globe,
@@ -17,21 +19,24 @@ import {
   Save,
   CheckCircle2,
   Database,
-  CloudCheck,
 } from 'lucide-react';
 import { DEFAULT_LANDING_HTML } from '@/lib/defaultLandingHtml';
 import { HtmlCodeEditorModal } from '@/components/landing/HtmlCodeEditorModal';
 import { CustomDomainModal } from '@/components/landing/CustomDomainModal';
 import { ThreePopupFunnelModal } from '@/components/funnel/ThreePopupFunnelModal';
 
-export default function LandingPage() {
+function LandingPageContent() {
+  const searchParams = useSearchParams();
+  const subdomainQuery = searchParams.get('subdomain');
+  const isPublicView = searchParams.get('isPublic') === 'true' || !!subdomainQuery;
+
   const { accentColor } = useTheme();
   const { user, workspace, saveWorkspaceConfig } = useAuth();
 
   // State for HTML code, custom domain, viewports, and modals
   const [htmlCode, setHtmlCode] = useState(DEFAULT_LANDING_HTML);
   const [customDomain, setCustomDomain] = useState('firstoption.cloud');
-  const [subdomain, setSubdomain] = useState('client1');
+  const [subdomain, setSubdomain] = useState(subdomainQuery || 'client1');
   const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isDomainModalOpen, setIsDomainModalOpen] = useState(false);
@@ -39,20 +44,46 @@ export default function LandingPage() {
   const [isSavingSupabase, setIsSavingSupabase] = useState(false);
   const [supabaseToastMsg, setSupabaseToastMsg] = useState('');
 
-  // Load from Supabase workspace single-row record or localStorage fallback
-  useEffect(() => {
-    if (workspace) {
-      if (workspace.landing_html) setHtmlCode(workspace.landing_html);
-      if (workspace.custom_domain) setCustomDomain(workspace.custom_domain);
-      if (workspace.subdomain) setSubdomain(workspace.subdomain);
-    } else {
-      const savedHtml = localStorage.getItem('landing_custom_html');
-      if (savedHtml) setHtmlCode(savedHtml);
+  // Public subdomain tenant details
+  const [tenantWorkspace, setTenantWorkspace] = useState<any>(null);
 
-      const savedDomain = localStorage.getItem('landing_custom_domain');
-      if (savedDomain) setCustomDomain(savedDomain);
+  // Load from Supabase workspace single-row record
+  useEffect(() => {
+    async function fetchSubdomainWorkspace() {
+      if (subdomainQuery) {
+        try {
+          const { data, error } = await supabase
+            .from('funnel_workspaces')
+            .select('*')
+            .eq('subdomain', subdomainQuery)
+            .maybeSingle();
+
+          if (data) {
+            setTenantWorkspace(data);
+            if (data.landing_html) setHtmlCode(data.landing_html);
+            if (data.custom_domain) setCustomDomain(data.custom_domain);
+            return;
+          }
+        } catch (err) {
+          console.error('Error fetching public subdomain workspace:', err);
+        }
+      }
+
+      if (workspace) {
+        if (workspace.landing_html) setHtmlCode(workspace.landing_html);
+        if (workspace.custom_domain) setCustomDomain(workspace.custom_domain);
+        if (workspace.subdomain) setSubdomain(workspace.subdomain);
+      } else {
+        const savedHtml = localStorage.getItem('landing_custom_html');
+        if (savedHtml) setHtmlCode(savedHtml);
+
+        const savedDomain = localStorage.getItem('landing_custom_domain');
+        if (savedDomain) setCustomDomain(savedDomain);
+      }
     }
-  }, [workspace]);
+
+    fetchSubdomainWorkspace();
+  }, [workspace, subdomainQuery]);
 
   const showToast = (message: string) => {
     setSupabaseToastMsg(message);
@@ -98,18 +129,76 @@ export default function LandingPage() {
   const processedHtmlCode = useMemo(() => {
     if (!htmlCode) return '';
     let code = htmlCode;
+
+    // Inject trigger script so any button or link inside custom HTML triggers the 3-Popup Funnel
+    const triggerScript = `
+      <script>
+        document.addEventListener('click', function(e) {
+          const target = e.target.closest('a, button, input[type="submit"]');
+          if (target && !target.dataset.noPopup) {
+            e.preventDefault();
+            window.parent.postMessage('OPEN_FUNNEL_POPUP', '*');
+          }
+        });
+      </script>
+    `;
+
     if (!code.includes('<meta name="viewport"')) {
       if (code.includes('<head>')) {
-        code = code.replace('<head>', '<head>\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">');
+        code = code.replace('<head>', '<head>\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">' + triggerScript);
       } else if (code.includes('<html>')) {
-        code = code.replace('<html>', '<html>\n<head><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>');
+        code = code.replace('<html>', '<html>\n<head><meta name="viewport" content="width=device-width, initial-scale=1.0">' + triggerScript + '</head>');
       } else {
-        code = `<meta name="viewport" content="width=device-width, initial-scale=1.0">\n` + code;
+        code = `<meta name="viewport" content="width=device-width, initial-scale=1.0">\n` + triggerScript + code;
       }
+    } else {
+      code = code.replace('</head>', triggerScript + '\n</head>');
     }
     return code;
   }, [htmlCode]);
 
+  // Listen to postMessage from iframe to open 3-popup lead capture modal
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data === 'OPEN_FUNNEL_POPUP') {
+        setIsPopupFunnelOpen(true);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  // =========================================================================
+  // PUBLIC STANDALONE SUBDOMAIN LANDING PAGE VIEW (NO SIDEBAR / ADMIN STUDIO)
+  // =========================================================================
+  if (isPublicView) {
+    return (
+      <div className="w-screen h-screen overflow-hidden bg-white relative">
+        <iframe
+          srcDoc={processedHtmlCode}
+          title="Live Landing Page"
+          className="w-full h-full border-0"
+          sandbox="allow-scripts allow-same-origin allow-forms"
+        />
+
+        {/* 3-Popup Lead Capture Funnel Modal Engine */}
+        <ThreePopupFunnelModal
+          isOpen={isPopupFunnelOpen}
+          onClose={() => setIsPopupFunnelOpen(false)}
+          funnelId={tenantWorkspace?.id}
+          userId={tenantWorkspace?.user_id}
+          surveyQuestions={tenantWorkspace?.survey_questions}
+          onComplete={(lead) => {
+            console.log('Lead captured via subdomain funnel:', lead);
+          }}
+        />
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // ADMIN STUDIO VIEW (WITH SIDEBAR, HEADER, AND CODE EDITORS)
+  // =========================================================================
   return (
     <MainLayout>
       {/* Supabase Success Toast Notification Floating Banner */}
@@ -163,7 +252,7 @@ export default function LandingPage() {
             className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-[#E5E7EB] bg-white hover:bg-gray-50 text-xs font-bold text-gray-800 shadow-2xs transition-all cursor-pointer"
           >
             <Globe className="w-4 h-4 text-indigo-600" />
-            <span className="font-mono text-gray-900">https://{customDomain}</span>
+            <span className="font-mono text-gray-900">https://{subdomain}.firstoption.cloud</span>
             <span className="w-2 h-2 rounded-full bg-emerald-500" />
           </button>
 
@@ -194,7 +283,7 @@ export default function LandingPage() {
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white border border-gray-200 text-xs text-gray-600 max-w-sm w-full truncate shadow-2xs">
               <Lock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
               <span className="text-gray-400">https://</span>
-              <span className="font-semibold text-gray-800 truncate">{customDomain}</span>
+              <span className="font-semibold text-gray-800 truncate">{subdomain}.firstoption.cloud</span>
             </div>
           </div>
 
@@ -337,10 +426,21 @@ export default function LandingPage() {
       <ThreePopupFunnelModal
         isOpen={isPopupFunnelOpen}
         onClose={() => setIsPopupFunnelOpen(false)}
+        funnelId={workspace?.id}
+        userId={user?.id}
+        surveyQuestions={workspace?.survey_questions}
         onComplete={(lead) => {
           console.log('Lead captured via 3-Popup funnel:', lead);
         }}
       />
     </MainLayout>
+  );
+}
+
+export default function LandingPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-[#8146F0] font-bold">Loading Landing Page...</div>}>
+      <LandingPageContent />
+    </Suspense>
   );
 }
