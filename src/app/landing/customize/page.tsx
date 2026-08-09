@@ -263,7 +263,7 @@ export default function CustomizeStudioPage() {
                 Full-Screen 3-Popup Funnel Studio
               </h1>
               <p className="text-xs text-gray-500">
-                Design WhatsApp, Instagram, Website buttons, meeting slots, and 21 luxury color palettes.
+                Slidable date and time slots, WhatsApp/Instagram buttons, and 21 luxury color palettes.
               </p>
             </div>
           </div>
@@ -998,7 +998,7 @@ export default function CustomizeStudioPage() {
                 </div>
               )}
 
-              {/* LIVE FORM CONTENT STEP 3 (HORIZONTAL DATE SLIDER + TIME SLOTS) */}
+              {/* LIVE FORM CONTENT STEP 3 (HORIZONTAL DATE SLIDER + HORIZONTAL TIME SLOTS SLIDER) */}
               {activeStepTab === 3 && (
                 <div className="p-5 pt-2 space-y-3">
                   <div>
@@ -1007,7 +1007,7 @@ export default function CustomizeStudioPage() {
                     </label>
 
                     {/* Date Carousel Slider Preview */}
-                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
                       {['Wed 11 Aug', 'Thu 12 Aug', 'Fri 13 Aug', 'Sat 14 Aug'].map((d, i) => (
                         <div
                           key={d}
@@ -1029,11 +1029,13 @@ export default function CustomizeStudioPage() {
                     <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1.5 ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
                       {theme.timeSlotLabel || 'SELECT TIME SLOT *'}
                     </label>
-                    <div className="grid grid-cols-2 gap-1.5">
+
+                    {/* Time Slot Carousel Slider Preview */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
                       {(theme.meetingSlots || ['09:00 AM', '11:00 AM', '02:00 PM', '04:30 PM']).map((slot, idx) => (
                         <div
                           key={slot}
-                          className={`p-2 rounded-xl text-[10px] font-bold flex items-center gap-1 border truncate ${
+                          className={`px-3 py-2 rounded-xl text-[10px] font-bold flex items-center gap-1 border shrink-0 ${
                             idx === 2
                               ? 'border-emerald-500 bg-emerald-500/20 text-emerald-400'
                               : isLightMode
@@ -1042,7 +1044,7 @@ export default function CustomizeStudioPage() {
                           }`}
                         >
                           <Clock className="w-3 h-3 text-amber-400 shrink-0" />
-                          <span className="truncate">{slot}</span>
+                          <span>{slot}</span>
                         </div>
                       ))}
                     </div>
@@ -1098,7 +1100,7 @@ export default function CustomizeStudioPage() {
                             >
                               <InstagramIcon className="w-3.5 h-3.5" />
                               <span className="truncate">{btn.label}</span>
-                              <ExternalLink className="w-3 h-3 ml-auto" />
+                              <ExternalLink className="w-3.5 h-3 ml-auto" />
                             </div>
                           );
                         }

@@ -617,7 +617,7 @@ export function ThreePopupFunnelModal({
             </form>
           )}
 
-          {/* STEP 3: MEETING DATE SLIDER & TIME SLOTS */}
+          {/* STEP 3: SLIDABLE MEETING DATE CAROUSEL & SLIDABLE TIME SLOTS CAROUSEL */}
           {step === 3 && (
             <form onSubmit={handleStep3Submit} className="space-y-4">
               {/* HORIZONTAL DATE SLIDER CAROUSEL */}
@@ -653,12 +653,12 @@ export function ThreePopupFunnelModal({
                 </div>
               </div>
 
-              {/* CUSTOM TIME SLOTS SELECTOR */}
+              {/* HORIZONTAL SLIDABLE TIME SLOTS CAROUSEL */}
               <div>
                 <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
                   {timeSlotLabel}
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <div className="flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-none">
                   {availableTimeSlots.map((slot) => {
                     const isSelected = meetingTime === slot;
                     return (
@@ -666,9 +666,9 @@ export function ThreePopupFunnelModal({
                         type="button"
                         key={slot}
                         onClick={() => setMeetingTime(slot)}
-                        className={`p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${
+                        className={`px-3.5 py-2.5 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all cursor-pointer shrink-0 ${
                           isSelected
-                            ? 'border-emerald-500 bg-emerald-500/20 text-emerald-400 shadow-sm'
+                            ? 'border-emerald-500 bg-emerald-500/20 text-emerald-400 shadow-md font-extrabold'
                             : isLightMode
                             ? 'border-gray-200 bg-[#F8FAFC] text-gray-800 hover:bg-gray-100'
                             : 'border-gray-800 bg-[#131B2A] text-gray-300 hover:border-gray-700'
