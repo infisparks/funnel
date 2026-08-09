@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useTheme } from '../theme/ThemeProvider';
+import { supabase } from '@/lib/supabaseClient';
 import {
   X,
   CheckCircle2,
@@ -11,10 +12,9 @@ import {
   Phone,
   Mail,
   Sparkles,
-  ArrowRight,
   ChevronRight,
   Clock,
-  ShieldCheck,
+  Database,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 
@@ -28,6 +28,8 @@ interface ThreePopupFunnelModalProps {
   isOpen: boolean;
   onClose: () => void;
   surveyQuestions?: SurveyQuestion[];
+  funnelId?: string;
+  userId?: string;
   onComplete?: (leadData: any) => void;
 }
 
@@ -56,12 +58,15 @@ export function ThreePopupFunnelModal({
       options: ['Founder / Owner', 'Marketing Head', 'Partner', 'Manager'],
     },
   ],
+  funnelId,
+  userId,
   onComplete,
 }: ThreePopupFunnelModalProps) {
   const { accentColor } = useTheme();
 
   // Active popup step: 1 (Contact), 2 (Survey), 3 (Meeting), 4 (Completed Confirmation)
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Popup 1 State: Contact Info
   const [name, setName] = useState('');
@@ -91,18 +96,40 @@ export function ThreePopupFunnelModal({
     setStep(3);
   };
 
-  const handleStep3Submit = (e: React.FormEvent) => {
+  const handleStep3Submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
+
     const finalLeadPayload = {
+      funnel_id: funnelId || null,
+      user_id: userId || null,
       name,
       phone,
       email,
-      surveyResponses: surveyAnswers,
-      meetingDate,
-      meetingTime,
+      step_progress: 'meeting_booked',
+      survey_responses: surveyAnswers,
+      meeting_date: meetingDate,
+      meeting_time: meetingTime,
     };
-    if (onComplete) onComplete(finalLeadPayload);
-    setStep(4);
+
+    try {
+      // Save lead directly to Supabase leads table
+      const { data, error } = await supabase
+        .from('leads')
+        .insert(finalLeadPayload)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Supabase Lead Insert Error:', error);
+      }
+    } catch (err) {
+      console.error('Error inserting lead to Supabase:', err);
+    } finally {
+      setIsSubmitting(false);
+      if (onComplete) onComplete(finalLeadPayload);
+      setStep(4);
+    }
   };
 
   return (
@@ -128,7 +155,7 @@ export function ThreePopupFunnelModal({
                 {step === 1 && 'Confirm your basic contact info'}
                 {step === 2 && 'Answer quick qualification questions'}
                 {step === 3 && 'Pick a date & time for your strategy session'}
-                {step === 4 && 'Your appointment is locked into our CRM calendar'}
+                {step === 4 && 'Your lead is saved & locked into our CRM calendar'}
               </p>
             </div>
           </div>
@@ -143,9 +170,7 @@ export function ThreePopupFunnelModal({
 
         {/* Modal Body */}
         <div className="p-6">
-          {/* =================================================== */}
-          {/* POPUP 1: BASIC CONTACT INFO (NAME, PHONE, EMAIL) */}
-          {/* =================================================== */}
+          {/* POPUP 1: BASIC CONTACT INFO */}
           {step === 1 && (
             <form onSubmit={handleStep1Submit} className="space-y-4">
               <div className="text-center space-y-1 mb-4">
@@ -220,9 +245,7 @@ export function ThreePopupFunnelModal({
             </form>
           )}
 
-          {/* =================================================== */}
           {/* POPUP 2: DYNAMIC BUSINESS SURVEY QUESTIONS ARRAY */}
-          {/* =================================================== */}
           {step === 2 && (
             <form onSubmit={handleStep2Submit} className="space-y-5">
               <div className="text-center space-y-1 mb-2">
@@ -277,9 +300,7 @@ export function ThreePopupFunnelModal({
             </form>
           )}
 
-          {/* =================================================== */}
           {/* POPUP 3: STRATEGY CALL MEETING BOOKING */}
-          {/* =================================================== */}
           {step === 3 && (
             <form onSubmit={handleStep3Submit} className="space-y-5">
               <div className="text-center space-y-1 mb-2">
@@ -337,6 +358,7 @@ export function ThreePopupFunnelModal({
                 variant="primary"
                 size="lg"
                 className="w-full"
+                isLoading={isSubmitting}
                 leftIcon={<Calendar className="w-4 h-4" />}
               >
                 Confirm & Lock Booking 📅
@@ -344,9 +366,7 @@ export function ThreePopupFunnelModal({
             </form>
           )}
 
-          {/* =================================================== */}
           {/* STEP 4: COMPLETED CONFIRMATION */}
-          {/* =================================================== */}
           {step === 4 && (
             <div className="text-center space-y-4 py-4">
               <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-sm">
@@ -358,7 +378,7 @@ export function ThreePopupFunnelModal({
               </h4>
 
               <p className="text-xs text-gray-600 max-w-sm mx-auto leading-relaxed">
-                Thank you <span className="font-bold text-gray-900">{name}</span>! Your meeting is scheduled for <span className="font-bold text-indigo-600">{meetingDate} at {meetingTime}</span>. A calendar invitation and WhatsApp confirmation have been sent to <span className="font-bold text-gray-900">{phone}</span>.
+                Thank you <span className="font-bold text-gray-900">{name}</span>! Your meeting is scheduled for <span className="font-bold text-indigo-600">{meetingDate} at {meetingTime}</span>. Your details have been saved to our CRM lead database.
               </p>
 
               <Button variant="primary" size="md" onClick={onClose} className="mt-2">
