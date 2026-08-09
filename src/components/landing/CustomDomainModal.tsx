@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useTheme } from '../theme/ThemeProvider';
+import { useAuth } from '../auth/AuthContext';
 import {
   Globe,
   X,
@@ -10,10 +11,10 @@ import {
   AlertCircle,
   Copy,
   Check,
-  ArrowRight,
   ExternalLink,
-  RefreshCw,
   Lock,
+  Sparkles,
+  Database,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
@@ -32,10 +33,20 @@ export function CustomDomainModal({
   onSaveDomain,
 }: CustomDomainModalProps) {
   const { accentColor } = useTheme();
-  const [domainInput, setDomainInput] = useState(currentDomain || 'funnel.mycompany.com');
+  const { workspace, saveWorkspaceConfig } = useAuth();
+
+  // State for subdomain (e.g. mudassir) and root host domain (firstoption.cloud)
+  const [subdomainInput, setSubdomainInput] = useState(
+    workspace?.subdomain || 'mudassir'
+  );
+  const [customDomainInput, setCustomDomainInput] = useState(
+    currentDomain || 'firstoption.cloud'
+  );
+
   const [isVerifying, setIsVerifying] = useState(false);
   const [isVerified, setIsVerified] = useState(true);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   if (!isOpen) return null;
 
@@ -45,14 +56,27 @@ export function CustomDomainModal({
     setTimeout(() => setCopiedField(null), 2000);
   };
 
-  const handleVerify = () => {
+  const handleSaveSubdomain = async () => {
+    const formattedSub = subdomainInput.toLowerCase().trim().replace(/[^a-z0-9-]/g, '');
+    setSubdomainInput(formattedSub);
     setIsVerifying(true);
-    setTimeout(() => {
-      setIsVerifying(false);
+
+    const fullDomain = `${formattedSub}.firstoption.cloud`;
+    const success = await saveWorkspaceConfig({
+      subdomain: formattedSub,
+      custom_domain: customDomainInput || 'firstoption.cloud',
+    });
+
+    setIsVerifying(false);
+    if (success) {
       setIsVerified(true);
-      onSaveDomain(domainInput);
-    }, 1200);
+      setSaveSuccess(true);
+      onSaveDomain(fullDomain);
+      setTimeout(() => setSaveSuccess(false), 2500);
+    }
   };
+
+  const generatedUrl = `https://${subdomainInput || 'mudassir'}.firstoption.cloud`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/40 backdrop-blur-xs">
@@ -68,10 +92,10 @@ export function CustomDomainModal({
             </div>
             <div>
               <h3 className="font-extrabold text-lg text-[#111827]">
-                Connect Custom Domain
+                Subdomain & Custom Domain Setup
               </h3>
               <p className="text-xs text-gray-500 mt-0.5">
-                Attach your custom branding domain or subdomain to this landing page.
+                Generate your live <span className="font-semibold text-indigo-600">.firstoption.cloud</span> subdomain & sync to Supabase.
               </p>
             </div>
           </div>
@@ -84,39 +108,87 @@ export function CustomDomainModal({
           </button>
         </div>
 
-        {/* Content */}
+        {/* Body */}
         <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
-          {/* Domain Input Field */}
-          <div className="space-y-2">
-            <label className="block text-xs font-bold uppercase tracking-wider text-gray-700">
-              Your Custom Domain / Subdomain
-            </label>
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <Globe className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          {saveSuccess && (
+            <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>Subdomain saved to Supabase (funnel_workspaces table) & live! ✅</span>
+            </div>
+          )}
+
+          {/* Section 1: Subdomain Generator Input (e.g. mudassir) */}
+          <div className="space-y-3 p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold uppercase tracking-wider text-indigo-900">
+                1. Your Custom Subdomain Name
+              </label>
+              <span className="text-[11px] font-bold text-indigo-600">Hostinger Wildcard DNS Active</span>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <div className="relative flex-1 flex items-center bg-white border border-[#E5E7EB] rounded-xl overflow-hidden shadow-2xs">
                 <input
                   type="text"
-                  value={domainInput}
+                  value={subdomainInput}
                   onChange={(e) => {
-                    setDomainInput(e.target.value);
+                    setSubdomainInput(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''));
                     setIsVerified(false);
                   }}
-                  placeholder="e.g. leads.mybrand.com or getdeal.io"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[#E5E7EB] bg-[#F5F6F8] text-sm text-[#111827] font-semibold focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                  placeholder="e.g. mudassir"
+                  className="w-full px-3.5 py-2.5 text-sm text-[#111827] font-bold focus:outline-none"
                 />
+                <span className="px-3 text-xs font-mono font-bold text-gray-400 bg-gray-50 border-l border-gray-200 h-full flex items-center">
+                  .firstoption.cloud
+                </span>
               </div>
 
               <Button
                 variant="primary"
-                onClick={handleVerify}
+                onClick={handleSaveSubdomain}
                 isLoading={isVerifying}
+                leftIcon={<Sparkles className="w-4 h-4" />}
               >
-                {isVerified ? 'Verified' : 'Verify DNS'}
+                Save & Live URL 🚀
               </Button>
+            </div>
+
+            {/* Generated Live URL Preview Box */}
+            <div className="p-3 rounded-xl bg-white border border-indigo-200 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <Lock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span className="text-xs font-mono font-bold text-indigo-700 truncate">
+                  {generatedUrl}
+                </span>
+              </div>
+              <button
+                onClick={() => copyToClipboard(generatedUrl, 'suburl')}
+                className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs shrink-0 flex items-center gap-1"
+              >
+                {copiedField === 'suburl' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedField === 'suburl' ? 'Copied!' : 'Copy'}</span>
+              </button>
             </div>
           </div>
 
-          {/* Verification Status Card */}
+          {/* Section 2: Custom External Domain (Optional) */}
+          <div className="space-y-2">
+            <label className="block text-xs font-bold uppercase tracking-wider text-gray-700">
+              2. Custom External Domain (Optional)
+            </label>
+            <div className="relative">
+              <Globe className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={customDomainInput}
+                onChange={(e) => setCustomDomainInput(e.target.value)}
+                placeholder="e.g. leads.mybrand.com or getdeal.io"
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[#E5E7EB] bg-[#F5F6F8] text-xs text-[#111827] font-semibold focus:bg-white focus:outline-none"
+              />
+            </div>
+          </div>
+
+          {/* Live Status Card */}
           <div className="p-4 rounded-2xl bg-gray-50 border border-[#E5E7EB] flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div
@@ -128,21 +200,21 @@ export function CustomDomainModal({
               </div>
               <div>
                 <div className="font-bold text-xs text-[#111827] flex items-center gap-2">
-                  <span>https://{domainInput || 'funnel.mycompany.com'}</span>
+                  <span>{generatedUrl}</span>
                   <Badge variant={isVerified ? 'success' : 'warning'}>
                     {isVerified ? 'Live & Connected' : 'Pending DNS'}
                   </Badge>
                 </div>
                 <div className="text-[11px] text-gray-500 flex items-center gap-1.5 mt-0.5">
-                  <Lock className="w-3 h-3 text-emerald-600" />
-                  <span>SSL Security: Auto-provisioned (Let's Encrypt Wildcard)</span>
+                  <Database className="w-3 h-3 text-emerald-600" />
+                  <span>Synced to Supabase Table (funnel_workspaces)</span>
                 </div>
               </div>
             </div>
 
             {isVerified && (
               <a
-                href={`https://${domainInput}`}
+                href={generatedUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="text-gray-400 hover:text-gray-700 p-2"
@@ -151,77 +223,12 @@ export function CustomDomainModal({
               </a>
             )}
           </div>
-
-          {/* DNS Configuration Table */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500">
-                Required DNS Records
-              </h4>
-              <span className="text-[11px] text-gray-400">Configure at your DNS provider (Cloudflare, GoDaddy, Namecheap)</span>
-            </div>
-
-            <div className="border border-[#E5E7EB] rounded-2xl overflow-hidden text-xs">
-              <table className="w-full text-left">
-                <thead className="bg-[#F8FAFC] text-gray-500 font-bold border-b border-[#E5E7EB]">
-                  <tr>
-                    <th className="px-4 py-2.5">Type</th>
-                    <th className="px-4 py-2.5">Name / Host</th>
-                    <th className="px-4 py-2.5">Target Value</th>
-                    <th className="px-4 py-2.5 text-right">Copy</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#E5E7EB] bg-white">
-                  <tr>
-                    <td className="px-4 py-3 font-bold text-indigo-600">CNAME</td>
-                    <td className="px-4 py-3 font-mono text-gray-700">@ / sub</td>
-                    <td className="px-4 py-3 font-mono text-gray-900 font-semibold">
-                      edge.infisparkfunnel.com
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => copyToClipboard('edge.infisparkfunnel.com', 'cname')}
-                        className="p-1.5 text-gray-400 hover:text-gray-700 rounded hover:bg-gray-100"
-                        title="Copy Target"
-                      >
-                        {copiedField === 'cname' ? (
-                          <Check className="w-3.5 h-3.5 text-emerald-600" />
-                        ) : (
-                          <Copy className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="px-4 py-3 font-bold text-blue-600">A Record</td>
-                    <td className="px-4 py-3 font-mono text-gray-700">@ (Root)</td>
-                    <td className="px-4 py-3 font-mono text-gray-900 font-semibold">
-                      76.76.21.21
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => copyToClipboard('76.76.21.21', 'arecord')}
-                        className="p-1.5 text-gray-400 hover:text-gray-700 rounded hover:bg-gray-100"
-                        title="Copy IP"
-                      >
-                        {copiedField === 'arecord' ? (
-                          <Check className="w-3.5 h-3.5 text-emerald-600" />
-                        ) : (
-                          <Copy className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
         </div>
 
         {/* Footer */}
         <div className="p-4 sm:p-5 border-t border-[#E5E7EB] bg-gray-50 flex items-center justify-between">
           <span className="text-xs text-gray-500">
-            DNS changes usually propagate in under 60 seconds.
+            All subdomains route automatically via Next.js Middleware.
           </span>
           <Button variant="primary" size="md" onClick={onClose}>
             Done
