@@ -237,6 +237,43 @@ export function ThreePopupFunnelModal({
         window.history.pushState({}, '', url.toString());
       } catch (err) {}
     }
+
+    // Auto-sync lead state to Supabase on close if name and contact info present
+    if (name && (phone || email)) {
+      (async () => {
+        try {
+          const cleanPhone = phone.trim();
+          let targetLeadId = existingLeadId;
+          if (!targetLeadId && cleanPhone) {
+            const { data: found } = await supabase
+              .from('leads')
+              .select('id')
+              .eq('phone', cleanPhone)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (found?.id) targetLeadId = found.id;
+          }
+
+          const payload: any = {
+            name,
+            email,
+            phone: cleanPhone,
+            step_progress: Object.keys(surveyAnswers).length > 0 ? 'survey_completed' : 'step1_contact',
+            survey_responses: Object.keys(surveyAnswers).length > 0 ? surveyAnswers : null,
+          };
+          if (funnelId) payload.funnel_id = funnelId;
+          if (userId) payload.user_id = userId;
+
+          if (targetLeadId) {
+            await supabase.from('leads').update(payload).eq('id', targetLeadId);
+          } else {
+            await supabase.from('leads').insert(payload);
+          }
+        } catch (err) {}
+      })();
+    }
+
     onClose();
   };
 
@@ -374,14 +411,14 @@ export function ThreePopupFunnelModal({
         }
       }
 
-      const step1Payload = {
-        funnel_id: funnelId || null,
-        user_id: userId || null,
+      const step1Payload: any = {
         name,
         email,
         phone: cleanPhone,
         step_progress: 'step1_contact',
       };
+      if (funnelId) step1Payload.funnel_id = funnelId;
+      if (userId) step1Payload.user_id = userId;
 
       if (activeLeadId) {
         // Update existing lead with matching ID or Phone number
@@ -394,6 +431,11 @@ export function ThreePopupFunnelModal({
 
         if (!error && data?.id) {
           activeLeadId = data.id;
+        } else if (error) {
+          // Fallback retry without foreign keys if schema/FK error occurred
+          const fallbackPayload = { name, email, phone: cleanPhone, step_progress: 'step1_contact' };
+          const { data: fbData } = await supabase.from('leads').update(fallbackPayload).eq('id', activeLeadId).select().single();
+          if (fbData?.id) activeLeadId = fbData.id;
         }
       } else {
         // Insert new lead in Supabase
@@ -406,6 +448,14 @@ export function ThreePopupFunnelModal({
         if (!error && data?.id) {
           activeLeadId = data.id;
           setExistingLeadId(data.id);
+        } else if (error) {
+          // Fallback retry without foreign keys if schema/FK error occurred
+          const fallbackPayload = { name, email, phone: cleanPhone, step_progress: 'step1_contact' };
+          const { data: fbData } = await supabase.from('leads').insert(fallbackPayload).select().single();
+          if (fbData?.id) {
+            activeLeadId = fbData.id;
+            setExistingLeadId(fbData.id);
+          }
         }
       }
     } catch (err) {
