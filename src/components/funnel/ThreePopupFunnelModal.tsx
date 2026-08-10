@@ -241,8 +241,9 @@ export function ThreePopupFunnelModal({
     if (isOpen) {
       let initialStep: 1 | 2 | 3 | 4 = 1;
       let hasSavedDetails = false;
+      let hasSavedSurvey = false;
 
-      // 1. Check browser localStorage for saved lead contact info
+      // 1. Check browser localStorage for saved lead contact info and survey answers
       try {
         const savedSession = localStorage.getItem('lead_funnel_session');
         if (savedSession) {
@@ -253,6 +254,10 @@ export function ThreePopupFunnelModal({
             setPhone(parsed.phone || '');
             if (parsed.leadId) setExistingLeadId(parsed.leadId);
             hasSavedDetails = true;
+          }
+          if (parsed.surveyAnswers && Object.keys(parsed.surveyAnswers).length > 0) {
+            setSurveyAnswers(parsed.surveyAnswers);
+            hasSavedSurvey = Boolean(parsed.hasCompletedSurvey || Object.keys(parsed.surveyAnswers).length >= surveyQuestions.length);
           }
         }
       } catch (err) {}
@@ -266,19 +271,52 @@ export function ThreePopupFunnelModal({
         else if (urlStep === 'confirmation') initialStep = 4;
         else if (urlStep === 'detail') initialStep = 1;
         else {
-          // If no specific step in URL: skip step 1 if user details already saved in browser!
-          initialStep = hasSavedDetails ? 2 : 1;
+          // Smart Step Resumption:
+          // If details + survey saved -> Resume at Step 3 (Meeting)
+          // If details saved only -> Resume at Step 2 (Survey)
+          // If no details -> Step 1 (Basic Details)
+          if (hasSavedDetails && hasSavedSurvey) {
+            initialStep = 3;
+          } else if (hasSavedDetails) {
+            initialStep = 2;
+          } else {
+            initialStep = 1;
+          }
         }
       } else {
-        initialStep = hasSavedDetails ? 2 : 1;
+        if (hasSavedDetails && hasSavedSurvey) {
+          initialStep = 3;
+        } else if (hasSavedDetails) {
+          initialStep = 2;
+        } else {
+          initialStep = 1;
+        }
       }
 
       setStep(initialStep);
       updateUrlStep(initialStep);
     }
-  }, [isOpen]);
+  }, [isOpen, surveyQuestions]);
 
   if (!isOpen) return null;
+
+  const saveSessionToLocalStorage = (updatedAnswers?: Record<string, any>, isSurveyFinished?: boolean) => {
+    try {
+      const answersToSave = updatedAnswers || surveyAnswers;
+      const isFinished = isSurveyFinished ?? (Object.keys(answersToSave).length >= surveyQuestions.length);
+      localStorage.setItem(
+        'lead_funnel_session',
+        JSON.stringify({
+          name,
+          email,
+          phone,
+          leadId: existingLeadId,
+          surveyAnswers: answersToSave,
+          hasCompletedSurvey: isFinished,
+        })
+      );
+    } catch (err) {}
+  };
 
   const handleStep1Submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -288,6 +326,7 @@ export function ThreePopupFunnelModal({
     }
 
     setIsSubmitting(true);
+    let newLeadId = existingLeadId;
     try {
       const { data } = await supabase
         .from('leads')
@@ -303,16 +342,14 @@ export function ThreePopupFunnelModal({
         .single();
 
       if (data?.id) {
+        newLeadId = data.id;
         setExistingLeadId(data.id);
-        localStorage.setItem(
-          'lead_funnel_session',
-          JSON.stringify({ name, email, phone, leadId: data.id })
-        );
       }
     } catch (err) {
       console.error('Error saving step 1 lead info:', err);
     } finally {
       setIsSubmitting(false);
+      saveSessionToLocalStorage();
       changeStep(2);
       setCurrentQuestionIndex(0);
     }
@@ -322,6 +359,7 @@ export function ThreePopupFunnelModal({
     if (currentQuestionIndex < surveyQuestions.length - 1) {
       setCurrentQuestionIndex((prev) => prev + 1);
     } else {
+      saveSessionToLocalStorage(surveyAnswers, true);
       changeStep(3);
     }
   };
@@ -363,26 +401,32 @@ export function ThreePopupFunnelModal({
       console.error('Error inserting/updating lead in Supabase:', err);
     } finally {
       setIsSubmitting(false);
+      saveSessionToLocalStorage(surveyAnswers, true);
       if (onComplete) onComplete(finalLeadPayload);
-      setStep(4);
+      changeStep(4);
     }
   };
 
   const handleOptionSelect = (qId: string, opt: string, isMultiple?: boolean) => {
+    let updated: Record<string, any>;
     if (isMultiple) {
       const currentList: string[] = Array.isArray(surveyAnswers[qId]) ? surveyAnswers[qId] : [];
-      if (currentList.includes(opt)) {
-        setSurveyAnswers({ ...surveyAnswers, [qId]: currentList.filter((item) => item !== opt) });
-      } else {
-        setSurveyAnswers({ ...surveyAnswers, [qId]: [...currentList, opt] });
-      }
+      const newList = currentList.includes(opt)
+        ? currentList.filter((item) => item !== opt)
+        : [...currentList, opt];
+      updated = { ...surveyAnswers, [qId]: newList };
+      setSurveyAnswers(updated);
+      saveSessionToLocalStorage(updated);
     } else {
-      setSurveyAnswers({ ...surveyAnswers, [qId]: opt });
+      updated = { ...surveyAnswers, [qId]: opt };
+      setSurveyAnswers(updated);
+      const isFinal = currentQuestionIndex >= surveyQuestions.length - 1;
+      saveSessionToLocalStorage(updated, isFinal);
       setTimeout(() => {
         if (currentQuestionIndex < surveyQuestions.length - 1) {
           setCurrentQuestionIndex((prev) => prev + 1);
         } else {
-          setStep(3);
+          changeStep(3);
         }
       }, 180);
     }
