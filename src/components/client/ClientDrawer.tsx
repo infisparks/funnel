@@ -1,8 +1,7 @@
-'use client';
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useClientDrawer } from './ClientDrawerContext';
 import { useTheme } from '../theme/ThemeProvider';
+import { supabase } from '@/lib/supabaseClient';
 import {
   X,
   Trash2,
@@ -21,6 +20,7 @@ import {
   FileText,
   AlertCircle,
   ExternalLink,
+  Save,
 } from 'lucide-react';
 import { Button, Badge, Card } from '../ui';
 
@@ -29,18 +29,49 @@ export function ClientDrawer() {
   const { accentColor } = useTheme();
 
   // Local state for forms inside the drawer
-  const [pipelineStage, setPipelineStage] = useState(selectedClient?.stage || 'Not Qualified');
-  const [dealValue, setDealValue] = useState(selectedClient?.dealValue || '50000');
+  const [pipelineStage, setPipelineStage] = useState(selectedClient?.step_progress || selectedClient?.stage || 'step1_contact');
+  const [dealValue, setDealValue] = useState<string>(
+    selectedClient?.deal_value !== undefined && selectedClient?.deal_value !== null
+      ? String(selectedClient.deal_value)
+      : selectedClient?.dealValue !== undefined && selectedClient?.dealValue !== null
+      ? String(selectedClient.dealValue)
+      : ''
+  );
+  const [followupDate, setFollowupDate] = useState(selectedClient?.followup_date || selectedClient?.followupDate || '');
+  const [staffNotesHistory, setStaffNotesHistory] = useState<any[]>(
+    Array.isArray(selectedClient?.staff_notes) ? selectedClient.staff_notes : []
+  );
+  const [googleMeetUrl, setGoogleMeetUrl] = useState(
+    selectedClient?.google_meet_url || selectedClient?.googleMeetUrl || 'https://meet.google.com/qbi-erbq-moy'
+  );
+  const [noteText, setNoteText] = useState('');
+  const [isSavingNote, setIsSavingNote] = useState(false);
+  const [isSavingMeet, setIsSavingMeet] = useState(false);
+
   const [broadcastDate, setBroadcastDate] = useState('');
   const [senderInstance, setSenderInstance] = useState('-- Use Default Active --');
   const [messageText, setMessageText] = useState('');
-  const [followupDate, setFollowupDate] = useState('');
-  const [noteText, setNoteText] = useState('');
-  const [rescheduleDate, setRescheduleDate] = useState('2026-07-28');
+  const [rescheduleDate, setRescheduleDate] = useState('2026-08-10');
   const [rescheduleTime, setRescheduleTime] = useState('09:00 AM');
   const [sendRescheduleWa, setSendRescheduleWa] = useState(true);
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedMeet, setCopiedMeet] = useState(false);
+
+  useEffect(() => {
+    if (selectedClient) {
+      setPipelineStage(selectedClient.step_progress || selectedClient.stage || 'step1_contact');
+      setDealValue(
+        selectedClient.deal_value !== undefined && selectedClient.deal_value !== null
+          ? String(selectedClient.deal_value)
+          : selectedClient.dealValue !== undefined && selectedClient.dealValue !== null
+          ? String(selectedClient.dealValue)
+          : ''
+      );
+      setFollowupDate(selectedClient.followup_date || selectedClient.followupDate || '');
+      setStaffNotesHistory(Array.isArray(selectedClient.staff_notes) ? selectedClient.staff_notes : []);
+      setGoogleMeetUrl(selectedClient.google_meet_url || selectedClient.googleMeetUrl || 'https://meet.google.com/qbi-erbq-moy');
+    }
+  }, [selectedClient]);
 
   if (!isOpen || !selectedClient) return null;
 
@@ -51,6 +82,83 @@ export function ClientDrawer() {
     .substring(0, 2)
     .toUpperCase();
 
+  const handleUpdateStage = async (val: string) => {
+    setPipelineStage(val);
+    if (selectedClient?.id) {
+      await supabase.from('leads').update({ step_progress: val }).eq('id', selectedClient.id);
+    }
+  };
+
+  const handleSaveDealValue = async (val?: string) => {
+    const valueToSave = val ?? dealValue;
+    if (selectedClient?.id) {
+      await supabase.from('leads').update({ deal_value: valueToSave }).eq('id', selectedClient.id);
+    }
+  };
+
+  const handleSaveFollowupDate = async (val: string) => {
+    setFollowupDate(val);
+    if (selectedClient?.id) {
+      await supabase.from('leads').update({ followup_date: val }).eq('id', selectedClient.id);
+    }
+  };
+
+  const handleAddStaffNote = async () => {
+    if (!noteText.trim() || !selectedClient?.id) return;
+    setIsSavingNote(true);
+    try {
+      const newNote = {
+        id: Date.now(),
+        note: noteText.trim(),
+        created_at: new Date().toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }),
+        author: 'Staff Admin',
+      };
+      const updated = [newNote, ...(staffNotesHistory || [])];
+      setStaffNotesHistory(updated);
+      setNoteText('');
+      await supabase.from('leads').update({ staff_notes: updated }).eq('id', selectedClient.id);
+    } catch (err) {
+      console.error('Error saving staff note:', err);
+    } finally {
+      setIsSavingNote(false);
+    }
+  };
+
+  const handleSaveGoogleMeetUrl = async () => {
+    if (!selectedClient?.id) return;
+    setIsSavingMeet(true);
+    try {
+      await supabase.from('leads').update({ google_meet_url: googleMeetUrl }).eq('id', selectedClient.id);
+    } catch (err) {
+      console.error('Error saving Google Meet URL:', err);
+    } finally {
+      setIsSavingMeet(false);
+    }
+  };
+
+  const handleDeleteLead = async () => {
+    if (!selectedClient?.id) return;
+
+    const savedPin = typeof window !== 'undefined' ? localStorage.getItem('workspace_delete_pin') || '1234' : '1234';
+    const enteredPin = prompt(`🔒 SECURITY PIN REQUIRED\nEnter 4-digit security PIN to delete lead "${selectedClient.name}":`);
+
+    if (enteredPin === null) return; // User cancelled prompt
+
+    if (enteredPin.trim() !== savedPin.trim()) {
+      alert('❌ Incorrect 4-Digit Security PIN! Lead deletion cancelled.');
+      return;
+    }
+
+    try {
+      await supabase.from('leads').delete().eq('id', selectedClient.id);
+      alert('✓ Lead deleted successfully.');
+      closeClientDrawer();
+    } catch (err) {
+      console.error('Error deleting lead:', err);
+      alert('Error deleting lead from database.');
+    }
+  };
+
   const handleCopyLink = () => {
     navigator.clipboard.writeText(`https://infisparkfunnel.com/survey/${selectedClient.id || 1}`);
     setCopiedLink(true);
@@ -58,7 +166,7 @@ export function ClientDrawer() {
   };
 
   const handleCopyMeet = () => {
-    navigator.clipboard.writeText(selectedClient.googleMeetUrl || 'https://meet.google.com/qbi-erbq-moy');
+    navigator.clipboard.writeText(googleMeetUrl);
     setCopiedMeet(true);
     setTimeout(() => setCopiedMeet(false), 2000);
   };
@@ -94,11 +202,7 @@ export function ClientDrawer() {
 
           <div className="flex items-center gap-2 shrink-0">
             <button
-              onClick={() => {
-                if (confirm(`Delete lead "${selectedClient.name}"?`)) {
-                  closeClientDrawer();
-                }
-              }}
+              onClick={handleDeleteLead}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs border border-rose-200 cursor-pointer min-h-[44px]"
             >
               <Trash2 className="w-4 h-4" />
@@ -125,26 +229,35 @@ export function ClientDrawer() {
               </span>
               <select
                 value={pipelineStage}
-                onChange={(e) => setPipelineStage(e.target.value)}
+                onChange={(e) => handleUpdateStage(e.target.value)}
                 className="px-3.5 py-2 rounded-xl border border-indigo-200 text-xs font-bold text-indigo-700 bg-indigo-50 focus:outline-none cursor-pointer"
               >
-                <option value="Not Qualified">Not Qualified</option>
-                <option value="Qualified">Qualified</option>
-                <option value="Demo Scheduled">Demo Scheduled</option>
-                <option value="Proposal Sent">Proposal Sent</option>
-                <option value="Closed Won">Closed Won</option>
+                <option value="step1_contact">1. Contact Form Captured</option>
+                <option value="survey_completed">2. Survey Qualified</option>
+                <option value="meeting_booked">3. Meeting Booked</option>
               </select>
             </div>
 
             <div className="flex items-center justify-between gap-3 pt-2">
               <span className="text-xs font-bold text-gray-700">Deal Value (₹):</span>
-              <input
-                type="text"
-                value={dealValue}
-                onChange={(e) => setDealValue(e.target.value)}
-                placeholder="e.g. 50000"
-                className="w-40 px-3.5 py-1.5 rounded-xl border border-[#E5E7EB] text-right font-bold text-xs bg-[#F5F6F8] focus:bg-white focus:outline-none"
-              />
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={dealValue}
+                  onChange={(e) => setDealValue(e.target.value)}
+                  onBlur={() => handleSaveDealValue()}
+                  placeholder="e.g. 50000"
+                  className="w-32 px-3 py-1.5 rounded-xl border border-[#E5E7EB] text-right font-bold text-xs bg-[#F5F6F8] focus:bg-white focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleSaveDealValue()}
+                  className="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1 cursor-pointer shrink-0"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Save</span>
+                </button>
+              </div>
             </div>
 
             {/* Quick Phone Call & WhatsApp Action Buttons */}
@@ -267,21 +380,28 @@ export function ClientDrawer() {
 
           {/* Card 3: Scheduled Follow-up Date */}
           <Card className="p-5 bg-white space-y-3">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-indigo-600" />
-              <h3 className="font-bold text-sm text-[#111827]">
-                Scheduled Follow-up Date
-              </h3>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-indigo-600" />
+                <h3 className="font-bold text-sm text-[#111827]">
+                  Scheduled Follow-up Date
+                </h3>
+              </div>
+              {followupDate && (
+                <span className="text-[11px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
+                  Active Reminder
+                </span>
+              )}
             </div>
             <input
               type="date"
               value={followupDate}
-              onChange={(e) => setFollowupDate(e.target.value)}
-              className="w-full px-3.5 py-2 rounded-xl border border-[#E5E7EB] text-xs font-medium bg-[#F5F6F8]"
+              onChange={(e) => handleSaveFollowupDate(e.target.value)}
+              className="w-full px-3.5 py-2 rounded-xl border border-[#E5E7EB] text-xs font-medium bg-[#F5F6F8] focus:bg-white focus:outline-none"
             />
           </Card>
 
-          {/* Card 4: Staff Notes & Remarks */}
+          {/* Card 4: Staff Notes & Remarks JSON History */}
           <Card className="p-5 bg-white space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -290,13 +410,15 @@ export function ClientDrawer() {
                   Staff Notes & Remarks
                 </h3>
               </div>
-              <span className="text-xs text-gray-400">0 Notes</span>
+              <span className="text-xs text-gray-400 font-bold">
+                {staffNotesHistory.length} {staffNotesHistory.length === 1 ? 'Note' : 'Notes'}
+              </span>
             </div>
 
             <textarea
               value={noteText}
               onChange={(e) => setNoteText(e.target.value)}
-              placeholder="Type notes after speaking with client..."
+              placeholder="Type staff notes or call remarks..."
               className="w-full h-20 p-3 rounded-xl border border-[#E5E7EB] text-xs bg-[#F5F6F8] focus:bg-white focus:outline-none"
             />
 
@@ -304,21 +426,32 @@ export function ClientDrawer() {
               <Button
                 variant="secondary"
                 size="sm"
+                disabled={isSavingNote}
                 leftIcon={<Plus className="w-3.5 h-3.5" />}
-                onClick={() => {
-                  if (noteText) {
-                    alert('Note saved to client timeline!');
-                    setNoteText('');
-                  }
-                }}
+                onClick={handleAddStaffNote}
               >
-                Add Note
+                {isSavingNote ? 'Saving...' : 'Add Note'}
               </Button>
             </div>
 
-            <p className="text-center text-xs text-gray-400 italic pt-1">
-              No staff notes recorded yet.
-            </p>
+            {/* Render Recorded Staff Notes History */}
+            {staffNotesHistory && staffNotesHistory.length > 0 ? (
+              <div className="space-y-2 pt-2 border-t border-gray-100 max-h-56 overflow-y-auto pr-1">
+                {staffNotesHistory.map((item: any, idx: number) => (
+                  <div key={item.id || idx} className="p-3 rounded-xl bg-[#F8FAFC] border border-gray-200 text-xs space-y-1">
+                    <div className="flex items-center justify-between text-[10px] font-bold text-gray-500">
+                      <span className="text-indigo-600 font-semibold">{item.author || 'Staff Admin'}</span>
+                      <span>{item.created_at}</span>
+                    </div>
+                    <p className="text-gray-800 font-medium whitespace-pre-wrap">{item.note}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-xs text-gray-400 italic pt-1">
+                No staff notes recorded yet.
+              </p>
+            )}
           </Card>
 
           {/* Card 5: Customer Journey Checklist */}
@@ -333,7 +466,7 @@ export function ClientDrawer() {
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                   <span>1. Basic Contact Info</span>
                 </div>
-                <span className="text-emerald-700 font-mono">{selectedClient.phone || '+91 7719944426'}</span>
+                <span className="text-emerald-700 font-mono">{selectedClient.phone || 'N/A'}</span>
               </div>
 
               <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50/60 flex items-center justify-between text-xs font-bold text-emerald-800">
@@ -341,7 +474,11 @@ export function ClientDrawer() {
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                   <span>2. Business Survey</span>
                 </div>
-                <span className="text-emerald-700">Completed</span>
+                <span className="text-emerald-700">
+                  {selectedClient.survey_responses && Object.keys(selectedClient.survey_responses).length > 0
+                    ? 'Completed'
+                    : 'Pending'}
+                </span>
               </div>
 
               <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50/60 flex items-center justify-between text-xs font-bold text-emerald-800">
@@ -349,13 +486,17 @@ export function ClientDrawer() {
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                   <span>3. Scheduled Meeting</span>
                 </div>
-                <span className="text-emerald-700">2026-07-28 @ 09:00 PM</span>
+                <span className="text-emerald-700">
+                  {selectedClient.meeting_date
+                    ? `${selectedClient.meeting_date} @ ${selectedClient.meeting_time || '11:00 AM'}`
+                    : 'Pending'}
+                </span>
               </div>
             </div>
           </Card>
 
-          {/* Card 6: Google Meet Video Call Card */}
-          <div className="p-6 rounded-3xl bg-gradient-to-br from-[#2E1A75] to-[#1E1250] text-white shadow-md space-y-4">
+          {/* Card 6: Google Meet Video Call Management Card */}
+          <div className="p-5 rounded-3xl bg-gradient-to-br from-[#2E1A75] to-[#1E1250] text-white shadow-md space-y-3.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-xs flex items-center justify-center">
@@ -363,19 +504,42 @@ export function ClientDrawer() {
                 </div>
                 <div>
                   <h3 className="font-bold text-sm">Google Meet Video Call</h3>
-                  <p className="text-xs text-white/70">Unique meeting link for this client</p>
+                  <p className="text-xs text-white/70">Custom meeting link for this client</p>
                 </div>
               </div>
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 uppercase">
-                ACTIVE CALL
+                ACTIVE LINK
               </span>
+            </div>
+
+            {/* Editable Google Meet URL Input */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold text-indigo-200 block">
+                Manage Google Meet URL:
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={googleMeetUrl}
+                  onChange={(e) => setGoogleMeetUrl(e.target.value)}
+                  placeholder="https://meet.google.com/qbi-erbq-moy"
+                  className="flex-1 px-3 py-2 rounded-xl bg-black/40 border border-white/10 text-xs font-mono text-white focus:outline-none"
+                />
+                <button
+                  type="button"
+                  disabled={isSavingMeet}
+                  onClick={handleSaveGoogleMeetUrl}
+                  className="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shrink-0 cursor-pointer flex items-center gap-1"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>{isSavingMeet ? 'Saving...' : 'Save'}</span>
+                </button>
+              </div>
             </div>
 
             {/* Meet Link & Copy Bar */}
             <div className="p-2.5 rounded-xl bg-black/30 border border-white/10 flex items-center justify-between gap-2 text-xs font-mono">
-              <span className="truncate text-white/90">
-                {selectedClient.googleMeetUrl || 'https://meet.google.com/qbi-erbq-moy'}
-              </span>
+              <span className="truncate text-white/90">{googleMeetUrl}</span>
               <button
                 onClick={handleCopyMeet}
                 className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-sans text-xs font-bold flex items-center gap-1 shrink-0 cursor-pointer"
@@ -387,10 +551,10 @@ export function ClientDrawer() {
 
             {/* Join Call Button */}
             <a
-              href={selectedClient.googleMeetUrl || 'https://meet.google.com/qbi-erbq-moy'}
+              href={googleMeetUrl}
               target="_blank"
               rel="noreferrer"
-              className="w-full py-3 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-sm flex items-center justify-center gap-2 shadow-md transition-colors"
+              className="w-full py-2.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-colors"
             >
               <Video className="w-4 h-4" />
               <span>Join Google Meet Video Call Now 🚀</span>
@@ -465,42 +629,41 @@ export function ClientDrawer() {
 
           {/* Card 8: Survey Responses Profile */}
           <Card className="p-5 bg-white space-y-3">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-indigo-600" />
-              <h3 className="font-bold text-sm text-[#111827]">
-                Survey Responses Profile
-              </h3>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-indigo-600" />
+                <h3 className="font-bold text-sm text-[#111827]">
+                  Survey Responses Profile
+                </h3>
+              </div>
+              <span className="text-xs font-extrabold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
+                {selectedClient.survey_responses && Object.keys(selectedClient.survey_responses).length > 0
+                  ? `${Object.keys(selectedClient.survey_responses).length} Questions Answered`
+                  : 'No Survey Data'}
+              </span>
             </div>
 
-            <div className="space-y-2 pt-1 text-xs">
-              <div className="p-3 rounded-xl border border-gray-200 bg-[#F8FAFC] flex items-center justify-between">
-                <span className="text-gray-500 font-semibold">Industry:</span>
-                <span className="font-bold text-gray-900 px-3 py-1 bg-white rounded-lg border border-gray-200">
-                  {selectedClient.survey?.industry || 'Doctor / Clinic'}
-                </span>
+            {selectedClient.survey_responses && Object.keys(selectedClient.survey_responses).length > 0 ? (
+              <div className="space-y-2 pt-1 text-xs">
+                {Object.entries(selectedClient.survey_responses).map(([questionText, answerVal]) => (
+                  <div
+                    key={questionText}
+                    className="p-3 rounded-xl border border-gray-200 bg-[#F8FAFC] flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                  >
+                    <span className="text-gray-700 font-bold max-w-xs leading-relaxed">
+                      {questionText}:
+                    </span>
+                    <span className="font-extrabold text-gray-900 px-3 py-1 bg-white rounded-lg border border-gray-200 shadow-2xs text-right shrink-0">
+                      {Array.isArray(answerVal) ? answerVal.join(', ') : String(answerVal)}
+                    </span>
+                  </div>
+                ))}
               </div>
-
-              <div className="p-3 rounded-xl border border-gray-200 bg-[#F8FAFC] flex items-center justify-between">
-                <span className="text-gray-500 font-semibold">InvestmentReady:</span>
-                <span className="font-bold text-gray-900 px-3 py-1 bg-white rounded-lg border border-gray-200">
-                  {selectedClient.survey?.investmentReady || 'Maybe'}
-                </span>
-              </div>
-
-              <div className="p-3 rounded-xl border border-gray-200 bg-[#F8FAFC] flex items-center justify-between">
-                <span className="text-gray-500 font-semibold">Revenue:</span>
-                <span className="font-bold text-gray-900 px-3 py-1 bg-white rounded-lg border border-gray-200">
-                  {selectedClient.survey?.revenue || '₹5L – ₹10L'}
-                </span>
-              </div>
-
-              <div className="p-3 rounded-xl border border-gray-200 bg-[#F8FAFC] flex items-center justify-between">
-                <span className="text-gray-500 font-semibold">Role:</span>
-                <span className="font-bold text-gray-900 px-3 py-1 bg-white rounded-lg border border-gray-200">
-                  {selectedClient.survey?.role || 'Partner'}
-                </span>
-              </div>
-            </div>
+            ) : (
+              <p className="text-center text-xs text-gray-400 italic pt-1">
+                No survey responses recorded for this lead yet.
+              </p>
+            )}
           </Card>
 
           {/* Card 9: Campaign & Survey Link Footer Card */}

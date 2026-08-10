@@ -10,6 +10,15 @@ export interface ClientData {
   avatar?: string;
   stage?: string;
   dealValue?: string | number;
+  deal_value?: string | number;
+  followup_date?: string;
+  followupDate?: string;
+  staff_notes?: any[];
+  google_meet_url?: string;
+  step_progress?: string;
+  survey_responses?: Record<string, any>;
+  meeting_date?: string;
+  meeting_time?: string;
   time?: string;
   survey?: {
     industry?: string;

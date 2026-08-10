@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, Badge, Button } from '@/components/ui';
 import { useTheme } from '@/components/theme/ThemeProvider';
+import { supabase } from '@/lib/supabaseClient';
 import {
   ChevronLeft,
   ChevronRight,
@@ -15,6 +16,9 @@ import {
   Lock,
   Clock,
   User,
+  Video,
+  Save,
+  X,
 } from 'lucide-react';
 
 interface CalendarEvent {
@@ -37,6 +41,64 @@ export default function MeetingsCalendarPage() {
   const [viewMode, setViewMode] = useState<'month' | 'week'>('month');
   const [campaign, setCampaign] = useState('All Campaigns');
   const [selectedDayEvents, setSelectedDayEvents] = useState<CalendarDay | null>(null);
+
+  const [isMeetModalOpen, setIsMeetModalOpen] = useState(false);
+  const [googleMeetUrl, setGoogleMeetUrl] = useState('https://meet.google.com/qbi-erbq-moy');
+  const [deletePin, setDeletePin] = useState('1234');
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+
+  useEffect(() => {
+    const savedMeet = typeof window !== 'undefined' ? localStorage.getItem('workspace_google_meet_url') : null;
+    const savedPin = typeof window !== 'undefined' ? localStorage.getItem('workspace_delete_pin') : null;
+    if (savedMeet) setGoogleMeetUrl(savedMeet);
+    if (savedPin) setDeletePin(savedPin);
+
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('funnel_workspaces')
+          .select('google_meet_url, delete_pin')
+          .limit(1)
+          .maybeSingle();
+
+        if (data?.google_meet_url) {
+          setGoogleMeetUrl(data.google_meet_url);
+          localStorage.setItem('workspace_google_meet_url', data.google_meet_url);
+        }
+        if (data?.delete_pin) {
+          setDeletePin(data.delete_pin);
+          localStorage.setItem('workspace_delete_pin', data.delete_pin);
+        }
+      } catch (err) {
+        console.error('Error loading workspace settings:', err);
+      }
+    })();
+  }, []);
+
+  const handleSaveMeetSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingSettings(true);
+    try {
+      localStorage.setItem('workspace_google_meet_url', googleMeetUrl);
+      localStorage.setItem('workspace_delete_pin', deletePin);
+
+      const { data: workspaces } = await supabase.from('funnel_workspaces').select('id').limit(1);
+      if (workspaces && workspaces.length > 0) {
+        await supabase.from('funnel_workspaces').update({
+          google_meet_url: googleMeetUrl,
+          delete_pin: deletePin,
+        }).eq('id', workspaces[0].id);
+      }
+
+      alert('✓ Google Meet URL and 4-Digit Security PIN saved successfully!');
+      setIsMeetModalOpen(false);
+    } catch (err) {
+      console.error('Error saving settings:', err);
+      alert('Failed to save settings.');
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
 
   // August 2026 Calendar Grid Data matching the reference screenshot exactly
   const calendarDays: CalendarDay[] = [
@@ -234,6 +296,15 @@ export default function MeetingsCalendarPage() {
               Today
             </button>
 
+            {/* Google Meet & Security Settings Modal Button */}
+            <button
+              onClick={() => setIsMeetModalOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 shadow-2xs transition-colors cursor-pointer"
+            >
+              <Video className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Google Meet & Security Settings</span>
+            </button>
+
             {/* Mark as Booked Button */}
             <button className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-2xs cursor-pointer">
               <CalendarIcon className="w-4 h-4" />
@@ -359,6 +430,91 @@ export default function MeetingsCalendarPage() {
           </div>
         </div>
       </Card>
+
+      {/* Google Meet & Security Settings Modal */}
+      {isMeetModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-gray-200 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex items-center gap-2">
+                <Video className="w-5 h-5 text-indigo-600" />
+                <h3 className="text-base font-extrabold text-[#111827]">
+                  Google Meet & Security Settings
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMeetModalOpen(false)}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveMeetSettings} className="space-y-4">
+              {/* Google Meet URL */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wider">
+                  Workspace Google Meet Video Call URL *
+                </label>
+                <div className="relative">
+                  <Video className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="url"
+                    required
+                    value={googleMeetUrl}
+                    onChange={(e) => setGoogleMeetUrl(e.target.value)}
+                    placeholder="https://meet.google.com/qbi-erbq-moy"
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-300 text-xs font-mono text-gray-900 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <p className="text-[10px] text-gray-500 mt-1">
+                  This URL is automatically displayed to leads upon booking strategy calls.
+                </p>
+              </div>
+
+              {/* 4-Digit Security Delete PIN */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wider flex items-center gap-1">
+                  <Lock className="w-3.5 h-3.5 text-amber-500" />
+                  <span>4-Digit Security Delete PIN *</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  maxLength={4}
+                  pattern="[0-9]{4}"
+                  value={deletePin}
+                  onChange={(e) => setDeletePin(e.target.value)}
+                  placeholder="1234"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm font-mono font-extrabold text-indigo-700 bg-indigo-50/50 focus:outline-none focus:border-indigo-500 tracking-widest text-center"
+                />
+                <p className="text-[10px] text-gray-500 mt-1">
+                  This 4-digit PIN is required whenever staff deletes any lead.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t">
+                <button
+                  type="button"
+                  onClick={() => setIsMeetModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingSettings}
+                  className="px-5 py-2 rounded-xl bg-[#8146F0] hover:bg-[#6D34DB] text-white font-extrabold text-xs shadow-md cursor-pointer flex items-center gap-1.5"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>{isSavingSettings ? 'Saving...' : 'Save Settings'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </MainLayout>
   );
 }

@@ -37,6 +37,7 @@ import {
   Check,
   Zap,
   ClipboardPaste,
+  Video,
 } from 'lucide-react';
 import { ThreePopupFunnelModal, PopupThemeConfig, SurveyQuestion, SuccessButton } from '@/components/funnel/ThreePopupFunnelModal';
 
@@ -760,6 +761,27 @@ export default function CustomizeStudioPage() {
                       onChange={(e) => setTheme({ ...theme, step4Subtitle: e.target.value })}
                       className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs text-gray-700"
                     />
+                  </div>
+
+                  {/* Google Meet Video Call Link Setting */}
+                  <div className="p-3.5 rounded-2xl bg-indigo-50/80 border border-indigo-200 space-y-2">
+                    <label className="block text-xs font-extrabold text-indigo-900 uppercase tracking-wider flex items-center gap-1.5">
+                      <Video className="w-4 h-4 text-indigo-600" />
+                      <span>Custom Google Meet Video Call URL</span>
+                    </label>
+                    <div className="relative">
+                      <Video className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={theme.googleMeetUrl || ''}
+                        onChange={(e) => setTheme({ ...theme, googleMeetUrl: e.target.value })}
+                        placeholder="https://meet.google.com/qbi-erbq-moy"
+                        className="w-full pl-9 pr-3 py-2 rounded-xl border border-indigo-200 text-xs font-mono bg-white focus:outline-none text-gray-900"
+                      />
+                    </div>
+                    <p className="text-[10px] text-indigo-600 font-medium">
+                      This video call URL will be automatically displayed to leads upon appointment booking.
+                    </p>
                   </div>
 
                   {/* Add Specific Button Types (WhatsApp, Instagram, Website, Custom) */}

@@ -44,9 +44,28 @@ export function StandaloneMeetingClient({ workspace }: StandaloneMeetingClientPr
     };
 
     try {
-      await supabase.from('leads').insert(leadPayload);
+      let targetId = null;
+      const cleanPhone = (phone || '').trim();
+
+      if (cleanPhone) {
+        const { data: found } = await supabase
+          .from('leads')
+          .select('id')
+          .eq('phone', cleanPhone)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (found?.id) targetId = found.id;
+      }
+
+      if (targetId) {
+        await supabase.from('leads').update(leadPayload).eq('id', targetId);
+      } else {
+        await supabase.from('leads').insert(leadPayload);
+      }
     } catch (err) {
-      console.error('Error inserting lead from /meeting:', err);
+      console.error('Error inserting/updating lead from /meeting:', err);
     } finally {
       setIsSubmitting(false);
       setIsBooked(true);

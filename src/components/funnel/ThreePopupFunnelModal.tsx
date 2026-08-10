@@ -21,6 +21,7 @@ import {
   ArrowLeft,
   UserPlus,
   Plus,
+  Video,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 
@@ -79,6 +80,7 @@ export interface PopupThemeConfig {
   step4Subtitle?: string;
   step4ButtonColor?: string;
   step4Buttons?: SuccessButton[];
+  googleMeetUrl?: string;
 }
 
 interface ThreePopupFunnelModalProps {
@@ -554,6 +556,8 @@ export function ThreePopupFunnelModal({
     e.preventDefault();
     setIsSubmitting(true);
 
+    const activeMeetUrl = (typeof window !== 'undefined' && localStorage.getItem('workspace_google_meet_url')) || popupTheme?.googleMeetUrl || 'https://meet.google.com/qbi-erbq-moy';
+
     const finalLeadPayload = {
       funnel_id: funnelId || null,
       user_id: userId || null,
@@ -564,11 +568,27 @@ export function ThreePopupFunnelModal({
       survey_responses: surveyAnswers,
       meeting_date: selectedIsoDate,
       meeting_time: meetingTime,
+      google_meet_url: activeMeetUrl,
     };
 
     try {
-      if (existingLeadId) {
-        await supabase.from('leads').update(finalLeadPayload).eq('id', existingLeadId);
+      let targetId = existingLeadId;
+      const cleanPhone = phone.trim();
+
+      if (!targetId && cleanPhone) {
+        const { data: found } = await supabase
+          .from('leads')
+          .select('id')
+          .eq('phone', cleanPhone)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (found?.id) targetId = found.id;
+      }
+
+      if (targetId) {
+        await supabase.from('leads').update(finalLeadPayload).eq('id', targetId);
       } else {
         await supabase.from('leads').insert(finalLeadPayload);
       }
@@ -1075,6 +1095,33 @@ export function ThreePopupFunnelModal({
                 <p className={`text-xs max-w-xs mx-auto leading-relaxed ${isLightMode ? 'text-gray-600' : 'text-gray-300'}`}>
                   Thank you <span className="font-bold" style={{ color: primaryColor }}>{name}</span>! Your meeting is set for <span className="font-bold text-emerald-400">{selectedIsoDate} at {meetingTime}</span>.
                 </p>
+              </div>
+
+              {/* GOOGLE MEET VIDEO CALL CARD */}
+              <div className="p-3.5 rounded-2xl bg-indigo-950/90 border border-indigo-500/30 text-left space-y-2 shadow-md">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-extrabold text-white">
+                    <Video className="w-4 h-4 text-emerald-400" />
+                    <span>Google Meet Video Call Link</span>
+                  </div>
+                  <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                    READY TO JOIN
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-black/40 text-[11px] font-mono border border-white/10">
+                  <span className="truncate text-white/90">
+                    {popupTheme?.googleMeetUrl || 'https://meet.google.com/qbi-erbq-moy'}
+                  </span>
+                  <a
+                    href={popupTheme?.googleMeetUrl || 'https://meet.google.com/qbi-erbq-moy'}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-sans text-xs font-extrabold shrink-0 flex items-center gap-1 shadow-sm transition-colors"
+                  >
+                    <span>Join Meet</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
               </div>
 
               {/* ACTION BUTTONS (WhatsApp, Instagram, Website, Custom Link) */}
