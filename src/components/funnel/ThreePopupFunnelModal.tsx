@@ -910,9 +910,11 @@ export function ThreePopupFunnelModal({
                 <div className={`grid gap-2 pt-1 max-h-[280px] overflow-y-auto pr-1 ${hasLongOption ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'}`}>
                   {currentQ.options.map((opt) => {
                     const isMultiple = currentQ.allowMultiple;
+                    const qKey = currentQ.label || currentQ.id;
+                    const currentVal = surveyAnswers[qKey] ?? surveyAnswers[currentQ.id];
                     const isSelected = isMultiple
-                      ? Array.isArray(surveyAnswers[currentQ.id]) && surveyAnswers[currentQ.id].includes(opt)
-                      : surveyAnswers[currentQ.id] === opt;
+                      ? Array.isArray(currentVal) && currentVal.includes(opt)
+                      : currentVal === opt;
 
                     return (
                       <button
