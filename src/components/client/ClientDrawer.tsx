@@ -33,8 +33,6 @@ export function ClientDrawer() {
   const [dealValue, setDealValue] = useState<string>(
     selectedClient?.deal_value !== undefined && selectedClient?.deal_value !== null
       ? String(selectedClient.deal_value)
-      : selectedClient?.dealValue !== undefined && selectedClient?.dealValue !== null
-      ? String(selectedClient.dealValue)
       : ''
   );
   const [followupDate, setFollowupDate] = useState(selectedClient?.followup_date || selectedClient?.followupDate || '');
@@ -63,8 +61,6 @@ export function ClientDrawer() {
       setDealValue(
         selectedClient.deal_value !== undefined && selectedClient.deal_value !== null
           ? String(selectedClient.deal_value)
-          : selectedClient.dealValue !== undefined && selectedClient.dealValue !== null
-          ? String(selectedClient.dealValue)
           : ''
       );
       setFollowupDate(selectedClient.followup_date || selectedClient.followupDate || '');
@@ -90,9 +86,10 @@ export function ClientDrawer() {
   };
 
   const handleSaveDealValue = async (val?: string) => {
-    const valueToSave = val ?? dealValue;
+    const valueToSave = val !== undefined ? val : dealValue;
+    const finalVal = valueToSave.trim() === '' ? null : valueToSave.trim();
     if (selectedClient?.id) {
-      await supabase.from('leads').update({ deal_value: valueToSave }).eq('id', selectedClient.id);
+      await supabase.from('leads').update({ deal_value: finalVal }).eq('id', selectedClient.id);
     }
   };
 
@@ -246,7 +243,7 @@ export function ClientDrawer() {
                   value={dealValue}
                   onChange={(e) => setDealValue(e.target.value)}
                   onBlur={() => handleSaveDealValue()}
-                  placeholder="e.g. 50000"
+                  placeholder="Null"
                   className="w-32 px-3 py-1.5 rounded-xl border border-[#E5E7EB] text-right font-bold text-xs bg-[#F5F6F8] focus:bg-white focus:outline-none"
                 />
                 <button
