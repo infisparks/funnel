@@ -26,6 +26,7 @@ import {
   Trash2,
   Plus,
   LogIn,
+  MessageSquare,
 } from 'lucide-react';
 
 export function Sidebar() {
@@ -49,11 +50,12 @@ export function Sidebar() {
     return false;
   };
 
-  // Top 4 Main CRM workspace items requested by user
+  // Top Main CRM workspace items requested by user
   const crmWorkspaceItems = [
     { label: 'Landing Page', icon: Sparkles, href: '/landing', badge: null },
     { label: 'Dashboard & Leads', icon: TrendingUp, href: '/dashboard', badge: null },
     { label: 'Pipeline Stage Board', icon: Columns, href: '/pipeline', badge: '14' },
+    { label: 'WhatsApp Automation', icon: MessageSquare, href: '/whatsapp', badge: 'Auto' },
     { label: 'Meetings Calendar', icon: Calendar, href: '/calendar', badge: '3' },
     { label: 'Scheduled Meetings', icon: CalendarCheck, href: '/meetings', badge: null },
   ];

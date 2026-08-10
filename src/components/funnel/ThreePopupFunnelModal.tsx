@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { dispatchWhatsappTrigger } from '@/lib/whatsappDispatch';
 import {
   X,
   CheckCircle2,
@@ -486,6 +487,9 @@ export function ThreePopupFunnelModal({
           leadId: activeLeadId,
         });
       }
+      // Dispatch automatic WhatsApp Step 1 trigger
+      dispatchWhatsappTrigger('step1', { name, phone: cleanPhone, email });
+
       changeStep(2);
       setCurrentQuestionIndex(0);
     }
@@ -540,6 +544,8 @@ export function ThreePopupFunnelModal({
     if (currentQuestionIndex < surveyQuestions.length - 1) {
       setCurrentQuestionIndex((prev) => prev + 1);
     } else {
+      // Dispatch automatic WhatsApp Step 2 trigger
+      dispatchWhatsappTrigger('step2', { name, phone: phone.trim(), email });
       changeStep(3);
     }
   };
@@ -592,6 +598,16 @@ export function ThreePopupFunnelModal({
       } else {
         await supabase.from('leads').insert(finalLeadPayload);
       }
+
+      // Dispatch automatic WhatsApp Step 3 trigger
+      dispatchWhatsappTrigger('step3', {
+        name,
+        phone: cleanPhone,
+        email,
+        meeting_date: selectedIsoDate,
+        meeting_time: meetingTime,
+        google_meet_url: activeMeetUrl,
+      });
     } catch (err) {
       console.error('Error inserting/updating lead in Supabase:', err);
     } finally {

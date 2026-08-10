@@ -54,6 +54,25 @@ export function ClientDrawer() {
   const [sendRescheduleWa, setSendRescheduleWa] = useState(true);
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedMeet, setCopiedMeet] = useState(false);
+  const [workspaceStages, setWorkspaceStages] = useState<any[]>([
+    { id: 'step1_contact', name: '1. Contact Form Captured' },
+    { id: 'survey_completed', name: '2. Survey Qualified' },
+    { id: 'meeting_booked', name: '3. Meeting Booked' },
+    { id: 'meeting_missed', name: '4. Meeting Missed' },
+    { id: 'closed_won', name: '5. Closed Won' },
+  ]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await supabase.from('funnel_workspaces').select('pipeline_stages').limit(1).maybeSingle();
+        if (data?.pipeline_stages && Array.isArray(data.pipeline_stages)) {
+          const active = data.pipeline_stages.filter((s: any) => !s.is_deleted);
+          if (active.length > 0) setWorkspaceStages(active);
+        }
+      } catch (err) {}
+    })();
+  }, []);
 
   useEffect(() => {
     if (selectedClient) {
@@ -229,9 +248,11 @@ export function ClientDrawer() {
                 onChange={(e) => handleUpdateStage(e.target.value)}
                 className="px-3.5 py-2 rounded-xl border border-indigo-200 text-xs font-bold text-indigo-700 bg-indigo-50 focus:outline-none cursor-pointer"
               >
-                <option value="step1_contact">1. Contact Form Captured</option>
-                <option value="survey_completed">2. Survey Qualified</option>
-                <option value="meeting_booked">3. Meeting Booked</option>
+                {workspaceStages.map((stg) => (
+                  <option key={stg.id} value={stg.id}>
+                    {stg.name}
+                  </option>
+                ))}
               </select>
             </div>
 
