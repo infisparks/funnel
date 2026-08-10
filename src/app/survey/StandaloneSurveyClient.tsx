@@ -45,6 +45,15 @@ export function StandaloneSurveyClient({ workspace }: StandaloneSurveyClientProp
     } catch (err) {}
   }, []);
 
+  const resetStandaloneSession = () => {
+    localStorage.removeItem('lead_funnel_session');
+    localStorage.removeItem('lead_contact_info');
+    setName('');
+    setEmail('');
+    setPhone('');
+    setHasSavedDetails(false);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!hasSavedDetails && (!name || !phone || !email)) {
@@ -85,11 +94,18 @@ export function StandaloneSurveyClient({ workspace }: StandaloneSurveyClientProp
           </p>
 
           {hasSavedDetails ? (
-            <div className="pt-2">
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-2">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                 <span>Verified Client: <strong>{name}</strong> ({phone || email})</span>
               </span>
+              <button
+                type="button"
+                onClick={resetStandaloneSession}
+                className="text-xs text-amber-400 hover:underline font-bold cursor-pointer"
+              >
+                + Fill New Details
+              </button>
             </div>
           ) : (
             <p className="text-xs text-amber-400 font-semibold pt-1">

@@ -19,6 +19,7 @@ import {
   Globe,
   Link as LinkIcon,
   ArrowLeft,
+  UserPlus,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 
@@ -429,6 +430,18 @@ export function ThreePopupFunnelModal({
     }
   };
 
+  const resetLeadSession = () => {
+    localStorage.removeItem('lead_funnel_session');
+    localStorage.removeItem('lead_contact_info');
+    setName('');
+    setEmail('');
+    setPhone('');
+    setSurveyAnswers({});
+    setExistingLeadId(null);
+    changeStep(1);
+    setCurrentQuestionIndex(0);
+  };
+
   const handleOptionSelect = (qId: string, opt: string, isMultiple?: boolean) => {
     let updated: Record<string, any>;
     if (isMultiple) {
@@ -444,6 +457,24 @@ export function ThreePopupFunnelModal({
       setSurveyAnswers(updated);
       const isFinal = currentQuestionIndex >= surveyQuestions.length - 1;
       saveSessionToLocalStorage(updated, isFinal);
+
+      // Incremental Background Persistence to Supabase
+      if (existingLeadId) {
+        (async () => {
+          try {
+            await supabase
+              .from('leads')
+              .update({
+                survey_responses: updated,
+                step_progress: 'survey_completed',
+              })
+              .eq('id', existingLeadId);
+          } catch (err) {
+            console.error('Error saving incremental survey to Supabase:', err);
+          }
+        })();
+      }
+
       setTimeout(() => {
         if (currentQuestionIndex < surveyQuestions.length - 1) {
           setCurrentQuestionIndex((prev) => prev + 1);
@@ -452,16 +483,6 @@ export function ThreePopupFunnelModal({
         }
       }, 180);
     }
-  };
-
-  const resetLeadSession = () => {
-    localStorage.removeItem('lead_funnel_session');
-    setName('');
-    setEmail('');
-    setPhone('');
-    setExistingLeadId(null);
-    setStep(1);
-    setCurrentQuestionIndex(0);
   };
 
   const getButtonStyle = () => {
@@ -566,17 +587,18 @@ export function ThreePopupFunnelModal({
       >
         {/* Top Controls */}
         <div className="absolute top-4 right-4 flex items-center gap-1.5 z-10">
-          {step > 1 && (
-            <button
-              onClick={resetLeadSession}
-              title="Edit Contact Info"
-              className={`p-1.5 rounded-full text-xs font-bold flex items-center gap-1 cursor-pointer transition-all ${
-                isLightMode ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-white/10 text-gray-300 hover:bg-white/20'
-              }`}
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-            </button>
-          )}
+          <button
+            onClick={resetLeadSession}
+            title="Fill details for a new lead"
+            className={`px-2.5 py-1 rounded-full text-xs font-extrabold flex items-center gap-1 cursor-pointer transition-all ${
+              isLightMode
+                ? 'bg-purple-50 text-[#8146F0] hover:bg-purple-100 border border-purple-200 shadow-2xs'
+                : 'bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/40 shadow-2xs'
+            }`}
+          >
+            <UserPlus className="w-3.5 h-3.5" />
+            <span>+ Fill New</span>
+          </button>
 
           <button
             onClick={handleCloseModal}
