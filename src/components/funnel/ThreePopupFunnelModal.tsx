@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { dispatchWhatsappTrigger } from '@/lib/whatsappDispatch';
-import { dispatchMetaCapiEvent } from '@/lib/metaCapiDispatch';
 import {
   X,
   CheckCircle2,
@@ -488,9 +487,8 @@ export function ThreePopupFunnelModal({
           leadId: activeLeadId,
         });
       }
-      // Dispatch automatic WhatsApp & Meta CAPI Step 1 triggers
+      // Dispatch automatic WhatsApp Step 1 trigger
       dispatchWhatsappTrigger('step1', { name, phone: cleanPhone, email });
-      dispatchMetaCapiEvent('step1', { name, phone: cleanPhone, email, leadId: activeLeadId || undefined });
 
       changeStep(2);
       setCurrentQuestionIndex(0);
@@ -546,9 +544,8 @@ export function ThreePopupFunnelModal({
     if (currentQuestionIndex < surveyQuestions.length - 1) {
       setCurrentQuestionIndex((prev) => prev + 1);
     } else {
-      // Dispatch automatic WhatsApp & Meta CAPI Step 2 triggers
+      // Dispatch automatic WhatsApp Step 2 trigger
       dispatchWhatsappTrigger('step2', { name, phone: phone.trim(), email });
-      dispatchMetaCapiEvent('step2', { name, phone: phone.trim(), email, leadId: existingLeadId || undefined });
       changeStep(3);
     }
   };
@@ -602,7 +599,7 @@ export function ThreePopupFunnelModal({
         await supabase.from('leads').insert(finalLeadPayload);
       }
 
-      // Dispatch automatic WhatsApp & Meta CAPI Step 3 triggers
+      // Dispatch automatic WhatsApp Step 3 trigger
       dispatchWhatsappTrigger('step3', {
         name,
         phone: cleanPhone,
@@ -610,14 +607,6 @@ export function ThreePopupFunnelModal({
         meeting_date: selectedIsoDate,
         meeting_time: meetingTime,
         google_meet_url: activeMeetUrl,
-      });
-
-      dispatchMetaCapiEvent('step3', {
-        name,
-        phone: cleanPhone,
-        email,
-        google_meet_url: activeMeetUrl,
-        leadId: targetId || undefined,
       });
     } catch (err) {
       console.error('Error inserting/updating lead in Supabase:', err);

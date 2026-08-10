@@ -10,11 +10,6 @@ import {
   dispatchWhatsappTrigger,
 } from '@/lib/whatsappDispatch';
 import {
-  DEFAULT_META_CONFIG,
-  MetaCapiConfig,
-  dispatchMetaCapiEvent,
-} from '@/lib/metaCapiDispatch';
-import {
   MessageSquare,
   Sparkles,
   Send,
@@ -29,26 +24,14 @@ import {
   Smartphone,
   Info,
   Calendar,
-  Share2,
-  RefreshCw,
-  Eye,
-  X,
-  Database,
-  Activity,
 } from 'lucide-react';
 
 export default function WhatsappAutomationPage() {
   const [config, setConfig] = useState<WhatsappConfig>(DEFAULT_WHATSAPP_CONFIG);
-  const [metaConfig, setMetaConfig] = useState<MetaCapiConfig>(DEFAULT_META_CONFIG);
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
-
-  // Dispatch Logs
-  const [logs, setLogs] = useState<any[]>([]);
-  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
-  const [selectedPayloadLog, setSelectedPayloadLog] = useState<any | null>(null);
 
   // Test Dispatch state
   const [testPhone, setTestPhone] = useState('919958399157');
@@ -56,51 +39,27 @@ export default function WhatsappAutomationPage() {
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  // Fetch workspace whatsapp_config, meta_config, and dispatch_logs
-  const fetchData = async () => {
-    setIsLoading(true);
-    try {
-      const { data: ws } = await supabase
-        .from('funnel_workspaces')
-        .select('id, whatsapp_config, meta_config')
-        .limit(1)
-        .maybeSingle();
-
-      if (ws?.id) setWorkspaceId(ws.id);
-      if (ws?.whatsapp_config) {
-        setConfig({ ...DEFAULT_WHATSAPP_CONFIG, ...ws.whatsapp_config });
-      }
-      if (ws?.meta_config) {
-        setMetaConfig({ ...DEFAULT_META_CONFIG, ...ws.meta_config });
-      }
-
-      await fetchLogs();
-    } catch (err) {
-      console.error('Error loading WhatsApp & Meta config:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const fetchLogs = async () => {
-    setIsLoadingLogs(true);
-    try {
-      const { data: logRows } = await supabase
-        .from('dispatch_logs')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      setLogs(logRows || []);
-    } catch (err) {
-      console.error('Error fetching logs:', err);
-    } finally {
-      setIsLoadingLogs(false);
-    }
-  };
-
+  // Fetch workspace whatsapp_config
   useEffect(() => {
-    fetchData();
+    (async () => {
+      setIsLoading(true);
+      try {
+        const { data: ws } = await supabase
+          .from('funnel_workspaces')
+          .select('id, whatsapp_config')
+          .limit(1)
+          .maybeSingle();
+
+        if (ws?.id) setWorkspaceId(ws.id);
+        if (ws?.whatsapp_config) {
+          setConfig({ ...DEFAULT_WHATSAPP_CONFIG, ...ws.whatsapp_config });
+        }
+      } catch (err) {
+        console.error('Error loading WhatsApp config:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    })();
   }, []);
 
   // Save config to Supabase
@@ -108,15 +67,10 @@ export default function WhatsappAutomationPage() {
     setIsSaving(true);
     setSaveStatus(null);
     try {
-      const payloadToSave = {
-        whatsapp_config: config,
-        meta_config: metaConfig,
-      };
-
       if (workspaceId) {
         await supabase
           .from('funnel_workspaces')
-          .update(payloadToSave)
+          .update({ whatsapp_config: config })
           .eq('id', workspaceId);
       } else {
         const { data: ws } = await supabase
@@ -129,11 +83,11 @@ export default function WhatsappAutomationPage() {
           setWorkspaceId(ws.id);
           await supabase
             .from('funnel_workspaces')
-            .update(payloadToSave)
+            .update({ whatsapp_config: config })
             .eq('id', ws.id);
         }
       }
-      setSaveStatus('WhatsApp & Meta CAPI settings saved successfully!');
+      setSaveStatus('WhatsApp automation settings saved successfully!');
       setTimeout(() => setSaveStatus(null), 4000);
     } catch (err: any) {
       console.error('Error saving config:', err);
@@ -148,26 +102,25 @@ export default function WhatsappAutomationPage() {
     setIsTesting(true);
     setTestResult(null);
     try {
-      const demoLead = {
-        name: 'Demo Lead (Arshad)',
-        phone: testPhone,
-        google_meet_url: 'https://meet.google.com/qbi-erbq-moy',
-      };
+      const result = await dispatchWhatsappTrigger(
+        testStep,
+        {
+          name: 'Demo Lead (Arshad)',
+          phone: testPhone,
+          google_meet_url: 'https://meet.google.com/qbi-erbq-moy',
+        },
+        config
+      );
 
-      const waRes = await dispatchWhatsappTrigger(testStep, demoLead, config);
-      const metaRes = await dispatchMetaCapiEvent(testStep, demoLead, metaConfig);
-
-      await fetchLogs();
-
-      if (waRes.success && metaRes.success) {
+      if (result.success) {
         setTestResult({
           success: true,
-          message: `Dispatched test triggers successfully! Check logs table below.`,
+          message: `Message dispatched successfully to ${testPhone} via instance "${config.instance_name}"!`,
         });
       } else {
         setTestResult({
           success: false,
-          message: `WA: ${waRes.error || 'OK'} | Meta: ${metaRes.error || 'OK'}`,
+          message: result.error || 'Failed to dispatch test message.',
         });
       }
     } catch (err: any) {
@@ -204,8 +157,8 @@ export default function WhatsappAutomationPage() {
   return (
     <MainLayout>
       <SectionHeader
-        title="WhatsApp & Meta CAPI Studio"
-        subtitle="Configure automatic WhatsApp dispatches via Evolution API and Meta Conversions API events."
+        title="WhatsApp Automation Studio"
+        subtitle="Automatic WhatsApp messaging triggers for Step 1 Contact, Step 2 Survey, and Step 3 Strategy Calls via Evolution API."
         actions={
           <Button
             variant="primary"
@@ -213,7 +166,7 @@ export default function WhatsappAutomationPage() {
             onClick={handleSaveConfig}
             disabled={isSaving}
           >
-            {isSaving ? 'Saving...' : 'Save All Settings'}
+            {isSaving ? 'Saving...' : 'Save Configuration'}
           </Button>
         }
       />
@@ -235,7 +188,7 @@ export default function WhatsappAutomationPage() {
         </div>
       )}
 
-      {/* 1. WhatsApp Sender Instance Setup Card */}
+      {/* WhatsApp Sender Instance Settings */}
       <Card className="p-6 bg-white space-y-4 border border-[#E2E8F0] shadow-2xs">
         <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
           <Smartphone className="w-5 h-5 text-indigo-600" />
@@ -261,114 +214,6 @@ export default function WhatsappAutomationPage() {
             Enter your connected WhatsApp instance name (e.g. <span className="font-mono text-gray-700 font-bold">instance</span> or <span className="font-mono text-gray-700 font-bold">instance1</span>).
           </p>
         </div>
-      </Card>
-
-      {/* 2. Meta Conversions API (CAPI) Settings Card */}
-      <Card className="p-6 bg-white space-y-4 border border-[#E2E8F0] shadow-2xs">
-        <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-          <div className="flex items-center gap-2.5">
-            <Share2 className="w-5 h-5 text-blue-600" />
-            <div>
-              <h3 className="font-bold text-sm text-[#0F172A]">
-                Meta Conversions API (CAPI) Integration
-              </h3>
-              <p className="text-[11px] text-gray-500 font-medium">
-                Send server-side Conversion events directly to Meta Graph API for Ad Attribution.
-              </p>
-            </div>
-          </div>
-
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              checked={metaConfig.meta_capi_enabled}
-              onChange={(e) =>
-                setMetaConfig({ ...metaConfig, meta_capi_enabled: e.target.checked })
-              }
-              className="sr-only peer"
-            />
-            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-          </label>
-        </div>
-
-        {metaConfig.meta_capi_enabled && (
-          <div className="space-y-4 pt-1">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-              <div>
-                <label className="block font-bold text-gray-700 uppercase mb-1 text-[11px]">
-                  Meta Pixel ID *
-                </label>
-                <input
-                  type="text"
-                  value={metaConfig.meta_pixel_id}
-                  onChange={(e) =>
-                    setMetaConfig({ ...metaConfig, meta_pixel_id: e.target.value })
-                  }
-                  placeholder="e.g. 123456789012345"
-                  className="w-full px-3.5 py-2 rounded-xl border border-gray-300 text-xs font-mono text-gray-900 focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-gray-700 uppercase mb-1 text-[11px]">
-                  Meta Access Token (Graph API) *
-                </label>
-                <input
-                  type="password"
-                  value={metaConfig.meta_access_token}
-                  onChange={(e) =>
-                    setMetaConfig({ ...metaConfig, meta_access_token: e.target.value })
-                  }
-                  placeholder="EAAG..."
-                  className="w-full px-3.5 py-2 rounded-xl border border-gray-300 text-xs font-mono text-gray-900 focus:outline-none focus:border-blue-500"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block font-bold text-gray-700 uppercase mb-2 text-[11px]">
-                Meta CAPI Standard Events to Trigger
-              </label>
-              <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-gray-800">
-                <label className="flex items-center gap-2 cursor-pointer bg-blue-50/60 px-3 py-1.5 rounded-lg border border-blue-200">
-                  <input
-                    type="checkbox"
-                    checked={metaConfig.step1_event}
-                    onChange={(e) =>
-                      setMetaConfig({ ...metaConfig, step1_event: e.target.checked })
-                    }
-                    className="rounded text-blue-600 focus:ring-blue-500"
-                  />
-                  <span>Step 1: Contact Form Captured (Lead Event)</span>
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer bg-purple-50/60 px-3 py-1.5 rounded-lg border border-purple-200">
-                  <input
-                    type="checkbox"
-                    checked={metaConfig.step2_event}
-                    onChange={(e) =>
-                      setMetaConfig({ ...metaConfig, step2_event: e.target.checked })
-                    }
-                    className="rounded text-purple-600 focus:ring-purple-500"
-                  />
-                  <span>Step 2: Survey Qualified (SubmitApplication Event)</span>
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer bg-emerald-50/60 px-3 py-1.5 rounded-lg border border-emerald-200">
-                  <input
-                    type="checkbox"
-                    checked={metaConfig.step3_event}
-                    onChange={(e) =>
-                      setMetaConfig({ ...metaConfig, step3_event: e.target.checked })
-                    }
-                    className="rounded text-emerald-600 focus:ring-emerald-500"
-                  />
-                  <span>Step 3: Meeting Booked (Schedule Event)</span>
-                </label>
-              </div>
-            </div>
-          </div>
-        )}
       </Card>
 
       {/* 3 Step Funnel Trigger Cards */}
@@ -697,7 +542,7 @@ export default function WhatsappAutomationPage() {
       <Card className="p-6 bg-[#F8FAFC] border border-[#E2E8F0] shadow-2xs space-y-4">
         <div className="flex items-center gap-2 pb-2 border-b border-gray-200">
           <Send className="w-5 h-5 text-indigo-600" />
-          <h3 className="font-bold text-sm text-[#0F172A]">Live Evolution API & Meta CAPI Tester</h3>
+          <h3 className="font-bold text-sm text-[#0F172A]">Live Evolution API Dispatch Tester</h3>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
@@ -736,7 +581,7 @@ export default function WhatsappAutomationPage() {
               className="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               <Send className="w-4 h-4" />
-              <span>{isTesting ? 'Sending...' : 'Send Live Test Triggers 🚀'}</span>
+              <span>{isTesting ? 'Sending...' : 'Send Live Test Message 🚀'}</span>
             </button>
           </div>
         </div>
@@ -758,181 +603,6 @@ export default function WhatsappAutomationPage() {
           </div>
         )}
       </Card>
-
-      {/* 4. Real-time Dispatch & Meta Conversion Logs Table */}
-      <Card className="p-6 bg-white border border-[#E2E8F0] shadow-2xs space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-          <div className="flex items-center gap-2">
-            <Activity className="w-5 h-5 text-indigo-600" />
-            <div>
-              <h3 className="font-bold text-sm text-[#0F172A]">
-                Dispatch & Meta Conversion Logs
-              </h3>
-              <p className="text-[11px] text-gray-500 font-medium">
-                Live audit trail of all WhatsApp dispatches and Meta CAPI conversion events.
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={fetchLogs}
-            disabled={isLoadingLogs}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 hover:bg-gray-50 text-xs font-bold text-gray-700 cursor-pointer transition-colors"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoadingLogs ? 'animate-spin' : ''}`} />
-            <span>Refresh Logs</span>
-          </button>
-        </div>
-
-        {logs.length === 0 ? (
-          <div className="p-6 text-center text-xs text-gray-400 font-medium border border-dashed border-gray-200 rounded-xl">
-            No dispatch logs recorded yet. Run a test message or submit a funnel step to see live logs.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="border-b border-gray-200 bg-gray-50/70 text-[11px] font-bold text-gray-600 uppercase tracking-wider">
-                  <th className="p-3">Time</th>
-                  <th className="p-3">Trigger Type</th>
-                  <th className="p-3">Step</th>
-                  <th className="p-3">Lead Info</th>
-                  <th className="p-3">Status</th>
-                  <th className="p-3 text-right">Details</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {logs.map((lg) => (
-                  <tr key={lg.id} className="hover:bg-gray-50/80 transition-colors">
-                    <td className="p-3 font-mono text-[11px] text-gray-500 whitespace-nowrap">
-                      {new Date(lg.created_at).toLocaleTimeString('en-US', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit',
-                      })}
-                    </td>
-
-                    <td className="p-3">
-                      {lg.trigger_type === 'meta_capi' ? (
-                        <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-extrabold flex items-center gap-1 w-fit">
-                          <Share2 className="w-3 h-3 text-blue-600" />
-                          Meta CAPI
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-extrabold flex items-center gap-1 w-fit">
-                          <Smartphone className="w-3 h-3 text-emerald-600" />
-                          WhatsApp
-                        </span>
-                      )}
-                    </td>
-
-                    <td className="p-3 font-bold text-gray-800 text-[11px]">
-                      {lg.funnel_step === 'step1' || lg.funnel_step === 'step1_contact'
-                        ? 'Step 1 (Contact)'
-                        : lg.funnel_step === 'step2' || lg.funnel_step === 'survey_completed'
-                        ? 'Step 2 (Survey)'
-                        : 'Step 3 (Meeting)'}
-                    </td>
-
-                    <td className="p-3">
-                      <div className="font-bold text-gray-900">{lg.lead_name || 'Visitor'}</div>
-                      <div className="text-[10px] text-gray-500 font-mono">{lg.lead_phone || '--'}</div>
-                    </td>
-
-                    <td className="p-3">
-                      {lg.status === 'success' ? (
-                        <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold text-[10px]">
-                          SUCCESS (200 OK)
-                        </span>
-                      ) : lg.status === 'ignored' ? (
-                        <span className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 font-bold text-[10px]">
-                          DISABLED / IGNORED
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-800 font-bold text-[10px]">
-                          FAILED
-                        </span>
-                      )}
-                    </td>
-
-                    <td className="p-3 text-right">
-                      <button
-                        onClick={() => setSelectedPayloadLog(lg)}
-                        className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold text-[11px] border border-indigo-200 transition-colors inline-flex items-center gap-1 cursor-pointer"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>Payload</span>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
-
-      {/* Log Payload Modal */}
-      {selectedPayloadLog && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-lg border border-gray-200 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between border-b pb-3 shrink-0">
-              <div className="flex items-center gap-2">
-                <Database className="w-5 h-5 text-indigo-600" />
-                <h3 className="font-bold text-base text-[#0F172A]">
-                  Dispatch Payload & Response Audit
-                </h3>
-              </div>
-              <button
-                onClick={() => setSelectedPayloadLog(null)}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto space-y-4 pr-1 text-xs">
-              <div>
-                <h4 className="font-bold text-gray-700 uppercase text-[11px] mb-1">
-                  Request Payload:
-                </h4>
-                <pre className="p-3 rounded-xl bg-gray-900 text-emerald-400 font-mono text-[11px] overflow-x-auto">
-                  {JSON.stringify(selectedPayloadLog.request_payload, null, 2) || 'None'}
-                </pre>
-              </div>
-
-              <div>
-                <h4 className="font-bold text-gray-700 uppercase text-[11px] mb-1">
-                  Response Payload:
-                </h4>
-                <pre className="p-3 rounded-xl bg-gray-900 text-blue-400 font-mono text-[11px] overflow-x-auto">
-                  {JSON.stringify(selectedPayloadLog.response_payload, null, 2) || 'None'}
-                </pre>
-              </div>
-
-              {selectedPayloadLog.error_message && (
-                <div>
-                  <h4 className="font-bold text-rose-700 uppercase text-[11px] mb-1">
-                    Error Message:
-                  </h4>
-                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 font-semibold">
-                    {selectedPayloadLog.error_message}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-end pt-3 border-t shrink-0">
-              <button
-                onClick={() => setSelectedPayloadLog(null)}
-                className="px-5 py-2 rounded-xl bg-gray-900 text-white font-bold text-xs"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </MainLayout>
   );
 }
