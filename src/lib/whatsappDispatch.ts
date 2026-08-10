@@ -115,22 +115,51 @@ export async function dispatchWhatsappTrigger(
     if (stepConfig.msg_type === 'text' || !stepConfig.media_url) {
       // Send Text Message
       const targetUrl = `${baseUrl}/message/sendText/${encodeURIComponent(instance)}`;
+      const payload = {
+        number: formattedNumber,
+        text: parsedMessage,
+      };
+
       const response = await fetch(targetUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           apikey: config.evolution_apikey,
         },
-        body: JSON.stringify({
-          number: formattedNumber,
-          text: parsedMessage,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.message || 'Evolution API Text send failed');
+        const errorMsg = data.message || 'Evolution API Text send failed';
+        await supabase.from('dispatch_logs').insert([
+          {
+            lead_name: lead.name,
+            lead_phone: lead.phone,
+            trigger_type: 'whatsapp',
+            funnel_step: stepKey,
+            status: 'failed',
+            request_payload: payload,
+            response_payload: data,
+            error_message: errorMsg,
+            created_at: new Date().toISOString(),
+          },
+        ]);
+        throw new Error(errorMsg);
       }
+
+      await supabase.from('dispatch_logs').insert([
+        {
+          lead_name: lead.name,
+          lead_phone: lead.phone,
+          trigger_type: 'whatsapp',
+          funnel_step: stepKey,
+          status: 'success',
+          request_payload: payload,
+          response_payload: data,
+          created_at: new Date().toISOString(),
+        },
+      ]);
       return { success: true };
     } else {
       // Send Media (Image / Video) Message
@@ -159,8 +188,35 @@ export async function dispatchWhatsappTrigger(
 
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.message || 'Evolution API Media send failed');
+        const errorMsg = data.message || 'Evolution API Media send failed';
+        await supabase.from('dispatch_logs').insert([
+          {
+            lead_name: lead.name,
+            lead_phone: lead.phone,
+            trigger_type: 'whatsapp',
+            funnel_step: stepKey,
+            status: 'failed',
+            request_payload: payload,
+            response_payload: data,
+            error_message: errorMsg,
+            created_at: new Date().toISOString(),
+          },
+        ]);
+        throw new Error(errorMsg);
       }
+
+      await supabase.from('dispatch_logs').insert([
+        {
+          lead_name: lead.name,
+          lead_phone: lead.phone,
+          trigger_type: 'whatsapp',
+          funnel_step: stepKey,
+          status: 'success',
+          request_payload: payload,
+          response_payload: data,
+          created_at: new Date().toISOString(),
+        },
+      ]);
       return { success: true };
     }
   } catch (err: any) {
