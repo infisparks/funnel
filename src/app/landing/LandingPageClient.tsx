@@ -291,8 +291,11 @@ export function LandingPageClient({
               : initialWorkspace?.survey_questions
           }
           popupTheme={popupTheme?.primaryColor ? popupTheme : initialWorkspace?.popup_theme}
+          onStep1Complete={(lead) => {
+            console.log('Step 1 contact saved via subdomain funnel:', lead);
+          }}
           onComplete={(lead) => {
-            console.log('Lead captured via subdomain funnel:', lead);
+            console.log('Full meeting booked via subdomain funnel:', lead);
           }}
         />
       </div>

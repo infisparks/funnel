@@ -88,6 +88,7 @@ interface ThreePopupFunnelModalProps {
   popupTheme?: PopupThemeConfig;
   funnelId?: string;
   userId?: string;
+  onStep1Complete?: (leadData: any) => void;
   onComplete?: (leadData: any) => void;
 }
 
@@ -131,6 +132,7 @@ export function ThreePopupFunnelModal({
   popupTheme = {},
   funnelId,
   userId,
+  onStep1Complete,
   onComplete,
 }: ThreePopupFunnelModalProps) {
   const primaryColor = popupTheme.primaryColor || '#F59E0B';
@@ -411,6 +413,17 @@ export function ThreePopupFunnelModal({
     } finally {
       setIsSubmitting(false);
       saveSessionToLocalStorage(surveyAnswers, false, activeLeadId || undefined);
+      if (onStep1Complete) {
+        onStep1Complete({
+          funnel_id: funnelId || null,
+          user_id: userId || null,
+          name,
+          email,
+          phone: phone.trim(),
+          step_progress: 'step1_contact',
+          leadId: activeLeadId,
+        });
+      }
       changeStep(2);
       setCurrentQuestionIndex(0);
     }
