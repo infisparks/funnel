@@ -20,6 +20,7 @@ import {
   Link as LinkIcon,
   ArrowLeft,
   UserPlus,
+  Plus,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 
@@ -586,23 +587,24 @@ export function ThreePopupFunnelModal({
         style={{ borderColor: isLightMode ? '#E5E7EB' : `${primaryColor}50` }}
       >
         {/* Top Controls */}
-        <div className="absolute top-4 right-4 flex items-center gap-1.5 z-10">
+        <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
           <button
             onClick={resetLeadSession}
             title="Fill details for a new lead"
-            className={`px-2.5 py-1 rounded-full text-xs font-extrabold flex items-center gap-1 cursor-pointer transition-all ${
-              isLightMode
-                ? 'bg-purple-50 text-[#8146F0] hover:bg-purple-100 border border-purple-200 shadow-2xs'
-                : 'bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/40 shadow-2xs'
-            }`}
+            aria-label="Fill details for a new lead"
+            className="w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer border shadow-2xs hover:scale-105 active:scale-95 shrink-0"
+            style={{
+              backgroundColor: `${primaryColor}18`,
+              borderColor: `${primaryColor}40`,
+              color: primaryColor,
+            }}
           >
-            <UserPlus className="w-3.5 h-3.5" />
-            <span>+ Fill New</span>
+            <Plus className="w-4 h-4 stroke-[2.8]" />
           </button>
 
           <button
             onClick={handleCloseModal}
-            className={`p-1.5 rounded-full cursor-pointer transition-all ${
+            className={`w-8 h-8 rounded-full flex items-center justify-center cursor-pointer transition-all shrink-0 ${
               isLightMode ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-white/10 text-gray-400 hover:text-white'
             }`}
           >
