@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, Sparkles, CheckCircle2 } from 'lucide-react';
+import { supabase } from '@/lib/supabaseClient';
 
 interface StandaloneSurveyClientProps {
   workspace: any;
@@ -18,28 +19,30 @@ export function StandaloneSurveyClient({ workspace }: StandaloneSurveyClientProp
     },
     {
       id: 'q2',
-      label: 'Are You Ready to Invest in Growth?',
-      options: ['Yes, Immediate Priority', 'Exploring Options', 'Not Yet'],
+      label: 'Estimated Monthly Revenue Range',
+      options: ['Below ₹5 Lakhs', '₹5 Lakhs – ₹15 Lakhs', '₹15 Lakhs – ₹50 Lakhs', 'Above ₹50 Lakhs'],
     },
   ];
 
-  const [answers, setAnswers] = useState<Record<string, string>>({});
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [hasSavedDetails, setHasSavedDetails] = useState(false);
+  const [answers, setAnswers] = useState<Record<string, any>>({});
 
   // Check browser localStorage on mount
   React.useEffect(() => {
     try {
-      const savedSession = localStorage.getItem('lead_funnel_session');
+      const savedSession = localStorage.getItem('lead_funnel_session') || localStorage.getItem('lead_contact_info');
       if (savedSession) {
         const parsed = JSON.parse(savedSession);
-        if (parsed.name && (parsed.email || parsed.phone)) {
+        if (parsed.name || parsed.email || parsed.phone) {
           setName(parsed.name || '');
           setEmail(parsed.email || '');
           setPhone(parsed.phone || '');
-          setHasSavedDetails(true);
+          if (parsed.name && (parsed.email || parsed.phone)) {
+            setHasSavedDetails(true);
+          }
         }
       }
     } catch (err) {}
@@ -54,15 +57,52 @@ export function StandaloneSurveyClient({ workspace }: StandaloneSurveyClientProp
     setHasSavedDetails(false);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!hasSavedDetails && (!name || !phone || !email)) {
       alert('Please fill in your Name, Email, and Phone number');
       return;
     }
 
+    const cleanPhone = phone.trim();
+    let activeLeadId = null;
+
+    if (cleanPhone) {
+      try {
+        const { data: found } = await supabase
+          .from('leads')
+          .select('id')
+          .eq('phone', cleanPhone)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (found?.id) {
+          activeLeadId = found.id;
+        }
+      } catch (err) {}
+    }
+
+    const leadPayload = {
+      funnel_id: workspace?.id || null,
+      name,
+      email,
+      phone: cleanPhone,
+      step_progress: 'survey_completed',
+      survey_responses: answers,
+    };
+
+    try {
+      if (activeLeadId) {
+        await supabase.from('leads').update(leadPayload).eq('id', activeLeadId);
+      } else {
+        const { data } = await supabase.from('leads').insert(leadPayload).select().single();
+        if (data?.id) activeLeadId = data.id;
+      }
+    } catch (err) {}
+
     // Save lead details to localStorage
-    const leadSession = { name, email, phone };
+    const leadSession = { name, email, phone: cleanPhone, leadId: activeLeadId, surveyAnswers: answers, hasCompletedSurvey: true };
     localStorage.setItem('lead_funnel_session', JSON.stringify(leadSession));
 
     // Redirect to separate /meeting route with saved survey answers

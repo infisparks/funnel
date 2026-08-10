@@ -324,17 +324,18 @@ export function ThreePopupFunnelModal({
 
   if (!isOpen) return null;
 
-  const saveSessionToLocalStorage = (updatedAnswers?: Record<string, any>, isSurveyFinished?: boolean) => {
+  const saveSessionToLocalStorage = (updatedAnswers?: Record<string, any>, isSurveyFinished?: boolean, customLeadId?: string) => {
     try {
       const answersToSave = updatedAnswers || surveyAnswers;
       const isFinished = isSurveyFinished ?? (Object.keys(answersToSave).length >= surveyQuestions.length);
+      const activeLeadId = customLeadId || existingLeadId;
       localStorage.setItem(
         'lead_funnel_session',
         JSON.stringify({
           name,
           email,
           phone,
-          leadId: existingLeadId,
+          leadId: activeLeadId,
           surveyAnswers: answersToSave,
           hasCompletedSurvey: isFinished,
         })
@@ -350,30 +351,66 @@ export function ThreePopupFunnelModal({
     }
 
     setIsSubmitting(true);
-    let newLeadId = existingLeadId;
-    try {
-      const { data } = await supabase
-        .from('leads')
-        .insert({
-          funnel_id: funnelId || null,
-          user_id: userId || null,
-          name,
-          email,
-          phone,
-          step_progress: 'step1_contact',
-        })
-        .select()
-        .single();
+    let activeLeadId = existingLeadId;
 
-      if (data?.id) {
-        newLeadId = data.id;
-        setExistingLeadId(data.id);
+    try {
+      const cleanPhone = phone.trim();
+
+      // Check if a lead with this exact phone number already exists in Supabase
+      if (!activeLeadId && cleanPhone) {
+        const { data: phoneMatch } = await supabase
+          .from('leads')
+          .select('id')
+          .eq('phone', cleanPhone)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (phoneMatch?.id) {
+          activeLeadId = phoneMatch.id;
+          setExistingLeadId(phoneMatch.id);
+        }
+      }
+
+      const step1Payload = {
+        funnel_id: funnelId || null,
+        user_id: userId || null,
+        name,
+        email,
+        phone: cleanPhone,
+        step_progress: 'step1_contact',
+      };
+
+      if (activeLeadId) {
+        // Update existing lead with matching ID or Phone number
+        const { data, error } = await supabase
+          .from('leads')
+          .update(step1Payload)
+          .eq('id', activeLeadId)
+          .select()
+          .single();
+
+        if (!error && data?.id) {
+          activeLeadId = data.id;
+        }
+      } else {
+        // Insert new lead in Supabase
+        const { data, error } = await supabase
+          .from('leads')
+          .insert(step1Payload)
+          .select()
+          .single();
+
+        if (!error && data?.id) {
+          activeLeadId = data.id;
+          setExistingLeadId(data.id);
+        }
       }
     } catch (err) {
-      console.error('Error saving step 1 lead info:', err);
+      console.error('Error saving step 1 lead info in Supabase:', err);
     } finally {
       setIsSubmitting(false);
-      saveSessionToLocalStorage();
+      saveSessionToLocalStorage(surveyAnswers, false, activeLeadId || undefined);
       changeStep(2);
       setCurrentQuestionIndex(0);
     }
