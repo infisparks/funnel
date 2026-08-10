@@ -395,20 +395,22 @@ export function ThreePopupFunnelModal({
     try {
       const cleanPhone = phone.trim();
 
-      // Check if a lead with this exact phone number already exists in Supabase
+      // 1. Check if a lead with this exact phone number already exists in Supabase
       if (!activeLeadId && cleanPhone) {
-        const { data: phoneMatch } = await supabase
-          .from('leads')
-          .select('id')
-          .eq('phone', cleanPhone)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+        try {
+          const { data: phoneMatch } = await supabase
+            .from('leads')
+            .select('id')
+            .eq('phone', cleanPhone)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
 
-        if (phoneMatch?.id) {
-          activeLeadId = phoneMatch.id;
-          setExistingLeadId(phoneMatch.id);
-        }
+          if (phoneMatch?.id) {
+            activeLeadId = phoneMatch.id;
+            setExistingLeadId(phoneMatch.id);
+          }
+        } catch (err) {}
       }
 
       const step1Payload: any = {
@@ -420,46 +422,58 @@ export function ThreePopupFunnelModal({
       if (funnelId) step1Payload.funnel_id = funnelId;
       if (userId) step1Payload.user_id = userId;
 
+      console.log('[Supabase First-Upload] Submitting Step 1 contact payload to database:', step1Payload);
+
+      // 2. Synchronous First Upload to Supabase BEFORE advancing step!
       if (activeLeadId) {
-        // Update existing lead with matching ID or Phone number
         const { data, error } = await supabase
           .from('leads')
           .update(step1Payload)
           .eq('id', activeLeadId)
-          .select()
-          .single();
+          .select('id')
+          .maybeSingle();
 
-        if (!error && data?.id) {
-          activeLeadId = data.id;
-        } else if (error) {
-          // Fallback retry without foreign keys if schema/FK error occurred
-          const fallbackPayload = { name, email, phone: cleanPhone, step_progress: 'step1_contact' };
-          const { data: fbData } = await supabase.from('leads').update(fallbackPayload).eq('id', activeLeadId).select().single();
+        if (error) {
+          console.error('[Supabase Error] Primary update failed, executing fallback insert:', error);
+          const { data: fbData, error: fbError } = await supabase
+            .from('leads')
+            .insert({ name, email, phone: cleanPhone, step_progress: 'step1_contact' })
+            .select('id')
+            .maybeSingle();
+
           if (fbData?.id) activeLeadId = fbData.id;
+          if (fbError) console.error('[Supabase Error] Fallback insert failed:', fbError);
+        } else if (data?.id) {
+          activeLeadId = data.id;
         }
       } else {
-        // Insert new lead in Supabase
         const { data, error } = await supabase
           .from('leads')
           .insert(step1Payload)
-          .select()
-          .single();
+          .select('id')
+          .maybeSingle();
 
-        if (!error && data?.id) {
+        if (error) {
+          console.error('[Supabase Error] Primary insert failed, executing fallback insert:', error);
+          const { data: fbData, error: fbError } = await supabase
+            .from('leads')
+            .insert({ name, email, phone: cleanPhone, step_progress: 'step1_contact' })
+            .select('id')
+            .maybeSingle();
+
+          if (fbData?.id) activeLeadId = fbData.id;
+          if (fbError) console.error('[Supabase Error] Fallback insert failed:', fbError);
+        } else if (data?.id) {
           activeLeadId = data.id;
-          setExistingLeadId(data.id);
-        } else if (error) {
-          // Fallback retry without foreign keys if schema/FK error occurred
-          const fallbackPayload = { name, email, phone: cleanPhone, step_progress: 'step1_contact' };
-          const { data: fbData } = await supabase.from('leads').insert(fallbackPayload).select().single();
-          if (fbData?.id) {
-            activeLeadId = fbData.id;
-            setExistingLeadId(fbData.id);
-          }
         }
       }
+
+      if (activeLeadId) {
+        setExistingLeadId(activeLeadId);
+        console.log('[Supabase Success] Step 1 contact saved under lead ID:', activeLeadId);
+      }
     } catch (err) {
-      console.error('Error saving step 1 lead info in Supabase:', err);
+      console.error('[Supabase Exception] Exception during Step 1 upload:', err);
     } finally {
       setIsSubmitting(false);
       saveSessionToLocalStorage(surveyAnswers, false, activeLeadId || undefined);
