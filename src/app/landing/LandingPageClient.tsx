@@ -90,6 +90,14 @@ export function LandingPageClient({
     }
   }, [workspace, isPublicView]);
 
+  // Auto-open modal if URL contains ?step=detail, ?step=survey, or ?step=meeting
+  useEffect(() => {
+    const step = searchParams.get('step');
+    if (step && ['detail', 'survey', 'meeting', 'confirmation'].includes(step.toLowerCase())) {
+      setIsPopupFunnelOpen(true);
+    }
+  }, [searchParams]);
+
   const showToast = (message: string) => {
     setSupabaseToastMsg(message);
     setTimeout(() => setSupabaseToastMsg(''), 4000);

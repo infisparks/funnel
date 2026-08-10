@@ -203,22 +203,78 @@ export function ThreePopupFunnelModal({
   const [selectedIsoDate, setSelectedIsoDate] = useState(upcomingDates[0]?.isoDate || '2026-08-10');
   const [meetingTime, setMeetingTime] = useState(availableTimeSlots[0] || '02:00 PM');
 
-  // Auto-resume step 2 if lead session saved in localStorage
+  // Helper to update URL search parameter cleanly without page refresh
+  const updateUrlStep = (targetStep: 1 | 2 | 3 | 4) => {
+    if (typeof window === 'undefined') return;
+    const stepNameMap: Record<number, string> = {
+      1: 'detail',
+      2: 'survey',
+      3: 'meeting',
+      4: 'confirmation',
+    };
+    const stepParam = stepNameMap[targetStep] || 'detail';
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('step', stepParam);
+      window.history.pushState({}, '', url.toString());
+    } catch (err) {}
+  };
+
+  const changeStep = (newStep: 1 | 2 | 3 | 4) => {
+    setStep(newStep);
+    updateUrlStep(newStep);
+  };
+
+  const handleCloseModal = () => {
+    if (typeof window !== 'undefined') {
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('step');
+        window.history.pushState({}, '', url.toString());
+      } catch (err) {}
+    }
+    onClose();
+  };
+
+  // Inspect browser localStorage & URL search params when modal is opened
   useEffect(() => {
     if (isOpen) {
+      let initialStep: 1 | 2 | 3 | 4 = 1;
+      let hasSavedDetails = false;
+
+      // 1. Check browser localStorage for saved lead contact info
       try {
         const savedSession = localStorage.getItem('lead_funnel_session');
         if (savedSession) {
           const parsed = JSON.parse(savedSession);
-          if (parsed.name && parsed.email) {
-            setName(parsed.name);
-            setEmail(parsed.email);
+          if (parsed.name && (parsed.email || parsed.phone)) {
+            setName(parsed.name || '');
+            setEmail(parsed.email || '');
             setPhone(parsed.phone || '');
             if (parsed.leadId) setExistingLeadId(parsed.leadId);
-            setStep(2);
+            hasSavedDetails = true;
           }
         }
       } catch (err) {}
+
+      // 2. Check URL search param e.g. ?step=survey or ?step=meeting
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        const urlStep = params.get('step')?.toLowerCase();
+        if (urlStep === 'meeting') initialStep = 3;
+        else if (urlStep === 'survey') initialStep = 2;
+        else if (urlStep === 'confirmation') initialStep = 4;
+        else if (urlStep === 'detail') initialStep = 1;
+        else {
+          // If no specific step in URL: skip step 1 if user details already saved in browser!
+          initialStep = hasSavedDetails ? 2 : 1;
+        }
+      } else {
+        initialStep = hasSavedDetails ? 2 : 1;
+      }
+
+      setStep(initialStep);
+      updateUrlStep(initialStep);
     }
   }, [isOpen]);
 
@@ -257,7 +313,7 @@ export function ThreePopupFunnelModal({
       console.error('Error saving step 1 lead info:', err);
     } finally {
       setIsSubmitting(false);
-      setStep(2);
+      changeStep(2);
       setCurrentQuestionIndex(0);
     }
   };
@@ -266,13 +322,15 @@ export function ThreePopupFunnelModal({
     if (currentQuestionIndex < surveyQuestions.length - 1) {
       setCurrentQuestionIndex((prev) => prev + 1);
     } else {
-      setStep(3);
+      changeStep(3);
     }
   };
 
   const handlePrevQuestion = () => {
     if (currentQuestionIndex > 0) {
       setCurrentQuestionIndex((prev) => prev - 1);
+    } else {
+      changeStep(1);
     }
   };
 
@@ -428,7 +486,12 @@ export function ThreePopupFunnelModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md font-sans">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md font-sans"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) handleCloseModal();
+      }}
+    >
       <div
         className={`border rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200 relative ${
           isLightMode ? 'bg-white text-[#111827] border-gray-200' : 'bg-[#0B0F17] text-white border-amber-500/30'
@@ -450,7 +513,7 @@ export function ThreePopupFunnelModal({
           )}
 
           <button
-            onClick={onClose}
+            onClick={handleCloseModal}
             className={`p-1.5 rounded-full cursor-pointer transition-all ${
               isLightMode ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-white/10 text-gray-400 hover:text-white'
             }`}
