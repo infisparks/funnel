@@ -391,11 +391,10 @@ export function ThreePopupFunnelModal({
 
     setIsSubmitting(true);
     let activeLeadId = existingLeadId;
+    const cleanPhone = phone.trim();
 
     try {
-      const cleanPhone = phone.trim();
-
-      // 1. Check if a lead with this exact phone number already exists in Supabase
+      // 1. Phone Deduplication Check via client SDK
       if (!activeLeadId && cleanPhone) {
         try {
           const { data: phoneMatch } = await supabase
@@ -422,27 +421,26 @@ export function ThreePopupFunnelModal({
       if (funnelId) step1Payload.funnel_id = funnelId;
       if (userId) step1Payload.user_id = userId;
 
-      console.log('[Supabase First-Upload] Submitting Step 1 contact payload to database:', step1Payload);
+      console.log('[Supabase Client-Side Upload] Submitting Step 1 contact payload to database:', step1Payload);
 
-      // 2. Synchronous First Upload to Supabase BEFORE advancing step!
+      // 2. Perform Direct Client-Side Supabase Upload FIRST
       if (activeLeadId) {
         const { data, error } = await supabase
           .from('leads')
           .update(step1Payload)
           .eq('id', activeLeadId)
-          .select('id')
+          .select()
           .maybeSingle();
 
         if (error) {
-          console.error('[Supabase Error] Primary update failed, executing fallback insert:', error);
-          const { data: fbData, error: fbError } = await supabase
+          console.error('[Supabase Error] Primary update failed, executing fallback update:', error);
+          const { data: fbData } = await supabase
             .from('leads')
-            .insert({ name, email, phone: cleanPhone, step_progress: 'step1_contact' })
-            .select('id')
+            .update({ name, email, phone: cleanPhone, step_progress: 'step1_contact' })
+            .eq('id', activeLeadId)
+            .select()
             .maybeSingle();
-
           if (fbData?.id) activeLeadId = fbData.id;
-          if (fbError) console.error('[Supabase Error] Fallback insert failed:', fbError);
         } else if (data?.id) {
           activeLeadId = data.id;
         }
@@ -450,19 +448,17 @@ export function ThreePopupFunnelModal({
         const { data, error } = await supabase
           .from('leads')
           .insert(step1Payload)
-          .select('id')
+          .select()
           .maybeSingle();
 
         if (error) {
           console.error('[Supabase Error] Primary insert failed, executing fallback insert:', error);
-          const { data: fbData, error: fbError } = await supabase
+          const { data: fbData } = await supabase
             .from('leads')
             .insert({ name, email, phone: cleanPhone, step_progress: 'step1_contact' })
-            .select('id')
+            .select()
             .maybeSingle();
-
           if (fbData?.id) activeLeadId = fbData.id;
-          if (fbError) console.error('[Supabase Error] Fallback insert failed:', fbError);
         } else if (data?.id) {
           activeLeadId = data.id;
         }
@@ -470,10 +466,10 @@ export function ThreePopupFunnelModal({
 
       if (activeLeadId) {
         setExistingLeadId(activeLeadId);
-        console.log('[Supabase Success] Step 1 contact saved under lead ID:', activeLeadId);
+        console.log('[Supabase Success] Client-side Step 1 saved under lead ID:', activeLeadId);
       }
     } catch (err) {
-      console.error('[Supabase Exception] Exception during Step 1 upload:', err);
+      console.error('[Supabase Exception] Exception during client-side Step 1 upload:', err);
     } finally {
       setIsSubmitting(false);
       saveSessionToLocalStorage(surveyAnswers, false, activeLeadId || undefined);
@@ -483,7 +479,7 @@ export function ThreePopupFunnelModal({
           user_id: userId || null,
           name,
           email,
-          phone: phone.trim(),
+          phone: cleanPhone,
           step_progress: 'step1_contact',
           leadId: activeLeadId,
         });
@@ -518,7 +514,7 @@ export function ThreePopupFunnelModal({
       funnel_id: funnelId || null,
       user_id: userId || null,
       name,
-      phone,
+      phone: phone.trim(),
       email,
       step_progress: 'meeting_booked',
       survey_responses: surveyAnswers,
@@ -528,10 +524,7 @@ export function ThreePopupFunnelModal({
 
     try {
       if (existingLeadId) {
-        await supabase
-          .from('leads')
-          .update(finalLeadPayload)
-          .eq('id', existingLeadId);
+        await supabase.from('leads').update(finalLeadPayload).eq('id', existingLeadId);
       } else {
         await supabase.from('leads').insert(finalLeadPayload);
       }
@@ -573,7 +566,7 @@ export function ThreePopupFunnelModal({
       const isFinal = currentQuestionIndex >= surveyQuestions.length - 1;
       saveSessionToLocalStorage(updated, isFinal);
 
-      // Incremental Background Persistence to Supabase
+      // Client-Side Incremental Persistence to Supabase
       if (existingLeadId) {
         (async () => {
           try {
