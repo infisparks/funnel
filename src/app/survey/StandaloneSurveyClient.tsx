@@ -64,7 +64,10 @@ export function StandaloneSurveyClient({ workspace }: StandaloneSurveyClientProp
   };
 
   const handleSelectOption = (qId: string, opt: string) => {
-    const updated = { ...answers, [qId]: opt };
+    const questionObj = surveyQuestions.find((q: any) => q.id === qId || q.label === qId);
+    const keyToUse = questionObj?.label || qId;
+
+    const updated = { ...answers, [keyToUse]: opt };
     setAnswers(updated);
 
     // Instantly sync option selection to Supabase in real time

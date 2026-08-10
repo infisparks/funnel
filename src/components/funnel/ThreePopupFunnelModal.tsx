@@ -489,11 +489,55 @@ export function ThreePopupFunnelModal({
     }
   };
 
-  const handleNextQuestion = () => {
+  const saveSurveyResponsesToSupabase = async (responses: Record<string, any>) => {
+    try {
+      let targetId = existingLeadId;
+      const cleanPhone = phone.trim();
+      if (!targetId && cleanPhone) {
+        const { data: found } = await supabase
+          .from('leads')
+          .select('id')
+          .eq('phone', cleanPhone)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (found?.id) {
+          targetId = found.id;
+          setExistingLeadId(found.id);
+        }
+      }
+
+      const payload: any = {
+        name,
+        email,
+        phone: cleanPhone,
+        step_progress: 'survey_completed',
+        survey_responses: responses,
+      };
+      if (funnelId) payload.funnel_id = funnelId;
+      if (userId) payload.user_id = userId;
+
+      if (targetId) {
+        await supabase.from('leads').update(payload).eq('id', targetId);
+        console.log('[Supabase Sync] Updated survey responses for lead ID:', targetId, responses);
+      } else if (name || cleanPhone) {
+        const { data: inserted } = await supabase.from('leads').insert(payload).select('id').maybeSingle();
+        if (inserted?.id) {
+          setExistingLeadId(inserted.id);
+          console.log('[Supabase Sync] Inserted survey lead with ID:', inserted.id, responses);
+        }
+      }
+    } catch (err) {
+      console.error('Error saving survey responses to Supabase:', err);
+    }
+  };
+
+  const handleNextQuestion = async () => {
+    await saveSurveyResponsesToSupabase(surveyAnswers);
+    saveSessionToLocalStorage(surveyAnswers, true);
     if (currentQuestionIndex < surveyQuestions.length - 1) {
       setCurrentQuestionIndex((prev) => prev + 1);
     } else {
-      saveSessionToLocalStorage(surveyAnswers, true);
       changeStep(3);
     }
   };
@@ -551,60 +595,29 @@ export function ThreePopupFunnelModal({
   };
 
   const handleOptionSelect = (qId: string, opt: string, isMultiple?: boolean) => {
+    const questionObj = surveyQuestions.find((q) => q.id === qId || q.label === qId);
+    const keyToUse = questionObj?.label || qId;
+
     let updated: Record<string, any>;
     if (isMultiple) {
-      const currentList: string[] = Array.isArray(surveyAnswers[qId]) ? surveyAnswers[qId] : [];
+      const currentList: string[] = Array.isArray(surveyAnswers[keyToUse])
+        ? surveyAnswers[keyToUse]
+        : Array.isArray(surveyAnswers[qId])
+        ? surveyAnswers[qId]
+        : [];
       const newList = currentList.includes(opt)
         ? currentList.filter((item) => item !== opt)
         : [...currentList, opt];
-      updated = { ...surveyAnswers, [qId]: newList };
+      updated = { ...surveyAnswers, [keyToUse]: newList };
       setSurveyAnswers(updated);
       saveSessionToLocalStorage(updated);
+      saveSurveyResponsesToSupabase(updated);
     } else {
-      updated = { ...surveyAnswers, [qId]: opt };
+      updated = { ...surveyAnswers, [keyToUse]: opt };
       setSurveyAnswers(updated);
       const isFinal = currentQuestionIndex >= surveyQuestions.length - 1;
       saveSessionToLocalStorage(updated, isFinal);
-
-      // Client-Side Incremental Persistence to Supabase
-      (async () => {
-        try {
-          let targetId = existingLeadId;
-          const cleanPhone = phone.trim();
-          if (!targetId && cleanPhone) {
-            const { data: found } = await supabase
-              .from('leads')
-              .select('id')
-              .eq('phone', cleanPhone)
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .maybeSingle();
-            if (found?.id) {
-              targetId = found.id;
-              setExistingLeadId(found.id);
-            }
-          }
-
-          const payload: any = {
-            name,
-            email,
-            phone: cleanPhone,
-            step_progress: 'survey_completed',
-            survey_responses: updated,
-          };
-          if (funnelId) payload.funnel_id = funnelId;
-          if (userId) payload.user_id = userId;
-
-          if (targetId) {
-            await supabase.from('leads').update(payload).eq('id', targetId);
-          } else if (name || cleanPhone) {
-            const { data: inserted } = await supabase.from('leads').insert(payload).select('id').maybeSingle();
-            if (inserted?.id) setExistingLeadId(inserted.id);
-          }
-        } catch (err) {
-          console.error('Error saving incremental survey to Supabase:', err);
-        }
-      })();
+      saveSurveyResponsesToSupabase(updated);
 
       setTimeout(() => {
         if (currentQuestionIndex < surveyQuestions.length - 1) {
