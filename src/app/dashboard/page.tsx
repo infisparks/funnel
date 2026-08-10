@@ -44,103 +44,21 @@ export default function ExecutiveCrmDashboard() {
   const fetchUserIsolatedLeads = async () => {
     setIsLoadingLeads(true);
     try {
-      // MASTER LEADS TABLE: 'leads'
-      // STRICT ISOLATION RULE: Only fetch leads belonging to logged-in user or workspace!
-      let query = supabase
+      // Query MASTER LEADS TABLE 'leads' directly from Supabase
+      const { data, error } = await supabase
         .from('leads')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (user?.id) {
-        if (workspace?.id) {
-          query = query.or(`user_id.eq.${user.id},funnel_id.eq.${workspace.id}`);
-        } else {
-          query = query.eq('user_id', user.id);
-        }
-      } else if (workspace?.id) {
-        query = query.eq('funnel_id', workspace.id);
-      }
-
-      const { data, error } = await query;
-      if (!error && data && data.length > 0) {
-        setLeadsData(data);
+      if (!error) {
+        setLeadsData(data || []);
       } else {
-        // Fallback sample data matching screenshot exactly if Supabase table is empty
-        setLeadsData([
-          {
-            id: '1',
-            name: 'Javed Ali',
-            email: 'javednisha346@gmail.com',
-            phone: '+91 9179878626',
-            step_progress: 'meeting_booked',
-            meeting_date: '2026-08-11',
-            meeting_time: '03:00 PM',
-            survey_responses: {
-              Industry: 'Service Business',
-              InvestmentReady: 'Maybe',
-              Revenue: 'Below ₹5L',
-              Role: 'Founder / Owner',
-            },
-            created_at: '2026-08-09T20:08:00Z',
-          },
-          {
-            id: '2',
-            name: 'Ehtesham Shah',
-            email: 'ehteshamshah35275@gmail.com',
-            phone: '+91 7875895594',
-            step_progress: 'step1_contact',
-            meeting_date: null,
-            meeting_time: null,
-            survey_responses: null,
-            created_at: '2026-08-09T16:42:00Z',
-          },
-          {
-            id: '3',
-            name: 'Shaikh Sarwar',
-            email: 'mominsarwar5555@gmail.com',
-            phone: '+91 7709037124',
-            step_progress: 'step1_contact',
-            meeting_date: null,
-            meeting_time: null,
-            survey_responses: null,
-            created_at: '2026-08-09T14:45:00Z',
-          },
-          {
-            id: '4',
-            name: 'Sadaf Shaikh',
-            email: 'ssdafjafarshaikh@gmail.com',
-            phone: '+91 9867869968',
-            step_progress: 'meeting_booked',
-            meeting_date: '2026-08-10',
-            meeting_time: '02:00 PM',
-            survey_responses: {
-              Industry: 'Service Business',
-              InvestmentReady: 'Yes',
-              Revenue: 'Below ₹5L',
-              Role: 'Founder / Owner',
-            },
-            created_at: '2026-08-09T14:37:00Z',
-          },
-          {
-            id: '5',
-            name: 'Naiyar Mankad',
-            email: 'naiyar@symphonyweight.com',
-            phone: '+91 9409242100',
-            step_progress: 'meeting_booked',
-            meeting_date: '2026-08-10',
-            meeting_time: '03:00 PM',
-            survey_responses: {
-              Industry: 'Manufacturer / Distributor',
-              InvestmentReady: 'Yes',
-              Revenue: '₹25L – ₹50L',
-              Role: 'Marketing Head',
-            },
-            created_at: '2026-08-09T14:37:00Z',
-          },
-        ]);
+        console.error('Supabase leads query error:', error);
+        setLeadsData([]);
       }
     } catch (err) {
-      console.error('Error loading isolated leads in dashboard:', err);
+      console.error('Error loading leads in dashboard:', err);
+      setLeadsData([]);
     } finally {
       setIsLoadingLeads(false);
     }
