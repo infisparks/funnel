@@ -11,11 +11,11 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const { isMobileOpen, setIsMobileOpen } = useTheme();
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#F5F6F8] text-[#111827]">
+    <div className="flex h-screen overflow-hidden bg-[#F5F6F8] text-[#111827] font-sans antialiased">
       {/* Mobile Drawer Overlay */}
       {isMobileOpen && (
         <div
-          className="fixed inset-0 bg-black/30 backdrop-blur-xs z-30 lg:hidden"
+          className="fixed inset-0 bg-black/40 backdrop-blur-xs z-40 lg:hidden transition-opacity"
           onClick={() => setIsMobileOpen(false)}
         />
       )}
@@ -29,8 +29,8 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         <Header />
 
         {/* Page Main View - Full Width & Fully Responsive */}
-        <main className="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6">
-          <div className="w-full space-y-6">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 scrollbar-thin">
+          <div className="w-full max-w-7xl mx-auto space-y-6 sm:space-y-8">
             {children}
           </div>
         </main>

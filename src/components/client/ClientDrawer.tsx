@@ -72,7 +72,7 @@ export function ClientDrawer() {
       />
 
       {/* Slide-over Drawer Panel */}
-      <div className="fixed top-0 right-0 h-full w-full sm:w-[540px] md:w-[620px] lg:w-[680px] bg-[#FAFAFC] border-l border-[#E5E7EB] shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col">
+      <div className="fixed top-0 right-0 h-dvh w-full sm:w-[540px] md:w-[620px] lg:w-[680px] bg-[#FAFAFC] border-l border-[#E5E7EB] shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col">
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-[#E5E7EB] bg-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3.5 min-w-0">
@@ -99,15 +99,16 @@ export function ClientDrawer() {
                   closeClientDrawer();
                 }
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs border border-rose-200 cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs border border-rose-200 cursor-pointer min-h-[44px]"
             >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Delete Lead</span>
+              <Trash2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Delete Lead</span>
             </button>
 
             <button
               onClick={closeClientDrawer}
-              className="p-2 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+              className="p-2.5 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer"
+              aria-label="Close drawer"
             >
               <X className="w-5 h-5" />
             </button>

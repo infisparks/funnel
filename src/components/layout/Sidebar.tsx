@@ -130,19 +130,23 @@ export function Sidebar() {
   // ----------------------------------------------------
   return (
     <aside
-      className={`fixed lg:static inset-y-0 left-0 bg-white border-r border-[#E5E7EB] h-screen flex flex-col justify-between transition-all duration-300 z-40 shrink-0 ${
-        isSidebarCollapsed ? 'w-20' : 'w-64 sm:w-72'
+      className={`fixed lg:static inset-y-0 left-0 bg-white border-r border-[#E5E7EB] h-dvh lg:h-screen flex flex-col justify-between transition-all duration-300 z-50 lg:z-30 shrink-0 ${
+        isSidebarCollapsed ? 'w-20' : 'w-[85vw] max-w-xs sm:w-72'
       } ${
         isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
       }`}
     >
       <div className="flex flex-col h-full overflow-hidden">
         {/* User Account / Profile Header */}
-        <div className="p-4 border-b border-[#E5E7EB] flex items-center justify-between shrink-0">
+        <div className="p-4 sm:p-5 border-b border-[#E5E7EB] flex items-center justify-between shrink-0">
           {!isSidebarCollapsed ? (
-            <Link href="/login" className="flex items-center gap-3 w-full group">
+            <Link
+              href="/login"
+              onClick={() => setIsMobileOpen(false)}
+              className="flex items-center gap-3 w-full group min-h-[44px]"
+            >
               <div
-                className="w-9 h-9 rounded-full text-white flex items-center justify-center font-bold text-sm shadow-2xs shrink-0"
+                className="w-10 h-10 rounded-full text-white flex items-center justify-center font-bold text-sm shadow-2xs shrink-0"
                 style={{ backgroundColor: accentColor.primary }}
               >
                 DM
@@ -168,7 +172,7 @@ export function Sidebar() {
         </div>
 
         {/* Scrollable Navigation */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-6 scrollbar-thin">
+        <div className="flex-1 overflow-y-auto p-3.5 space-y-6 scrollbar-thin">
           {/* CRM WORKSPACE SECTION */}
           <div>
             {!isSidebarCollapsed && (
@@ -185,7 +189,8 @@ export function Sidebar() {
                   <Link
                     key={item.label}
                     href={item.href}
-                    className={`relative flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 group ${
+                    onClick={() => setIsMobileOpen(false)}
+                    className={`relative flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-semibold transition-all duration-200 group min-h-[44px] ${
                       active
                         ? 'shadow-2xs'
                         : 'text-gray-700 hover:bg-gray-100/80 hover:text-gray-950'
@@ -204,7 +209,7 @@ export function Sidebar() {
 
                     <div className="flex items-center gap-3 min-w-0">
                       <Icon
-                        className="w-4.5 h-4.5 shrink-0"
+                        className="w-5 h-5 shrink-0"
                         style={{
                           color: active ? accentColor.primary : accentColor.primary,
                         }}
