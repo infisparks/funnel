@@ -27,8 +27,10 @@ export function StandaloneSurveyClient({ workspace }: StandaloneSurveyClientProp
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [savedLeadId, setSavedLeadId] = useState<string | null>(null);
   const [hasSavedDetails, setHasSavedDetails] = useState(false);
   const [answers, setAnswers] = useState<Record<string, any>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Check browser localStorage on mount
   React.useEffect(() => {
@@ -40,6 +42,8 @@ export function StandaloneSurveyClient({ workspace }: StandaloneSurveyClientProp
           setName(parsed.name || '');
           setEmail(parsed.email || '');
           setPhone(parsed.phone || '');
+          if (parsed.leadId) setSavedLeadId(parsed.leadId);
+          if (parsed.surveyAnswers) setAnswers(parsed.surveyAnswers);
           if (parsed.name && (parsed.email || parsed.phone)) {
             setHasSavedDetails(true);
           }
@@ -54,7 +58,55 @@ export function StandaloneSurveyClient({ workspace }: StandaloneSurveyClientProp
     setName('');
     setEmail('');
     setPhone('');
+    setSavedLeadId(null);
+    setAnswers({});
     setHasSavedDetails(false);
+  };
+
+  const handleSelectOption = (qId: string, opt: string) => {
+    const updated = { ...answers, [qId]: opt };
+    setAnswers(updated);
+
+    // Instantly sync option selection to Supabase in real time
+    (async () => {
+      try {
+        const cleanPhone = phone.trim();
+        let activeLeadId = savedLeadId;
+
+        if (!activeLeadId && cleanPhone) {
+          const { data: found } = await supabase
+            .from('leads')
+            .select('id')
+            .eq('phone', cleanPhone)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (found?.id) {
+            activeLeadId = found.id;
+            setSavedLeadId(found.id);
+          }
+        }
+
+        const payload: any = {
+          name: name || 'Anonymous Visitor',
+          email: email || '',
+          phone: cleanPhone,
+          step_progress: 'survey_completed',
+          survey_responses: updated,
+        };
+        if (workspace?.id) payload.funnel_id = workspace.id;
+
+        if (activeLeadId) {
+          await supabase.from('leads').update(payload).eq('id', activeLeadId);
+        } else if (name || cleanPhone) {
+          const { data: inserted } = await supabase.from('leads').insert(payload).select('id').maybeSingle();
+          if (inserted?.id) setSavedLeadId(inserted.id);
+        }
+      } catch (err) {
+        console.error('Error auto-syncing survey option to Supabase:', err);
+      }
+    })();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -64,11 +116,12 @@ export function StandaloneSurveyClient({ workspace }: StandaloneSurveyClientProp
       return;
     }
 
+    setIsSubmitting(true);
     const cleanPhone = phone.trim();
-    let activeLeadId = null;
+    let activeLeadId = savedLeadId;
 
-    if (cleanPhone) {
-      try {
+    try {
+      if (!activeLeadId && cleanPhone) {
         const { data: found } = await supabase
           .from('leads')
           .select('id')
@@ -80,26 +133,28 @@ export function StandaloneSurveyClient({ workspace }: StandaloneSurveyClientProp
         if (found?.id) {
           activeLeadId = found.id;
         }
-      } catch (err) {}
-    }
+      }
 
-    const leadPayload = {
-      funnel_id: workspace?.id || null,
-      name,
-      email,
-      phone: cleanPhone,
-      step_progress: 'survey_completed',
-      survey_responses: answers,
-    };
+      const leadPayload: any = {
+        name: name || 'Anonymous Visitor',
+        email: email || '',
+        phone: cleanPhone,
+        step_progress: 'survey_completed',
+        survey_responses: answers,
+      };
+      if (workspace?.id) leadPayload.funnel_id = workspace.id;
 
-    try {
       if (activeLeadId) {
         await supabase.from('leads').update(leadPayload).eq('id', activeLeadId);
       } else {
-        const { data } = await supabase.from('leads').insert(leadPayload).select().single();
+        const { data } = await supabase.from('leads').insert(leadPayload).select('id').maybeSingle();
         if (data?.id) activeLeadId = data.id;
       }
-    } catch (err) {}
+    } catch (err) {
+      console.error('Error saving survey responses to Supabase:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
 
     // Save lead details to localStorage
     const leadSession = { name, email, phone: cleanPhone, leadId: activeLeadId, surveyAnswers: answers, hasCompletedSurvey: true };
@@ -226,7 +281,7 @@ export function StandaloneSurveyClient({ workspace }: StandaloneSurveyClientProp
                       <button
                         type="button"
                         key={opt}
-                        onClick={() => setAnswers({ ...answers, [q.id]: opt })}
+                        onClick={() => handleSelectOption(q.id, opt)}
                         className={`p-3 rounded-xl text-xs font-bold text-left border transition-all cursor-pointer ${
                           isSelected
                             ? 'border-amber-500 bg-amber-500/20 text-white shadow-sm'
