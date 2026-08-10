@@ -112,7 +112,11 @@ export function StandaloneSurveyClient({ workspace }: StandaloneSurveyClientProp
                     type="text"
                     required
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setName(val);
+                      localStorage.setItem('lead_funnel_session', JSON.stringify({ name: val, email, phone }));
+                    }}
                     placeholder="Enter your full name"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-gray-800 bg-[#131B2A] text-xs font-medium text-white focus:border-amber-500 focus:outline-none"
                   />
@@ -124,7 +128,11 @@ export function StandaloneSurveyClient({ workspace }: StandaloneSurveyClientProp
                       type="tel"
                       required
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setPhone(val);
+                        localStorage.setItem('lead_funnel_session', JSON.stringify({ name, email, phone: val }));
+                      }}
                       placeholder="+91 9876543210"
                       className="w-full px-3.5 py-2.5 rounded-xl border border-gray-800 bg-[#131B2A] text-xs font-medium text-white focus:border-amber-500 focus:outline-none"
                     />
@@ -135,7 +143,11 @@ export function StandaloneSurveyClient({ workspace }: StandaloneSurveyClientProp
                       type="email"
                       required
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setEmail(val);
+                        localStorage.setItem('lead_funnel_session', JSON.stringify({ name, email: val, phone }));
+                      }}
                       placeholder="name@company.com"
                       className="w-full px-3.5 py-2.5 rounded-xl border border-gray-800 bg-[#131B2A] text-xs font-medium text-white focus:border-amber-500 focus:outline-none"
                     />

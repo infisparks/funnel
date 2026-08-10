@@ -236,6 +236,29 @@ export function ThreePopupFunnelModal({
     onClose();
   };
 
+  // Helper to instantly persist contact info to localStorage as user types
+  const saveContactInfoToStorage = (updatedName?: string, updatedEmail?: string, updatedPhone?: string) => {
+    try {
+      const nameToSave = updatedName !== undefined ? updatedName : name;
+      const emailToSave = updatedEmail !== undefined ? updatedEmail : email;
+      const phoneToSave = updatedPhone !== undefined ? updatedPhone : phone;
+
+      const existingSession = localStorage.getItem('lead_funnel_session');
+      const parsed = existingSession ? JSON.parse(existingSession) : {};
+
+      const newSession = {
+        ...parsed,
+        name: nameToSave,
+        email: emailToSave,
+        phone: phoneToSave,
+        leadId: existingLeadId || parsed.leadId,
+      };
+
+      localStorage.setItem('lead_funnel_session', JSON.stringify(newSession));
+      localStorage.setItem('lead_contact_info', JSON.stringify({ name: nameToSave, email: emailToSave, phone: phoneToSave }));
+    } catch (err) {}
+  };
+
   // Inspect browser localStorage & URL search params when modal is opened
   useEffect(() => {
     if (isOpen) {
@@ -245,15 +268,18 @@ export function ThreePopupFunnelModal({
 
       // 1. Check browser localStorage for saved lead contact info and survey answers
       try {
-        const savedSession = localStorage.getItem('lead_funnel_session');
+        const savedSession = localStorage.getItem('lead_funnel_session') || localStorage.getItem('lead_contact_info');
         if (savedSession) {
           const parsed = JSON.parse(savedSession);
-          if (parsed.name && (parsed.email || parsed.phone)) {
+          if (parsed.name || parsed.email || parsed.phone) {
             setName(parsed.name || '');
             setEmail(parsed.email || '');
             setPhone(parsed.phone || '');
             if (parsed.leadId) setExistingLeadId(parsed.leadId);
-            hasSavedDetails = true;
+
+            if (parsed.name && (parsed.email || parsed.phone)) {
+              hasSavedDetails = true;
+            }
           }
           if (parsed.surveyAnswers && Object.keys(parsed.surveyAnswers).length > 0) {
             setSurveyAnswers(parsed.surveyAnswers);
@@ -262,26 +288,22 @@ export function ThreePopupFunnelModal({
         }
       } catch (err) {}
 
-      // 2. Check URL search param e.g. ?step=survey or ?step=meeting
+      // 2. Determine initial step based on saved details priority
       if (typeof window !== 'undefined') {
         const params = new URLSearchParams(window.location.search);
         const urlStep = params.get('step')?.toLowerCase();
-        if (urlStep === 'meeting') initialStep = 3;
-        else if (urlStep === 'survey') initialStep = 2;
-        else if (urlStep === 'confirmation') initialStep = 4;
-        else if (urlStep === 'detail') initialStep = 1;
-        else {
-          // Smart Step Resumption:
-          // If details + survey saved -> Resume at Step 3 (Meeting)
-          // If details saved only -> Resume at Step 2 (Survey)
-          // If no details -> Step 1 (Basic Details)
-          if (hasSavedDetails && hasSavedSurvey) {
-            initialStep = 3;
-          } else if (hasSavedDetails) {
-            initialStep = 2;
-          } else {
-            initialStep = 1;
-          }
+
+        if (hasSavedDetails && hasSavedSurvey) {
+          // If details and survey completed -> Step 3 (Meeting) unless user requested confirmation
+          initialStep = urlStep === 'confirmation' ? 4 : 3;
+        } else if (hasSavedDetails) {
+          // If details completed -> Step 2 (Survey) unless user requested meeting/confirmation
+          if (urlStep === 'meeting') initialStep = 3;
+          else if (urlStep === 'confirmation') initialStep = 4;
+          else initialStep = 2;
+        } else {
+          // If details missing -> Must complete Step 1 first
+          initialStep = 1;
         }
       } else {
         if (hasSavedDetails && hasSavedSurvey) {
@@ -614,7 +636,12 @@ export function ThreePopupFunnelModal({
                     type="text"
                     required
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setName(val);
+                      saveContactInfoToStorage(val, undefined, undefined);
+                    }}
+                    onBlur={() => saveContactInfoToStorage()}
                     placeholder={namePlaceholder}
                     className={`w-full pl-10 pr-3.5 py-2.5 rounded-xl border text-xs font-semibold focus:outline-none ${
                       isLightMode ? 'bg-[#F8FAFC] border-gray-300 text-gray-900 placeholder-gray-400' : 'bg-[#131B2A] border-gray-800 text-white placeholder-gray-500'
@@ -633,7 +660,12 @@ export function ThreePopupFunnelModal({
                     type="email"
                     required
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEmail(val);
+                      saveContactInfoToStorage(undefined, val, undefined);
+                    }}
+                    onBlur={() => saveContactInfoToStorage()}
                     placeholder={emailPlaceholder}
                     className={`w-full pl-10 pr-3.5 py-2.5 rounded-xl border text-xs font-semibold focus:outline-none ${
                       isLightMode ? 'bg-[#F8FAFC] border-gray-300 text-gray-900 placeholder-gray-400' : 'bg-[#131B2A] border-gray-800 text-white placeholder-gray-500'
@@ -652,7 +684,12 @@ export function ThreePopupFunnelModal({
                     type="tel"
                     required
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setPhone(val);
+                      saveContactInfoToStorage(undefined, undefined, val);
+                    }}
+                    onBlur={() => saveContactInfoToStorage()}
                     placeholder={phonePlaceholder}
                     className={`w-full pl-10 pr-3.5 py-2.5 rounded-xl border text-xs font-semibold focus:outline-none ${
                       isLightMode ? 'bg-[#F8FAFC] border-gray-300 text-gray-900 placeholder-gray-400' : 'bg-[#131B2A] border-gray-800 text-white placeholder-gray-500'
