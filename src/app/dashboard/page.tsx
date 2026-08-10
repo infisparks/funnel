@@ -480,26 +480,48 @@ export default function ExecutiveCrmDashboard() {
                         </span>
                       </td>
 
-                      {/* STAGE & STATUS */}
+                      {/* STAGE & STATUS: 3-Step Connected Journey Badges */}
                       <td className="px-6 py-4">
-                        {isMeetingBooked ? (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                            <CalendarIcon className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>
-                              Meeting ({lead.meeting_date || '2026-08-10'} @ {lead.meeting_time || '02:00 PM'})
+                        <div className="flex flex-wrap items-center gap-1 text-[11px]">
+                          {/* 1. Fill Detail Badge - Always Green for leads */}
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <Check className="w-3 h-3 stroke-[3]" />
+                            <span>Fill Detail</span>
+                          </span>
+
+                          <span className="text-gray-300 font-bold">›</span>
+
+                          {/* 2. Fill Survey Badge - Green if completed, Red if cancelled/pending */}
+                          {hasSurvey ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              <Check className="w-3 h-3 stroke-[3]" />
+                              <span>Fill Survey</span>
                             </span>
-                          </span>
-                        ) : hasSurvey ? (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200">
-                            <Check className="w-3.5 h-3.5 text-blue-600 stroke-[3]" />
-                            <span>Survey Qualified</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                            <Hourglass className="w-3.5 h-3.5 text-amber-600" />
-                            <span>Form Contact (Pending Survey)</span>
-                          </span>
-                        )}
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md font-extrabold bg-rose-50 text-rose-700 border border-rose-200">
+                              <X className="w-3 h-3 stroke-[3]" />
+                              <span>Fill Survey</span>
+                            </span>
+                          )}
+
+                          <span className="text-gray-300 font-bold">›</span>
+
+                          {/* 3. Booked Meeting Badge - Green if meeting booked, Red if pending */}
+                          {isMeetingBooked ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              <CalendarIcon className="w-3 h-3 text-emerald-600" />
+                              <Check className="w-3 h-3 stroke-[3]" />
+                              <span>
+                                Booked Meeting ({lead.meeting_date || '2026-08-10'} @ {lead.meeting_time || '02:00 PM'})
+                              </span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md font-extrabold bg-rose-50 text-rose-700 border border-rose-200">
+                              <X className="w-3 h-3 stroke-[3]" />
+                              <span>Booked Meeting</span>
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* SURVEY PROFILE TAGS */}
@@ -619,21 +641,47 @@ export default function ExecutiveCrmDashboard() {
                       </a>
                     </div>
 
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-[#6B7280] font-semibold">Stage Status:</span>
-                      {isMeetingBooked ? (
-                        <span className="px-2.5 py-1 rounded-lg text-xs font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                          Meeting Booked
+                    <div className="space-y-1 pt-1">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-gray-400 block mb-1">
+                        STAGE PROGRESS
+                      </span>
+                      <div className="flex flex-wrap items-center gap-1 text-[11px]">
+                        {/* 1. Detail */}
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <Check className="w-3 h-3 stroke-[3]" />
+                          <span>Detail</span>
                         </span>
-                      ) : hasSurvey ? (
-                        <span className="px-2.5 py-1 rounded-lg text-xs font-extrabold bg-blue-50 text-blue-800 border border-blue-200">
-                          Survey Done
-                        </span>
-                      ) : (
-                        <span className="px-2.5 py-1 rounded-lg text-xs font-extrabold bg-amber-50 text-amber-800 border border-amber-200">
-                          Form Contact Only
-                        </span>
-                      )}
+
+                        <span className="text-gray-300 font-bold">›</span>
+
+                        {/* 2. Survey */}
+                        {hasSurvey ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <Check className="w-3 h-3 stroke-[3]" />
+                            <span>Survey</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-extrabold bg-rose-50 text-rose-700 border border-rose-200">
+                            <X className="w-3 h-3 stroke-[3]" />
+                            <span>Survey</span>
+                          </span>
+                        )}
+
+                        <span className="text-gray-300 font-bold">›</span>
+
+                        {/* 3. Meeting */}
+                        {isMeetingBooked ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <CalendarIcon className="w-3 h-3 text-emerald-600" />
+                            <span>Meeting</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-extrabold bg-rose-50 text-rose-700 border border-rose-200">
+                            <X className="w-3 h-3 stroke-[3]" />
+                            <span>Meeting</span>
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
