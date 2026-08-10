@@ -188,60 +188,31 @@ export default function WhatsappAutomationPage() {
         </div>
       )}
 
-      {/* Global Credentials & Instance Settings */}
+      {/* WhatsApp Sender Instance Settings */}
       <Card className="p-6 bg-white space-y-4 border border-[#E2E8F0] shadow-2xs">
         <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
-          <Key className="w-5 h-5 text-indigo-600" />
-          <h3 className="font-bold text-sm text-[#0F172A]">Evolution API Instance Credentials</h3>
+          <Smartphone className="w-5 h-5 text-indigo-600" />
+          <h3 className="font-bold text-sm text-[#0F172A]">WhatsApp Sender Instance Setup</h3>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-          <div>
-            <label className="block font-bold text-gray-700 uppercase mb-1 text-[11px]">
-              Evolution API URL
-            </label>
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 bg-gray-50">
-              <Globe className="w-4 h-4 text-gray-400 shrink-0" />
-              <input
-                type="text"
-                value={config.evolution_api_url}
-                onChange={(e) => setConfig({ ...config, evolution_api_url: e.target.value })}
-                className="w-full bg-transparent font-mono text-gray-900 focus:outline-none"
-              />
-            </div>
+        <div className="max-w-md text-xs">
+          <label className="block font-bold text-indigo-700 uppercase mb-1 text-[11px]">
+            Active Sender Instance Name *
+          </label>
+          <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-300 bg-indigo-50/50">
+            <Smartphone className="w-4 h-4 text-indigo-600 shrink-0" />
+            <input
+              type="text"
+              required
+              value={config.instance_name}
+              onChange={(e) => setConfig({ ...config, instance_name: e.target.value })}
+              placeholder="e.g. instance1"
+              className="w-full bg-transparent font-bold text-indigo-950 focus:outline-none text-xs"
+            />
           </div>
-
-          <div>
-            <label className="block font-bold text-gray-700 uppercase mb-1 text-[11px]">
-              API Key (Header Authorization)
-            </label>
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 bg-gray-50">
-              <Key className="w-4 h-4 text-gray-400 shrink-0" />
-              <input
-                type="text"
-                value={config.evolution_apikey}
-                onChange={(e) => setConfig({ ...config, evolution_apikey: e.target.value })}
-                className="w-full bg-transparent font-mono text-gray-900 focus:outline-none"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block font-bold text-indigo-700 uppercase mb-1 text-[11px]">
-              Active Sender Instance Name *
-            </label>
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-indigo-300 bg-indigo-50/50">
-              <Smartphone className="w-4 h-4 text-indigo-600 shrink-0" />
-              <input
-                type="text"
-                required
-                value={config.instance_name}
-                onChange={(e) => setConfig({ ...config, instance_name: e.target.value })}
-                placeholder="e.g. instance1"
-                className="w-full bg-transparent font-bold text-indigo-950 focus:outline-none"
-              />
-            </div>
-          </div>
+          <p className="text-[10px] text-gray-500 font-medium mt-1">
+            Enter your connected WhatsApp instance name (e.g. <span className="font-mono text-gray-700 font-bold">instance</span> or <span className="font-mono text-gray-700 font-bold">instance1</span>).
+          </p>
         </div>
       </Card>
 
