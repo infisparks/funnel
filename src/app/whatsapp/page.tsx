@@ -490,52 +490,42 @@ export default function WhatsappAutomationPage() {
           </Card>
         </div>
 
-        {/* Global Connection Settings */}
+        {/* Instance Connection Settings */}
         <Card className="p-6 bg-white border border-[#E5E7EB] shadow-2xs space-y-4">
-          <div className="flex items-center gap-2 pb-2 border-b border-[#E5E7EB]">
-            <Globe className="w-5 h-5 text-indigo-600" />
-            <h3 className="font-bold text-base text-[#111827]">Evolution API Gateway Connection</h3>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-bold uppercase text-gray-700 mb-1">
-                API Base URL
-              </label>
-              <input
-                type="text"
-                value={config.evolution_api_url}
-                onChange={(e) => setConfig({ ...config, evolution_api_url: e.target.value })}
-                placeholder="https://evo.infispark.in"
-                className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-900 focus:bg-white focus:outline-none"
-              />
+          <div className="flex items-center justify-between pb-2 border-b border-[#E5E7EB]">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xs">
+                <MessageSquare className="w-4 h-4 text-emerald-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-[#111827]">WhatsApp Sender Instance Setup</h3>
+                <p className="text-xs text-gray-500">Configure your unique WhatsApp instance to send automated broadcast & funnel messages.</p>
+              </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold uppercase text-gray-700 mb-1">
-                Instance Name
-              </label>
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-gray-50 border border-gray-200 rounded-full text-[11px] font-semibold text-gray-600">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Gateway Managed Securely Server-Side</span>
+            </div>
+          </div>
+
+          <div className="max-w-md space-y-2">
+            <label className="block text-xs font-bold uppercase text-gray-700">
+              Your WhatsApp Instance Name <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
               <input
                 type="text"
                 value={config.instance_name}
                 onChange={(e) => setConfig({ ...config, instance_name: e.target.value })}
-                placeholder="funnel_instance"
-                className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-900 focus:bg-white focus:outline-none"
+                placeholder="e.g. mudassir"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all"
               />
             </div>
-
-            <div>
-              <label className="block text-xs font-bold uppercase text-gray-700 mb-1">
-                Global API Key
-              </label>
-              <input
-                type="password"
-                value={config.evolution_apikey}
-                onChange={(e) => setConfig({ ...config, evolution_apikey: e.target.value })}
-                placeholder="Evolution API Token"
-                className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-900 focus:bg-white focus:outline-none"
-              />
-            </div>
+            <p className="text-[11px] text-gray-500 flex items-center gap-1">
+              <span>All messages will be dispatched through your assigned instance:</span>
+              <strong className="text-indigo-600 font-mono">{config.instance_name || '(not set)'}</strong>
+            </p>
           </div>
         </Card>
 
