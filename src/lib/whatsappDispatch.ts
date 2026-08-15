@@ -72,6 +72,8 @@ export function parseWhatsappTemplate(template: string, lead: WhatsappLeadData, 
     .replace(/\{\{\s*meeting_url\s*\}\}/gi, meetUrl);
 }
 
+const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5005';
+
 /**
  * Dispatch automatic WhatsApp trigger for a specific funnel step
  */
@@ -82,6 +84,28 @@ export async function dispatchWhatsappTrigger(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     if (!lead.phone) return { success: false, error: 'No phone number provided' };
+
+    // 1. Try Server-Side Dispatch via server.js / whatappmanage.js
+    try {
+      const serverRes = await fetch(`${SERVER_URL}/api/whatsapp/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stepKey,
+          leadData: lead,
+          customConfig,
+        }),
+      });
+
+      if (serverRes.ok) {
+        const serverData = await serverRes.json();
+        if (serverData.success) {
+          return { success: true };
+        }
+      }
+    } catch (serverErr) {
+      console.warn('Backend server dispatch unreachable, falling back to direct dispatch:', serverErr);
+    }
 
     let config: WhatsappConfig = customConfig || DEFAULT_WHATSAPP_CONFIG;
 
