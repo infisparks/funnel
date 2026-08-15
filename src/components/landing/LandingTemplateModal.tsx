@@ -223,36 +223,36 @@ export function LandingTemplateModal({
                 return (
                   <div
                     key={template.id}
-                    className={`group bg-white rounded-2xl border transition-all duration-300 flex flex-col justify-between overflow-hidden shadow-2xs hover:shadow-lg hover:-translate-y-1 ${
-                      isSelected ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-gray-200 hover:border-indigo-400'
+                    className={`group bg-white rounded-3xl border transition-all duration-300 flex flex-col justify-between overflow-hidden shadow-2xs hover:shadow-xl hover:-translate-y-1 ${
+                      isSelected ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-gray-200 hover:border-indigo-500'
                     }`}
                   >
-                    {/* Mini Mobile Hero Section Preview Thumbnail */}
+                    {/* Full Mobile Screen Showcase */}
                     <div
-                      className="relative w-full h-60 bg-gradient-to-b from-gray-100 to-gray-200/80 overflow-hidden border-b border-gray-100 cursor-pointer group/thumb flex items-center justify-center p-3"
+                      className="relative w-full h-[360px] bg-gradient-to-b from-slate-100 via-gray-100 to-slate-200/90 overflow-hidden cursor-pointer group/thumb flex items-center justify-center p-3"
                       onClick={() => setPreviewTemplate(template)}
                       title="Click to view full mobile preview"
                     >
                       {/* Smartphone Device Frame */}
-                      <div className="w-[165px] h-[215px] rounded-[24px] bg-slate-900 p-2 shadow-xl border-2 border-slate-700 relative flex flex-col shrink-0">
+                      <div className="w-[190px] h-[320px] rounded-[30px] bg-slate-950 p-2 shadow-2xl border-[3px] border-slate-700 relative flex flex-col shrink-0">
                         {/* Dynamic Island */}
-                        <div className="w-9 h-2 bg-slate-950 rounded-full mx-auto mb-1 shrink-0" />
+                        <div className="w-14 h-2.5 bg-slate-900 rounded-full mx-auto mb-1.5 shrink-0" />
 
                         {/* Screen Display */}
-                        <div className="w-full flex-1 rounded-[14px] overflow-hidden bg-white relative">
-                          <div className="w-[375px] h-[460px] origin-top-left scale-[0.398] absolute inset-0 pointer-events-none select-none">
+                        <div className="w-full flex-1 rounded-[20px] overflow-hidden bg-white relative">
+                          <div className="w-[375px] h-[580px] origin-top-left scale-[0.464] absolute inset-0 pointer-events-none select-none">
                             <iframe
                               srcDoc={template.html}
                               title={template.name}
                               className="w-full h-full border-0 bg-white"
                               tabIndex={-1}
-                              sandbox="allow-same-origin"
+                              sandbox="allow-scripts allow-same-origin"
                             />
                           </div>
                         </div>
 
                         {/* Home Bar */}
-                        <div className="w-9 h-1 bg-white/40 rounded-full mx-auto mt-1 shrink-0" />
+                        <div className="w-12 h-1 bg-white/40 rounded-full mx-auto mt-1.5 shrink-0" />
                       </div>
 
                       {/* Hover Fullscreen Prompt */}
@@ -262,63 +262,46 @@ export function LandingTemplateModal({
                       </div>
                     </div>
 
-                    {/* Visual Card Header */}
-                    <div className="p-5 space-y-3">
-                      <div className="flex items-center justify-between">
+                    {/* Clean Minimal Footer */}
+                    <div className="p-4 bg-white border-t border-gray-100 flex flex-col gap-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <h3
+                          className="font-extrabold text-sm text-gray-900 group-hover:text-indigo-600 transition-colors truncate cursor-pointer"
+                          onClick={() => setPreviewTemplate(template)}
+                          title={template.name}
+                        >
+                          {template.name}
+                        </h3>
                         <span
-                          className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide border"
+                          className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0"
                           style={{
                             backgroundColor: `${template.accentColor}15`,
                             color: template.accentColor,
-                            borderColor: `${template.accentColor}30`,
                           }}
                         >
                           {template.category}
                         </span>
-                        <span className="text-[10px] text-gray-400 font-semibold">{template.badge}</span>
                       </div>
 
-                      <div>
-                        <h3
-                          className="font-extrabold text-base text-gray-900 group-hover:text-indigo-600 transition-colors cursor-pointer"
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
                           onClick={() => setPreviewTemplate(template)}
+                          className="flex-1 py-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-100 border border-gray-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                         >
-                          {template.name}
-                        </h3>
-                        <p className="text-xs text-gray-500 mt-1 line-clamp-2 leading-relaxed">
-                          {template.description}
-                        </p>
+                          <Smartphone className="w-3.5 h-3.5" /> Preview
+                        </button>
+
+                        <Button
+                          variant={isSelected ? 'outline' : 'primary'}
+                          size="sm"
+                          onClick={() => handleApply(template)}
+                          leftIcon={isSelected ? <Check className="w-3.5 h-3.5" /> : <Sparkles className="w-3.5 h-3.5" />}
+                          className="flex-1 py-2 text-xs font-bold"
+                        >
+                          {isSelected ? 'Applied ✓' : 'Use Template ✨'}
+                        </Button>
                       </div>
-
-                      {/* Feature Bullet points */}
-                      <div className="space-y-1.5 pt-2 border-t border-gray-100">
-                        {template.features.map((feat) => (
-                          <div key={feat} className="flex items-center gap-2 text-[11px] text-gray-600">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                            <span>{feat}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Card Actions Footer */}
-                    <div className="p-4 bg-gray-50/70 border-t border-gray-100 flex items-center justify-between gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setPreviewTemplate(template)}
-                        className="px-3 py-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-200/80 border border-gray-200 transition-colors flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <Eye className="w-3.5 h-3.5" /> Preview
-                      </button>
-
-                      <Button
-                        variant={isSelected ? 'outline' : 'primary'}
-                        size="sm"
-                        onClick={() => handleApply(template)}
-                        leftIcon={isSelected ? <Check className="w-3.5 h-3.5" /> : <Sparkles className="w-3.5 h-3.5" />}
-                      >
-                        {isSelected ? 'Applied ✓' : 'Use This Template ✨'}
-                      </Button>
                     </div>
                   </div>
                 );

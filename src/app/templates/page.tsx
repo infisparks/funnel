@@ -263,34 +263,34 @@ export default function TemplatesPage() {
           {filteredTemplates.map((template) => (
             <div
               key={template.id}
-              className="group bg-white rounded-3xl border border-gray-200 hover:border-indigo-400 transition-all duration-300 flex flex-col justify-between overflow-hidden shadow-2xs hover:shadow-xl hover:-translate-y-1"
+              className="group bg-white rounded-3xl border border-gray-200 hover:border-indigo-500 transition-all duration-300 flex flex-col justify-between overflow-hidden shadow-2xs hover:shadow-xl hover:-translate-y-1"
             >
-              {/* Mini Mobile Hero Section Preview Thumbnail */}
+              {/* Full Mobile Screen Showcase */}
               <div
-                className="relative w-full h-64 bg-gradient-to-b from-gray-100 to-gray-200/80 overflow-hidden border-b border-gray-200 cursor-pointer group/thumb flex items-center justify-center p-3"
+                className="relative w-full h-[380px] bg-gradient-to-b from-slate-100 via-gray-100 to-slate-200/90 overflow-hidden cursor-pointer group/thumb flex items-center justify-center p-3 sm:p-4"
                 onClick={() => setPreviewTemplate(template)}
                 title="Click to view full mobile preview"
               >
-                {/* Smartphone Device Frame */}
-                <div className="w-[175px] h-[230px] rounded-[26px] bg-slate-900 p-2 shadow-xl border-2 border-slate-700 relative flex flex-col shrink-0">
-                  {/* Dynamic Island */}
-                  <div className="w-10 h-2 bg-slate-950 rounded-full mx-auto mb-1 shrink-0" />
+                {/* Smartphone Device Body */}
+                <div className="w-[200px] h-[340px] rounded-[32px] bg-slate-950 p-2 shadow-2xl border-[3px] border-slate-700 relative flex flex-col shrink-0">
+                  {/* Dynamic Island Pill */}
+                  <div className="w-14 h-2.5 bg-slate-900 rounded-full mx-auto mb-1.5 shrink-0" />
 
-                  {/* Screen Display */}
-                  <div className="w-full flex-1 rounded-[16px] overflow-hidden bg-white relative">
-                    <div className="w-[375px] h-[480px] origin-top-left scale-[0.424] absolute inset-0 pointer-events-none select-none">
+                  {/* Screen Frame with Live Render */}
+                  <div className="w-full flex-1 rounded-[22px] overflow-hidden bg-white relative">
+                    <div className="w-[375px] h-[600px] origin-top-left scale-[0.49] absolute inset-0 pointer-events-none select-none">
                       <iframe
                         srcDoc={template.html}
                         title={template.name}
                         className="w-full h-full border-0 bg-white"
                         tabIndex={-1}
-                        sandbox="allow-same-origin"
+                        sandbox="allow-scripts allow-same-origin"
                       />
                     </div>
                   </div>
 
                   {/* Home Bar */}
-                  <div className="w-10 h-1 bg-white/40 rounded-full mx-auto mt-1 shrink-0" />
+                  <div className="w-12 h-1 bg-white/40 rounded-full mx-auto mt-1.5 shrink-0" />
                 </div>
 
                 {/* Hover Fullscreen Prompt */}
@@ -300,69 +300,51 @@ export default function TemplatesPage() {
                 </div>
               </div>
 
-              <div className="p-6 space-y-4">
-                <div className="flex items-center justify-between">
+              {/* Minimal Clean Footer: Title & Actions */}
+              <div className="p-4 bg-white border-t border-gray-100 flex flex-col gap-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h3
+                    className="font-extrabold text-sm text-gray-900 group-hover:text-indigo-600 transition-colors truncate cursor-pointer"
+                    onClick={() => setPreviewTemplate(template)}
+                    title={template.name}
+                  >
+                    {template.name}
+                  </h3>
                   <span
-                    className="px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wide border"
+                    className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0"
                     style={{
                       backgroundColor: `${template.accentColor}15`,
                       color: template.accentColor,
-                      borderColor: `${template.accentColor}30`,
                     }}
                   >
                     {template.category}
                   </span>
-                  <span className="text-[11px] text-gray-400 font-semibold">{template.badge}</span>
                 </div>
 
-                <div>
-                  <h3
-                    className="font-extrabold text-lg text-gray-900 group-hover:text-indigo-600 transition-colors cursor-pointer"
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
                     onClick={() => setPreviewTemplate(template)}
+                    className="flex-1 py-2.5 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-100 border border-gray-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    {template.name}
-                  </h3>
-                  <p className="text-xs text-gray-500 mt-1.5 line-clamp-2 leading-relaxed">
-                    {template.description}
-                  </p>
-                </div>
+                    <Smartphone className="w-3.5 h-3.5" /> Mobile Preview
+                  </button>
 
-                {/* Features */}
-                <div className="space-y-1.5 pt-3 border-t border-gray-100">
-                  {template.features.map((feat) => (
-                    <div key={feat} className="flex items-center gap-2 text-xs text-gray-700">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                      <span>{feat}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="p-4 bg-gray-50/80 border-t border-gray-100 flex items-center justify-between gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPreviewTemplate(template)}
-                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-200/80 border border-gray-200 transition-colors flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Smartphone className="w-3.5 h-3.5" /> Mobile Preview
-                </button>
-
-                <div className="flex items-center gap-1.5">
                   <Button
                     variant="primary"
                     size="sm"
                     onClick={() => handleApplyTemplate(template)}
                     leftIcon={<Sparkles className="w-3.5 h-3.5" />}
+                    className="flex-1 py-2.5 text-xs font-bold"
                   >
-                    Use This Template ✨
+                    Use Template ✨
                   </Button>
 
                   {template.id.startsWith('tpl_') && (
                     <button
                       type="button"
                       onClick={() => handleDeleteTemplate(template.id, template.name)}
-                      className="p-2 rounded-xl text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                      className="p-2.5 rounded-xl text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer shrink-0"
                       title="Delete from Supabase"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
