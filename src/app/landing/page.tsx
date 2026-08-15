@@ -91,12 +91,8 @@ export default async function LandingPage({
     !!resolvedParams.domain ||
     isSubdomainHost;
 
-  // Perform zero-delay server-side fetch from Supabase
-  let serverWorkspace: any = null;
-  if (isPublicView) {
-    serverWorkspace = await fetchSupabaseWorkspaceOnServer(subdomainName, resolvedParams.domain);
-  }
-
+  // Perform zero-delay server-side fetch from Supabase (for both public subdomains & admin dashboard)
+  const serverWorkspace = await fetchSupabaseWorkspaceOnServer(subdomainName, resolvedParams.domain);
   const initialHtml = serverWorkspace?.landing_html || DEFAULT_LANDING_HTML;
 
   return (

@@ -23,6 +23,12 @@ import {
   Trash2,
   Save,
   Maximize2,
+  Copy,
+  Check,
+  RotateCw,
+  Layers,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { DEFAULT_LANDING_HTML } from '@/lib/defaultLandingHtml';
 import { HtmlCodeEditorModal } from '@/components/landing/HtmlCodeEditorModal';
@@ -51,7 +57,9 @@ export function LandingPageClient({
   // Initialize state directly with server-fetched HTML code & saved triggers from Supabase (0ms delay)
   const [htmlCode, setHtmlCode] = useState(initialHtmlCode || DEFAULT_LANDING_HTML);
   const [customDomain, setCustomDomain] = useState(initialWorkspace?.custom_domain || 'firstoption.cloud');
-  const [subdomain, setSubdomain] = useState(subdomainName || initialWorkspace?.subdomain || 'client1');
+  const [subdomain, setSubdomain] = useState(
+    initialWorkspace?.subdomain || workspace?.subdomain || subdomainName || ''
+  );
   const [surveyQuestions, setSurveyQuestions] = useState<SurveyQuestion[]>(
     initialWorkspace?.survey_questions || []
   );
@@ -73,22 +81,44 @@ export function LandingPageClient({
   const [isPopupFunnelOpen, setIsPopupFunnelOpen] = useState(false);
   const [isSavingSupabase, setIsSavingSupabase] = useState(false);
   const [supabaseToastMsg, setSupabaseToastMsg] = useState('');
+  const [isCopiedDomain, setIsCopiedDomain] = useState(false);
+  const [iframeKey, setIframeKey] = useState(0);
 
   // Target Button Trigger Picker state & component visibility
   const [isPickerActive, setIsPickerActive] = useState(false);
   const [showTriggerBar, setShowTriggerBar] = useState(false);
 
-  // Sync workspace state if logged in admin updates workspace
+  // Sync workspace state if logged in admin updates workspace or on initial load
   useEffect(() => {
-    if (!isPublicView && workspace) {
-      if (workspace.landing_html) setHtmlCode(workspace.landing_html);
+    if (workspace) {
+      if (workspace.landing_html && workspace.landing_html.trim()) {
+        setHtmlCode(workspace.landing_html);
+      }
       if (workspace.custom_domain) setCustomDomain(workspace.custom_domain);
       if (workspace.subdomain) setSubdomain(workspace.subdomain);
-      if (workspace.survey_questions) setSurveyQuestions(workspace.survey_questions);
-      if (workspace.trigger_buttons) setTriggerButtons(workspace.trigger_buttons);
-      if (workspace.popup_theme) setPopupTheme(workspace.popup_theme);
+      if (workspace.survey_questions && workspace.survey_questions.length > 0) {
+        setSurveyQuestions(workspace.survey_questions);
+      }
+      if (workspace.trigger_buttons && workspace.trigger_buttons.length > 0) {
+        setTriggerButtons(workspace.trigger_buttons);
+      }
+      if (workspace.popup_theme && Object.keys(workspace.popup_theme).length > 0) {
+        setPopupTheme(workspace.popup_theme);
+      }
+    } else if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('landing_custom_html');
+      if (cached && cached.trim()) {
+        setHtmlCode((prev) => (!prev || prev === DEFAULT_LANDING_HTML ? cached : prev));
+      }
     }
-  }, [workspace, isPublicView]);
+  }, [workspace]);
+
+  // Also sync if initialHtmlCode changes
+  useEffect(() => {
+    if (initialHtmlCode && initialHtmlCode.trim() && initialHtmlCode !== DEFAULT_LANDING_HTML) {
+      setHtmlCode(initialHtmlCode);
+    }
+  }, [initialHtmlCode]);
 
   // Auto-open modal if URL contains ?step=detail, ?step=survey, or ?step=meeting
   useEffect(() => {
@@ -101,6 +131,14 @@ export function LandingPageClient({
   const showToast = (message: string) => {
     setSupabaseToastMsg(message);
     setTimeout(() => setSupabaseToastMsg(''), 4000);
+  };
+
+  const handleCopyLiveUrl = () => {
+    const url = `https://${subdomain}.firstoption.cloud`;
+    navigator.clipboard.writeText(url);
+    setIsCopiedDomain(true);
+    setTimeout(() => setIsCopiedDomain(false), 2000);
+    showToast('Copied live subdomain URL to clipboard! 📋');
   };
 
   const handleAddTriggerButton = async (exactText: string) => {
@@ -118,7 +156,7 @@ export function LandingPageClient({
     setIsSavingSupabase(true);
     await saveWorkspaceConfig({ trigger_buttons: updated });
     setIsSavingSupabase(false);
-    showToast(`Added & Saved Trigger to Supabase: "${trimmed}" 🎯`);
+    showToast(`Added & Saved Trigger: "${trimmed}" 🎯`);
   };
 
   const handleRemoveTriggerButton = async (index: number) => {
@@ -145,7 +183,7 @@ export function LandingPageClient({
     });
     setIsSavingSupabase(false);
     if (ok) {
-      showToast(`Successfully saved triggers & theme configuration to Supabase! 💾`);
+      showToast(`Saved triggers & theme to Supabase! 💾`);
     }
   };
 
@@ -156,18 +194,29 @@ export function LandingPageClient({
     const ok = await saveWorkspaceConfig({ landing_html: newCode, subdomain, custom_domain: customDomain, trigger_buttons: triggerButtons, popup_theme: popupTheme });
     setIsSavingSupabase(false);
     if (ok) {
-      showToast('Landing Page HTML successfully saved to Supabase! ✅');
+      showToast('Landing Page HTML saved to Supabase! ✅');
     }
   };
 
-  const handleSaveDomain = async (newDomain: string) => {
-    setCustomDomain(newDomain);
-    localStorage.setItem('landing_custom_domain', newDomain);
+  const handleSaveDomain = async (newSubdomain: string, newDomain?: string) => {
+    const formattedSub = newSubdomain.toLowerCase().trim().replace(/[^a-z0-9-]/g, '');
+    const cleanDomain = newDomain?.trim() || customDomain || 'firstoption.cloud';
+    setSubdomain(formattedSub);
+    setCustomDomain(cleanDomain);
+    localStorage.setItem('landing_custom_subdomain', formattedSub);
+    localStorage.setItem('landing_custom_domain', cleanDomain);
     setIsSavingSupabase(true);
-    const ok = await saveWorkspaceConfig({ landing_html: htmlCode, subdomain, custom_domain: newDomain, trigger_buttons: triggerButtons, popup_theme: popupTheme });
+    const ok = await saveWorkspaceConfig({
+      landing_html: htmlCode,
+      subdomain: formattedSub,
+      custom_domain: cleanDomain,
+      trigger_buttons: triggerButtons,
+      popup_theme: popupTheme,
+      survey_questions: surveyQuestions,
+    });
     setIsSavingSupabase(false);
     if (ok) {
-      showToast('Custom Domain configuration saved to Supabase table! 🌐');
+      showToast(`Domain saved: https://${formattedSub}.firstoption.cloud 🌐`);
     }
   };
 
@@ -183,7 +232,7 @@ export function LandingPageClient({
     });
     setIsSavingSupabase(false);
     if (ok) {
-      showToast('Synced workspace configuration to Supabase table! 🚀');
+      showToast('Synced workspace configuration to Supabase! 🚀');
     }
   };
 
@@ -307,25 +356,28 @@ export function LandingPageClient({
     <MainLayout>
       {/* Toast Notification Banner */}
       {supabaseToastMsg && (
-        <div className="fixed top-6 right-6 z-50 animate-in fade-in slide-in-from-top-4 duration-300 font-sans">
-          <div className="p-3.5 rounded-2xl bg-[#059669] text-white font-bold text-xs shadow-2xl flex items-center gap-2.5 border border-emerald-400">
-            <Database className="w-4 h-4 text-emerald-200" />
+        <div className="fixed top-5 right-5 z-50 animate-in fade-in slide-in-from-top-3 duration-200">
+          <div className="px-3.5 py-2 rounded-xl bg-[#111827] text-white text-xs font-medium shadow-lg flex items-center gap-2 border border-gray-800">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             <span>{supabaseToastMsg}</span>
           </div>
         </div>
       )}
 
-      {/* Top Header Controls Bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-1 font-sans">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-[#111827]">
-              Landing Page Studio & Subdomain Host
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#111827]">
+              Landing Page
             </h1>
-            <Badge variant="success">Supabase Sync Live</Badge>
+            <Badge variant="success" className="gap-1 py-0.5 px-2 font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Live Subdomain
+            </Badge>
           </div>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Full-text exact button trigger manager, popup theme designer, and instant subdomain host.
+          <p className="text-xs sm:text-sm text-[#6B7280] mt-0.5">
+            Manage your high-converting landing page, funnel triggers, and custom subdomain host.
           </p>
         </div>
 
@@ -336,175 +388,243 @@ export function LandingPageClient({
             size="sm"
             onClick={handleSyncToSupabase}
             isLoading={isSavingSupabase}
-            leftIcon={<Database className="w-3.5 h-3.5 text-emerald-600" />}
+            leftIcon={<Database className="w-3.5 h-3.5 text-gray-500" />}
+            className="text-xs font-medium"
           >
-            <span>Sync Supabase</span>
+            Sync Supabase
           </Button>
 
-          {/* Dedicated Full-Screen Studio Page Primary Action Button */}
-          <button
-            onClick={() => router.push('/landing/customize')}
-            className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer border border-amber-600"
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsEditorOpen(true)}
+            leftIcon={<Code2 className="w-3.5 h-3.5 text-gray-500" />}
+            className="text-xs font-medium"
           >
-            <Maximize2 className="w-3.5 h-3.5" />
-            <span>Full Designer Studio 🖥️</span>
-          </button>
+            Edit Code
+          </Button>
 
-          {/* Interactive Trigger Button Picker Toggle */}
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => router.push('/landing/customize')}
+            leftIcon={<Maximize2 className="w-3.5 h-3.5" />}
+            className="text-xs font-semibold"
+          >
+            Full Studio
+          </Button>
+        </div>
+      </div>
+
+      {/* Subdomain & Quick Status Bar */}
+      <div className="bg-white border border-[#E5E7EB] rounded-2xl p-3 sm:p-4 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+        {/* Left: Domain Details */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#F5F6F8] border border-[#E5E7EB] text-xs">
+            <Globe className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+            <span className="text-[#6B7280]">https://</span>
+            <span className="font-semibold text-[#111827]">{subdomain}.firstoption.cloud</span>
+            <button
+              onClick={handleCopyLiveUrl}
+              className="ml-1 text-gray-400 hover:text-gray-700 transition-colors p-0.5 rounded cursor-pointer"
+              title="Copy URL"
+            >
+              {isCopiedDomain ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+            </button>
+            <a
+              href={`https://${subdomain}.firstoption.cloud`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-gray-400 hover:text-indigo-600 transition-colors p-0.5 rounded"
+              title="Open in new tab"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          </div>
+
+          <button
+            onClick={() => setIsDomainModalOpen(true)}
+            className="text-xs font-medium text-indigo-600 hover:text-indigo-700 hover:underline cursor-pointer"
+          >
+            Domain Settings
+          </button>
+        </div>
+
+        {/* Right: Quick route shortcuts & Trigger manager toggle */}
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => {
-              const nextPickerState = !isPickerActive;
-              setIsPickerActive(nextPickerState);
-              setShowTriggerBar(true);
-              if (nextPickerState) {
-                showToast('Click ANY button in the live preview below to select it as trigger! 🎯');
-              }
+              const next = !showTriggerBar;
+              setShowTriggerBar(next);
+              if (isPickerActive && !next) setIsPickerActive(false);
             }}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-              isPickerActive
-                ? 'bg-amber-500 text-black border border-amber-600 shadow-md animate-pulse font-extrabold'
-                : 'bg-white border border-[#E5E7EB] hover:bg-gray-50 text-gray-800 shadow-2xs'
+            className={`px-3 py-1.5 rounded-xl text-xs font-medium border flex items-center gap-1.5 transition-all cursor-pointer ${
+              showTriggerBar
+                ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-semibold'
+                : 'bg-white border-[#E5E7EB] text-[#111827] hover:bg-gray-50'
             }`}
           >
-            <Target className="w-3.5 h-3.5 text-amber-500" />
-            <span>{isPickerActive ? 'Click ANY Button in Preview Below...' : 'Pick Trigger Button 🎯'}</span>
+            <Target className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Triggers ({triggerButtons.length})</span>
+            {showTriggerBar ? <ChevronUp className="w-3 h-3 text-indigo-500" /> : <ChevronDown className="w-3 h-3 text-gray-400" />}
           </button>
 
-          {/* Separate Route Badges */}
           <a
             href="/survey"
             target="_blank"
             rel="noreferrer"
-            className="px-2.5 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-bold flex items-center gap-1 hover:bg-amber-100 transition-colors shadow-2xs"
+            className="px-2.5 py-1.5 rounded-xl bg-[#F5F6F8] border border-[#E5E7EB] text-[#111827] text-xs font-medium flex items-center gap-1 hover:bg-gray-100 transition-colors"
           >
             <span>/survey</span>
-            <ExternalLink className="w-3 h-3 text-amber-600" />
+            <ExternalLink className="w-3 h-3 text-[#6B7280]" />
           </a>
 
           <a
             href="/meeting"
             target="_blank"
             rel="noreferrer"
-            className="px-2.5 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold flex items-center gap-1 hover:bg-emerald-100 transition-colors shadow-2xs"
+            className="px-2.5 py-1.5 rounded-xl bg-[#F5F6F8] border border-[#E5E7EB] text-[#111827] text-xs font-medium flex items-center gap-1 hover:bg-gray-100 transition-colors"
           >
             <span>/meeting</span>
-            <ExternalLink className="w-3 h-3 text-emerald-600" />
+            <ExternalLink className="w-3 h-3 text-[#6B7280]" />
           </a>
-
-          <button
-            onClick={() => setIsDomainModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#E5E7EB] bg-white hover:bg-gray-50 text-xs font-bold text-gray-800 shadow-2xs cursor-pointer"
-          >
-            <Globe className="w-3.5 h-3.5 text-indigo-600" />
-            <span className="font-mono text-gray-900 text-[11px]">https://{subdomain}.firstoption.cloud</span>
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-          </button>
-
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => setIsEditorOpen(true)}
-            leftIcon={<Code2 className="w-3.5 h-3.5" />}
-          >
-            <span>Edit HTML</span>
-          </Button>
         </div>
       </div>
 
-      {/* TRIGGER COMPONENT (HIDDEN BY DEFAULT - ONLY SHOWN WHEN USER CLICKS 'PICK TRIGGER BUTTON') */}
-      {(isPickerActive || showTriggerBar) && (
-        <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 text-white space-y-2.5 shadow-md font-sans animate-in fade-in zoom-in-98 duration-200">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <Target className="w-4 h-4 text-amber-400" />
-              <span className="text-xs font-extrabold tracking-wide text-white uppercase">
-                Active Trigger Buttons List ({triggerButtons.length})
-              </span>
-              <span className="text-[10px] text-gray-400">
-                Click any button in the preview to select & save to Supabase.
-              </span>
+      {/* Trigger Buttons Manager Card */}
+      {showTriggerBar && (
+        <div className="bg-white border border-[#E5E7EB] rounded-2xl p-4 shadow-2xs space-y-3 animate-in fade-in zoom-in-98 duration-150">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2 border-b border-[#E5E7EB]">
+            <div>
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4 text-indigo-600" />
+                <h2 className="text-sm font-bold text-[#111827]">
+                  Interactive Popup Triggers ({triggerButtons.length})
+                </h2>
+              </div>
+              <p className="text-xs text-[#6B7280] mt-0.5">
+                Buttons with these exact labels in your landing page will automatically launch the 3-step popup flow.
+              </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-1.5">
-              <input
-                type="text"
-                value={manualTriggerInput}
-                onChange={(e) => setManualTriggerInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleAddTriggerButton(manualTriggerInput);
-                }}
-                placeholder="Paste exact button text..."
-                className="px-3 py-1 text-xs bg-slate-800 border border-slate-700 rounded-lg text-white font-semibold focus:outline-none focus:border-amber-400"
-              />
+            <div className="flex items-center gap-2">
               <button
-                onClick={() => handleAddTriggerButton(manualTriggerInput)}
-                className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs flex items-center gap-1 cursor-pointer shrink-0"
+                onClick={() => {
+                  const nextState = !isPickerActive;
+                  setIsPickerActive(nextState);
+                  if (nextState) {
+                    showToast('Click ANY button in the preview below to capture it! 🎯');
+                  }
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  isPickerActive
+                    ? 'bg-indigo-600 text-white shadow-xs animate-pulse'
+                    : 'bg-[#F5F6F8] border border-[#E5E7EB] text-[#111827] hover:bg-gray-100'
+                }`}
               >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add</span>
+                <Target className={`w-3.5 h-3.5 ${isPickerActive ? 'text-white' : 'text-indigo-600'}`} />
+                <span>{isPickerActive ? 'Picking (Click on Preview)...' : 'Pick from Preview'}</span>
               </button>
 
-              <button
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={handleSaveTriggersToSupabase}
-                className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs flex items-center gap-1.5 cursor-pointer shrink-0 shadow-sm border border-emerald-400"
+                isLoading={isSavingSupabase}
+                leftIcon={<Save className="w-3.5 h-3.5 text-gray-500" />}
+                className="text-xs font-medium"
               >
-                <Save className="w-3.5 h-3.5 text-emerald-200" />
-                <span>Save Triggers 💾</span>
-              </button>
+                Save
+              </Button>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 pt-1">
+          {/* Add Trigger Input */}
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={manualTriggerInput}
+              onChange={(e) => setManualTriggerInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleAddTriggerButton(manualTriggerInput);
+              }}
+              placeholder="Enter exact button text (e.g. 'Book Strategy Session')..."
+              className="flex-1 px-3 py-2 text-xs bg-white border border-[#E5E7EB] rounded-xl text-[#111827] placeholder:text-[#6B7280]/60 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            />
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => handleAddTriggerButton(manualTriggerInput)}
+              leftIcon={<Plus className="w-3.5 h-3.5" />}
+              className="text-xs font-medium shrink-0"
+            >
+              Add Trigger
+            </Button>
+          </div>
+
+          {/* Active Trigger Badges */}
+          <div className="flex flex-wrap items-center gap-1.5 pt-1">
             {triggerButtons.map((trigText, idx) => (
               <div
                 key={idx}
-                className="px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-amber-300 font-extrabold text-xs flex items-center gap-2 shadow-2xs group hover:border-amber-500/50 transition-all"
+                className="px-2.5 py-1 rounded-lg bg-[#F5F6F8] border border-[#E5E7EB] text-[#111827] text-xs font-medium flex items-center gap-2 hover:border-gray-300 transition-colors"
               >
-                <span className="text-gray-400 text-[10px]">#{idx + 1}</span>
-                <span className="font-mono">"{trigText}"</span>
+                <span className="text-[#6B7280] text-[10px]">#{idx + 1}</span>
+                <span>"{trigText}"</span>
                 <button
                   onClick={() => handleRemoveTriggerButton(idx)}
-                  className="text-gray-400 hover:text-rose-400 p-0.5 rounded hover:bg-slate-700 transition-colors"
-                  title="Delete Trigger"
+                  className="text-[#6B7280] hover:text-rose-600 p-0.5 rounded transition-colors"
+                  title="Remove Trigger"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
+                  <Trash2 className="w-3 h-3" />
                 </button>
               </div>
             ))}
 
             {triggerButtons.length === 0 && (
-              <span className="text-xs text-amber-400/80 italic font-semibold">
-                No triggers selected yet. Click ANY button in the website preview below to select it!
-              </span>
+              <p className="text-xs text-[#6B7280] italic">
+                No custom triggers defined. Default trigger phrases like "Book", "Schedule", "Strategy" are active.
+              </p>
             )}
           </div>
         </div>
       )}
 
       {/* Live Preview Container Bar */}
-      <div className="bg-white border border-[#E5E7EB] rounded-3xl overflow-hidden shadow-2xs font-sans">
-        <div className="px-4 py-2.5 bg-[#F8FAFC] border-b border-[#E5E7EB] flex flex-wrap items-center justify-between gap-3">
+      <div className="bg-white border border-[#E5E7EB] rounded-2xl overflow-hidden shadow-2xs">
+        {/* Frame Top Header */}
+        <div className="px-4 py-2.5 bg-[#F5F6F8] border-b border-[#E5E7EB] flex flex-wrap items-center justify-between gap-3">
+          {/* Traffic Dots & Address Bar */}
           <div className="flex items-center gap-3 flex-1 min-w-[200px]">
             <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-full bg-rose-400" />
-              <span className="w-3 h-3 rounded-full bg-amber-400" />
-              <span className="w-3 h-3 rounded-full bg-emerald-400" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#E5E7EB] border border-gray-300" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#E5E7EB] border border-gray-300" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#E5E7EB] border border-gray-300" />
             </div>
 
-            <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-white border border-gray-200 text-xs text-gray-600 max-w-sm w-full truncate shadow-2xs">
-              <Lock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-              <span className="text-gray-400">https://</span>
-              <span className="font-semibold text-gray-800 truncate">{subdomain}.firstoption.cloud</span>
+            <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-white border border-[#E5E7EB] text-xs text-[#6B7280] max-w-xs w-full truncate">
+              <Lock className="w-3 h-3 text-emerald-600 shrink-0" />
+              <span className="text-[#6B7280]/60">https://</span>
+              <span className="font-medium text-[#111827] truncate">{subdomain}.firstoption.cloud</span>
             </div>
+
+            <button
+              onClick={() => setIframeKey((prev) => prev + 1)}
+              className="p-1 text-gray-400 hover:text-gray-700 transition-colors rounded hover:bg-gray-200"
+              title="Refresh Preview"
+            >
+              <RotateCw className="w-3.5 h-3.5" />
+            </button>
           </div>
 
-          <div className="flex items-center gap-1 p-1 bg-gray-200/60 rounded-xl">
+          {/* Segmented Device Viewport Switcher */}
+          <div className="flex items-center p-0.5 bg-gray-200/70 rounded-xl border border-gray-200">
             <button
               onClick={() => setViewport('desktop')}
-              className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                 viewport === 'desktop'
-                  ? 'bg-white text-[#8146F0] shadow-2xs'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-white text-[#111827] shadow-2xs'
+                  : 'text-[#6B7280] hover:text-[#111827]'
               }`}
               title="Desktop View"
             >
@@ -514,10 +634,10 @@ export function LandingPageClient({
 
             <button
               onClick={() => setViewport('tablet')}
-              className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                 viewport === 'tablet'
-                  ? 'bg-white text-[#8146F0] shadow-2xs'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-white text-[#111827] shadow-2xs'
+                  : 'text-[#6B7280] hover:text-[#111827]'
               }`}
               title="Tablet View (768px)"
             >
@@ -527,64 +647,62 @@ export function LandingPageClient({
 
             <button
               onClick={() => setViewport('mobile')}
-              className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                 viewport === 'mobile'
-                  ? 'bg-white text-[#8146F0] shadow-2xs'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-white text-[#111827] shadow-2xs'
+                  : 'text-[#6B7280] hover:text-[#111827]'
               }`}
-              title="Mobile Device (iPhone / Android 375px)"
+              title="Mobile Device (375px)"
             >
               <Smartphone className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Mobile (iPhone/Android)</span>
+              <span className="hidden sm:inline">Mobile</span>
             </button>
           </div>
 
+          {/* Flow Test Action */}
           <div className="flex items-center gap-2">
-            <button
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => setIsPopupFunnelOpen(true)}
-              className="px-3 py-1 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-xs font-bold text-indigo-700 flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              leftIcon={<Sparkles className="w-3.5 h-3.5 text-indigo-600" />}
+              className="text-xs font-medium"
             >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Launch 3-Popup Flow</span>
-            </button>
-
-            <button
-              onClick={() => setIsEditorOpen(true)}
-              className="px-3 py-1 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-xs font-semibold text-gray-700 flex items-center gap-1.5 shadow-2xs cursor-pointer"
-            >
-              <Code2 className="w-3.5 h-3.5 text-indigo-600" />
-              <span>Paste HTML</span>
-            </button>
+              Test Popup Flow
+            </Button>
           </div>
         </div>
 
         {/* Live Iframe Sandbox Preview Area */}
-        <div className="p-4 sm:p-6 bg-[#E2E8F0]/50 min-h-[750px] flex items-center justify-center overflow-x-auto relative">
+        <div className="p-4 sm:p-6 bg-[#F5F6F8] min-h-[750px] flex items-center justify-center overflow-x-auto relative">
           {isPickerActive && (
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 px-4 py-2 rounded-full bg-amber-500 text-black font-extrabold text-xs shadow-xl animate-bounce flex items-center gap-2 border border-amber-400">
-              <Target className="w-4 h-4" />
-              <span>Click ANY button in the preview below to ADD to Triggers List!</span>
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 px-3.5 py-1.5 rounded-full bg-[#111827] text-white text-xs font-medium shadow-xl flex items-center gap-2 border border-gray-700 animate-bounce">
+              <span className="w-2 h-2 rounded-full bg-indigo-400 animate-ping" />
+              <span>Click any button in preview to add to Triggers</span>
             </div>
           )}
 
           {viewport === 'desktop' && (
-            <div className="w-full shadow-lg rounded-2xl overflow-hidden bg-white border border-[#E5E7EB]">
+            <div className="w-full shadow-sm rounded-xl overflow-hidden bg-white border border-[#E5E7EB]">
               <iframe
+                key={iframeKey}
                 srcDoc={processedHtmlCode}
                 title="Live Landing Page Preview Desktop"
-                className="w-full h-[750px] border-0"
+                className="w-full h-[750px] border-0 block"
                 sandbox="allow-scripts allow-forms"
               />
             </div>
           )}
 
           {viewport === 'tablet' && (
-            <div className="w-[768px] shrink-0 shadow-2xl rounded-[32px] overflow-hidden bg-gray-900 p-3 border-[10px] border-gray-900 my-4">
-              <div className="rounded-[22px] overflow-hidden bg-white">
+            <div className="w-[768px] max-w-[768px] h-[750px] shrink-0 shadow-2xl rounded-[32px] overflow-hidden bg-[#0F172A] p-3 border-[6px] border-[#1E293B] my-4 relative flex flex-col">
+              <div className="w-full h-full rounded-[22px] overflow-hidden bg-white relative flex flex-col">
                 <iframe
+                  key={iframeKey}
                   srcDoc={processedHtmlCode}
                   title="Live Landing Page Preview Tablet"
-                  className="w-full h-[720px] border-0"
+                  className="w-full h-full border-0 block flex-1"
+                  style={{ width: '100%', height: '100%', minHeight: '100%' }}
                   sandbox="allow-scripts allow-forms"
                 />
               </div>
@@ -592,25 +710,27 @@ export function LandingPageClient({
           )}
 
           {viewport === 'mobile' && (
-            <div className="w-[375px] shrink-0 shadow-2xl rounded-[48px] overflow-hidden bg-gray-900 border-[12px] border-gray-900 my-4 relative flex flex-col items-center">
-              <div className="w-full bg-gray-900 py-2.5 flex items-center justify-center z-10 shrink-0">
-                <div className="w-28 h-4 bg-black rounded-full flex items-center justify-end px-2">
-                  <div className="w-2 h-2 rounded-full bg-blue-900/60" />
-                </div>
+            <div className="w-[380px] max-w-[380px] h-[750px] shrink-0 shadow-2xl rounded-[48px] overflow-hidden bg-[#0F172A] p-3 border-[6px] border-[#1E293B] my-4 relative flex flex-col items-center">
+              {/* Dynamic Island Notch */}
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 w-28 h-6 bg-black rounded-full z-20 flex items-center justify-between px-2.5 shadow-md pointer-events-none">
+                <div className="w-2.5 h-2.5 rounded-full bg-[#1E293B] border border-slate-700/60" />
+                <div className="w-2 h-2 rounded-full bg-blue-900/40" />
               </div>
 
-              <div className="w-full h-[680px] bg-white overflow-hidden flex-1 relative">
+              {/* Screen Display */}
+              <div className="w-full h-full rounded-[38px] overflow-hidden bg-white relative flex flex-col">
                 <iframe
+                  key={iframeKey}
                   srcDoc={processedHtmlCode}
                   title="Live Landing Page Preview Mobile"
-                  className="w-full h-full border-0"
+                  className="w-full h-full border-0 block flex-1 pt-4"
+                  style={{ width: '100%', height: '100%', minHeight: '100%' }}
                   sandbox="allow-scripts allow-forms"
                 />
               </div>
 
-              <div className="w-full bg-gray-900 py-2 flex items-center justify-center z-10 shrink-0">
-                <div className="w-32 h-1 bg-gray-500 rounded-full" />
-              </div>
+              {/* Home Bar */}
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-32 h-1 bg-black/50 rounded-full z-20 pointer-events-none" />
             </div>
           )}
         </div>
@@ -626,6 +746,7 @@ export function LandingPageClient({
       <CustomDomainModal
         isOpen={isDomainModalOpen}
         onClose={() => setIsDomainModalOpen(false)}
+        currentSubdomain={subdomain}
         currentDomain={customDomain}
         onSaveDomain={handleSaveDomain}
       />
@@ -644,3 +765,4 @@ export function LandingPageClient({
     </MainLayout>
   );
 }
+

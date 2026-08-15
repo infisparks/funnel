@@ -51,6 +51,7 @@ export interface SuccessButton {
 
 export interface PopupThemeConfig {
   primaryColor?: string;
+  buttonTextColor?: string;
   themeMode?: 'dark' | 'light';
   buttonStyle?: 'solid' | 'gradient';
   badgeText?: string;
@@ -650,11 +651,12 @@ export function ThreePopupFunnelModal({
     }
   };
 
+  const buttonTextColor = popupTheme.buttonTextColor || '#FFFFFF';
   const getButtonStyle = () => {
     if (isSolidButton) {
-      return { backgroundColor: primaryColor, color: '#000000' };
+      return { backgroundColor: primaryColor, color: buttonTextColor };
     }
-    return { background: `linear-gradient(to right, ${primaryColor}, #FCD34D)`, color: '#000000' };
+    return { background: `linear-gradient(135deg, ${primaryColor}, #6366F1)`, color: buttonTextColor };
   };
 
   const currentQ = surveyQuestions[currentQuestionIndex] || surveyQuestions[0];
@@ -673,7 +675,7 @@ export function ThreePopupFunnelModal({
           href={btn.url}
           target="_blank"
           rel="noreferrer"
-          className="w-full py-3 px-4 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 text-black shadow-md transition-all hover:brightness-105 cursor-pointer"
+          className="w-full py-3 px-4 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 text-white shadow-md transition-all hover:brightness-105 cursor-pointer"
           style={{ backgroundColor: btn.customColor || '#25D366' }}
         >
           <MessageCircle className="w-4 h-4" />
@@ -727,7 +729,7 @@ export function ThreePopupFunnelModal({
         href={btn.url}
         target="_blank"
         rel="noreferrer"
-        className="w-full py-3 px-4 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 text-black shadow-md transition-all hover:brightness-105 cursor-pointer"
+        className="w-full py-3 px-4 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 text-white shadow-md transition-all hover:brightness-105 cursor-pointer"
         style={{ backgroundColor: btn.customColor || successButtonColor }}
       >
         <LinkIcon className="w-4 h-4" />

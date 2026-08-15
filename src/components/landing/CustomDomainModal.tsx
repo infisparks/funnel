@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTheme } from '../theme/ThemeProvider';
 import { useAuth } from '../auth/AuthContext';
 import {
@@ -22,31 +22,43 @@ import { Badge } from '../ui/Badge';
 interface CustomDomainModalProps {
   isOpen: boolean;
   onClose: () => void;
-  currentDomain: string;
-  onSaveDomain: (domain: string) => void;
+  currentSubdomain: string;
+  currentDomain?: string;
+  onSaveDomain: (newSubdomain: string, newDomain?: string) => Promise<void> | void;
 }
 
 export function CustomDomainModal({
   isOpen,
   onClose,
-  currentDomain,
+  currentSubdomain,
+  currentDomain = 'firstoption.cloud',
   onSaveDomain,
 }: CustomDomainModalProps) {
   const { accentColor } = useTheme();
-  const { workspace, saveWorkspaceConfig } = useAuth();
+  const { workspace } = useAuth();
 
-  // State for subdomain (e.g. mudassir) and root host domain (firstoption.cloud)
+  // Dynamic state for subdomain and custom domain
   const [subdomainInput, setSubdomainInput] = useState(
-    workspace?.subdomain || 'mudassir'
+    currentSubdomain || workspace?.subdomain || ''
   );
   const [customDomainInput, setCustomDomainInput] = useState(
-    currentDomain || 'firstoption.cloud'
+    currentDomain || workspace?.custom_domain || 'firstoption.cloud'
   );
 
   const [isVerifying, setIsVerifying] = useState(false);
   const [isVerified, setIsVerified] = useState(true);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Sync state whenever modal opens or parent/workspace changes
+  useEffect(() => {
+    if (isOpen) {
+      const activeSub = currentSubdomain || workspace?.subdomain || '';
+      setSubdomainInput(activeSub);
+      setCustomDomainInput(currentDomain || workspace?.custom_domain || 'firstoption.cloud');
+      setIsVerified(true);
+    }
+  }, [isOpen, currentSubdomain, currentDomain, workspace]);
 
   if (!isOpen) return null;
 
@@ -58,25 +70,24 @@ export function CustomDomainModal({
 
   const handleSaveSubdomain = async () => {
     const formattedSub = subdomainInput.toLowerCase().trim().replace(/[^a-z0-9-]/g, '');
+    if (!formattedSub) return;
     setSubdomainInput(formattedSub);
     setIsVerifying(true);
 
-    const fullDomain = `${formattedSub}.firstoption.cloud`;
-    const success = await saveWorkspaceConfig({
-      subdomain: formattedSub,
-      custom_domain: customDomainInput || 'firstoption.cloud',
-    });
-
-    setIsVerifying(false);
-    if (success) {
+    try {
+      await onSaveDomain(formattedSub, customDomainInput);
       setIsVerified(true);
       setSaveSuccess(true);
-      onSaveDomain(fullDomain);
       setTimeout(() => setSaveSuccess(false), 2500);
+    } catch (err) {
+      console.error('Failed to save domain settings:', err);
+    } finally {
+      setIsVerifying(false);
     }
   };
 
-  const generatedUrl = `https://${subdomainInput || 'mudassir'}.firstoption.cloud`;
+  const activeSubdomain = subdomainInput || currentSubdomain || workspace?.subdomain || '';
+  const generatedUrl = activeSubdomain ? `https://${activeSubdomain}.firstoption.cloud` : '';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/40 backdrop-blur-xs">
@@ -117,7 +128,7 @@ export function CustomDomainModal({
             </div>
           )}
 
-          {/* Section 1: Subdomain Generator Input (e.g. mudassir) */}
+          {/* Section 1: Subdomain Generator Input */}
           <div className="space-y-3 p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100">
             <div className="flex items-center justify-between">
               <label className="block text-xs font-bold uppercase tracking-wider text-indigo-900">
@@ -135,7 +146,7 @@ export function CustomDomainModal({
                     setSubdomainInput(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''));
                     setIsVerified(false);
                   }}
-                  placeholder="e.g. mudassir"
+                  placeholder="e.g. your-workspace-subdomain"
                   className="w-full px-3.5 py-2.5 text-sm text-[#111827] font-bold focus:outline-none"
                 />
                 <span className="px-3 text-xs font-mono font-bold text-gray-400 bg-gray-50 border-l border-gray-200 h-full flex items-center">
@@ -154,21 +165,23 @@ export function CustomDomainModal({
             </div>
 
             {/* Generated Live URL Preview Box */}
-            <div className="p-3 rounded-xl bg-white border border-indigo-200 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <Lock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span className="text-xs font-mono font-bold text-indigo-700 truncate">
-                  {generatedUrl}
-                </span>
+            {generatedUrl && (
+              <div className="p-3 rounded-xl bg-white border border-indigo-200 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Lock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span className="text-xs font-mono font-bold text-indigo-700 truncate">
+                    {generatedUrl}
+                  </span>
+                </div>
+                <button
+                  onClick={() => copyToClipboard(generatedUrl, 'suburl')}
+                  className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs shrink-0 flex items-center gap-1 cursor-pointer"
+                >
+                  {copiedField === 'suburl' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedField === 'suburl' ? 'Copied!' : 'Copy'}</span>
+                </button>
               </div>
-              <button
-                onClick={() => copyToClipboard(generatedUrl, 'suburl')}
-                className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs shrink-0 flex items-center gap-1"
-              >
-                {copiedField === 'suburl' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                <span>{copiedField === 'suburl' ? 'Copied!' : 'Copy'}</span>
-              </button>
-            </div>
+            )}
           </div>
 
           {/* Section 2: Custom External Domain (Optional) */}
@@ -189,40 +202,42 @@ export function CustomDomainModal({
           </div>
 
           {/* Live Status Card */}
-          <div className="p-4 rounded-2xl bg-gray-50 border border-[#E5E7EB] flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div
-                className={`w-9 h-9 rounded-xl flex items-center justify-center ${
-                  isVerified ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-                }`}
-              >
-                {isVerified ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
-              </div>
-              <div>
-                <div className="font-bold text-xs text-[#111827] flex items-center gap-2">
-                  <span>{generatedUrl}</span>
-                  <Badge variant={isVerified ? 'success' : 'warning'}>
-                    {isVerified ? 'Live & Connected' : 'Pending DNS'}
-                  </Badge>
+          {generatedUrl && (
+            <div className="p-4 rounded-2xl bg-gray-50 border border-[#E5E7EB] flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                    isVerified ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                  }`}
+                >
+                  {isVerified ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
                 </div>
-                <div className="text-[11px] text-gray-500 flex items-center gap-1.5 mt-0.5">
-                  <Database className="w-3 h-3 text-emerald-600" />
-                  <span>Synced to Supabase Table (funnel_workspaces)</span>
+                <div>
+                  <div className="font-bold text-xs text-[#111827] flex items-center gap-2">
+                    <span>{generatedUrl}</span>
+                    <Badge variant={isVerified ? 'success' : 'warning'}>
+                      {isVerified ? 'Live & Connected' : 'Pending DNS'}
+                    </Badge>
+                  </div>
+                  <div className="text-[11px] text-gray-500 flex items-center gap-1.5 mt-0.5">
+                    <Database className="w-3 h-3 text-emerald-600" />
+                    <span>Synced to Supabase Table (funnel_workspaces)</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {isVerified && (
-              <a
-                href={generatedUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-gray-400 hover:text-gray-700 p-2"
-              >
-                <ExternalLink className="w-4 h-4" />
-              </a>
-            )}
-          </div>
+              {isVerified && (
+                <a
+                  href={generatedUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-gray-400 hover:text-gray-700 p-2"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -238,3 +253,4 @@ export function CustomDomainModal({
     </div>
   );
 }
+
