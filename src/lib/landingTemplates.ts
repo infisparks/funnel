@@ -12,6 +12,209 @@ export interface LandingTemplate {
 
 export const LANDING_PAGE_TEMPLATES: LandingTemplate[] = [
   {
+    id: 'selflance-growth-engine',
+    name: 'Selflance – Digital Growth Engine & Tech Agency',
+    category: 'Consulting',
+    badge: 'Featured • Agency Scale',
+    accentColor: '#DF7626',
+    description: 'High-converting digital growth engine template engineered for tech consulting agencies, software partners, and automation systems.',
+    triggerButtons: [
+      'Book Your Business Technology Strategy Session',
+      'Book My Strategy Session',
+      'Claim Your 1-on-1 Growth Consultation',
+      'WhatsApp Us',
+    ],
+    features: [
+      'Animated Growth Metric Tickers',
+      'Client Satisfaction Trust Badges',
+      'Mobile First Hero & Fast Slot Picker',
+      'High-Ticket Enterprise Positioning',
+    ],
+    html: `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Selflance – Digital Growth Engine for Scaling Businesses</title>
+    <meta name="description" content="Selflance builds Technology, Automation & Strategy systems to transform manual hustle into scalable growth engines. Book your free strategy session today.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Poppins', 'sans-serif'] },
+                    colors: {
+                        brand: {
+                            blue:        '#1c4a8f',
+                            orange:      '#df7626',
+                            lightOrange: '#fbeedb',
+                            cardBg:      '#fcf7ef',
+                            appBg:       '#f6f9fc',
+                            darkText:    '#1a1d20',
+                            mutedText:   '#64748b'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        html, body {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            position: relative;
+        }
+        html { scroll-behavior: smooth; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        @keyframes float {
+            0%   { transform: translateY(0px)   scale(1);    opacity: 0.3; }
+            50%  { transform: translateY(-20px) scale(1.05); opacity: 0.5; }
+            100% { transform: translateY(0px)   scale(1);    opacity: 0.3; }
+        }
+        @keyframes shimmer { 100% { transform: translateX(100%); } }
+        @keyframes ticker {
+            0%   { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        .mesh-glow    { animation: float 8s ease-in-out infinite; }
+        .ticker-track { display: flex; gap: 8px; animation: ticker 18s linear infinite; width: max-content; }
+        .ticker-track:hover { animation-play-state: paused; }
+    </style>
+</head>
+<body class="font-sans text-white bg-[#0B1121] antialiased selection:bg-brand-orange selection:text-white relative overflow-x-hidden w-full max-w-full">
+
+    <!-- FIXED HEADER -->
+    <div class="fixed top-0 inset-x-0 z-50 flex justify-center">
+        <header class="w-full flex items-center justify-between px-4 py-2.5 sm:px-6 sm:py-3 bg-[#0B1121]/90 backdrop-blur-md border-b border-gray-800/50 max-w-5xl mx-auto">
+            <div class="text-[20px] sm:text-2xl font-extrabold text-white tracking-tight cursor-pointer">
+                Selflance<span class="text-brand-orange">.</span>
+            </div>
+        </header>
+    </div>
+
+    <!-- MAIN HERO -->
+    <main class="w-full max-w-5xl mx-auto min-h-screen pt-20 sm:pt-24 md:pt-28 pb-6 sm:pb-12 relative px-4 sm:px-6 z-10 flex flex-col justify-start items-center text-center gap-y-2 sm:gap-y-3 overflow-hidden">
+
+        <!-- Ambient glows -->
+        <div class="absolute top-[20%] left-1/2 -translate-x-1/2 w-[280px] sm:w-[500px] h-[280px] sm:h-[500px] bg-blue-900/20 blur-[90px] rounded-full pointer-events-none -z-10"></div>
+        <div class="absolute top-[45%] left-1/2 -translate-x-1/2 w-[220px] h-[220px] bg-purple-500/10 blur-[80px] rounded-full pointer-events-none -z-10 mesh-glow"></div>
+
+        <!-- UPPER CONTENT -->
+        <div class="flex flex-col items-center w-full gap-y-2 sm:gap-y-3 pt-1.5 sm:pt-2">
+
+            <!-- TOP BADGES ROW -->
+            <div class="flex items-center justify-center flex-wrap gap-2">
+                <div class="inline-flex items-center gap-2 bg-[#121A2F]/80 backdrop-blur-sm border border-[#2A3552] rounded-full px-3 py-1 sm:px-4 sm:py-1.5 shadow-sm">
+                    <span class="relative flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-orange opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-brand-orange"></span>
+                    </span>
+                    <span class="text-[10px] sm:text-[11px] font-bold text-gray-300 tracking-widest uppercase">Top-Rated Agency</span>
+                </div>
+
+                <div class="group relative inline-flex items-center gap-1.5 bg-[#121A2F]/90 backdrop-blur-md border border-[#2A3552] hover:border-[#6366F1]/80 rounded-full px-3 py-1 sm:px-3.5 sm:py-1.5 transition-all duration-300 shadow-md overflow-hidden cursor-pointer">
+                    <div class="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/15 to-transparent group-hover:animate-[shimmer_1.5s_infinite]"></div>
+                    <svg class="w-3.5 h-3.5 text-[#60A5FA]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                    <span class="text-[10px] sm:text-[11px] font-bold text-gray-200 group-hover:text-white transition-colors">Client Satisfaction</span>
+                    <svg class="w-3.5 h-3.5 text-yellow-400 fill-current transform group-hover:scale-125 group-hover:rotate-12 transition-transform duration-300 drop-shadow-[0_0_8px_rgba(250,204,21,0.6)]" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                    <span class="bg-[#1E293B] border border-gray-700/60 rounded-full px-2 py-0.5 text-[9px] sm:text-[10px] font-extrabold text-yellow-400 tracking-tight">4.9/5</span>
+                </div>
+            </div>
+
+            <!-- HEADLINE -->
+            <h1 id="hero-headline" class="text-[22.5px] sm:text-4xl md:text-[50px] font-extrabold leading-[1.2] tracking-tight text-white drop-shadow-lg px-1 w-full max-w-[345px] md:max-w-4xl mx-auto">
+                Your Business Needs More Than a Website. It Needs a
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-[#6366F1] to-[#A855F7]"> Digital Growth Engine</span>
+                That Helps You
+                <span class="text-brand-orange relative inline-block">Scale.
+                    <svg class="absolute -bottom-1 sm:-bottom-2 left-0 w-full text-brand-orange h-[6px] sm:h-3" viewBox="0 0 100 20" preserveAspectRatio="none" fill="none">
+                        <path d="M0,15 Q50,25 100,5" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                    </svg>
+                </span>
+            </h1>
+
+            <!-- SUB-HEADLINE -->
+            <p id="hero-subheadline" class="text-[#94A3B8] text-[12px] sm:text-[13.5px] md:text-base leading-snug sm:leading-relaxed max-w-[335px] sm:max-w-2xl mx-auto font-medium px-1">
+                Business scale karne ke liye manual hustle nahi, smart systems chahiye. Hum <strong class="text-gray-200">Technology, Automation & Strategy</strong> ke through high-performing growth engines build karte hain.
+            </p>
+
+            <!-- LIVE RESULTS TICKER -->
+            <div class="w-full overflow-hidden relative" style="mask-image:linear-gradient(to right,transparent,black 8%,black 92%,transparent);-webkit-mask-image:linear-gradient(to right,transparent,black 8%,black 92%,transparent);">
+                <div class="ticker-track" id="ticker-track">
+                    <div class="flex items-center gap-1.5 bg-[#111424] border border-[#2A3552] rounded-full px-3 py-1 whitespace-nowrap shrink-0">
+                        <span class="text-green-400 text-[10px] sm:text-xs font-bold">&#8593; 3.2x</span>
+                        <span class="text-gray-400 text-[9px] sm:text-[11px]">Revenue Growth</span>
+                    </div>
+                    <div class="flex items-center gap-1.5 bg-[#111424] border border-[#2A3552] rounded-full px-3 py-1 whitespace-nowrap shrink-0">
+                        <span class="text-[#6366F1] text-[10px] sm:text-xs font-bold">50+</span>
+                        <span class="text-gray-400 text-[9px] sm:text-[11px]">Businesses Scaled</span>
+                    </div>
+                    <div class="flex items-center gap-1.5 bg-[#111424] border border-[#2A3552] rounded-full px-3 py-1 whitespace-nowrap shrink-0">
+                        <span id="ticker-revenue-val" class="text-brand-orange text-[10px] sm:text-xs font-bold">&#8377;40Cr+</span>
+                        <span id="ticker-revenue-lbl" class="text-gray-400 text-[9px] sm:text-[11px]">Revenue Generated</span>
+                    </div>
+                    <div class="flex items-center gap-1.5 bg-[#111424] border border-[#2A3552] rounded-full px-3 py-1 whitespace-nowrap shrink-0">
+                        <span class="text-yellow-400 text-[10px] sm:text-xs font-bold">&#9733; 4.9/5</span>
+                        <span class="text-gray-400 text-[9px] sm:text-[11px]">Client Rating</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FEATURE PILLS -->
+            <div class="flex flex-row flex-wrap justify-center gap-1.5 sm:gap-3 w-full max-w-[330px] md:max-w-xl mx-auto">
+                <div class="border border-[#2A3552]/80 bg-[#0F1629]/50 rounded-full px-2.5 py-1 sm:px-3 sm:py-1.5 flex items-center gap-1.5">
+                    <svg class="w-3 h-3 sm:w-4 sm:h-4 text-[#60A5FA]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    <span class="text-[10px] sm:text-[11px] text-gray-300 font-semibold">Fast Delivery</span>
+                </div>
+                <div class="border border-[#2A3552]/80 bg-[#0F1629]/50 rounded-full px-2.5 py-1 sm:px-3 sm:py-1.5 flex items-center gap-1.5">
+                    <svg class="w-3 h-3 sm:w-4 sm:h-4 text-[#60A5FA]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                    <span class="text-[10px] sm:text-[11px] text-gray-300 font-semibold">Secure & Scalable</span>
+                </div>
+                <div class="border border-[#2A3552]/80 bg-[#0F1629]/50 rounded-full px-2.5 py-1 sm:px-3 sm:py-1.5 flex items-center gap-1.5">
+                    <svg class="w-3 h-3 sm:w-4 sm:h-4 text-[#60A5FA]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+                    <span class="text-[10px] sm:text-[11px] text-gray-300 font-semibold">Future-Ready</span>
+                </div>
+            </div>
+
+            <!-- CTA BUTTON -->
+            <button id="book-session-btn"
+                    class="group relative w-full max-w-[92%] sm:max-w-md mx-auto bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] text-white py-3 sm:py-4 rounded-xl sm:rounded-2xl font-bold text-[13px] sm:text-[15px] flex items-center justify-center gap-2 transition-all duration-300 shadow-[0_8px_20px_-5px_rgba(109,40,217,0.5)] border-t border-white/20 border-b-[3px] border-b-[#4c1d95] active:border-b-0 active:translate-y-0 overflow-hidden px-3 mt-4">
+                <div class="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent group-hover:animate-[shimmer_1.5s_infinite]"></div>
+                <span class="text-base drop-shadow-md">&#128197;</span>
+                <span class="relative z-10 drop-shadow-sm tracking-wide text-center leading-tight">Book Your Business Technology Strategy Session</span>
+            </button>
+
+            <!-- TRUST FOOTER -->
+            <div class="flex flex-row justify-between items-center w-full max-w-[96%] sm:max-w-4xl mx-auto pt-4 border-t border-gray-800/80 mt-2">
+                <div class="flex items-center gap-2">
+                    <span class="text-yellow-400 text-sm">★★★★★</span>
+                    <span class="text-xs text-gray-400 font-semibold">50+ Happy Businesses</span>
+                </div>
+                <div class="text-xs text-gray-400 font-bold">
+                    ISO27001 • GDPR • PCI DSS
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <footer class="w-full border-t border-gray-800/80 bg-[#070B16] py-8 px-4 text-center">
+        <div class="text-xl font-extrabold text-white tracking-tight mb-1">
+            Selflance<span class="text-brand-orange">.</span>
+        </div>
+        <p class="text-[#818CF8] text-xs font-semibold">
+            We Engineer Technology That Helps Businesses Scale Faster.
+        </p>
+    </footer>
+</body>
+</html>\`,
+  },
+  {
     id: 'consulting-growth-agency',
     name: 'Executive B2B Growth & Consulting Agency',
     category: 'Consulting',
@@ -20,7 +223,7 @@ export const LANDING_PAGE_TEMPLATES: LandingTemplate[] = [
     description: 'Designed for consulting firms, digital agencies, and B2B service providers looking to book high-ticket strategy calls.',
     triggerButtons: ['Get Started Free →', 'Claim Your 1-on-1 Growth Consultation', 'CONTINUE TO SELECT SLOT', 'Access Funnel Workspace →'],
     features: ['30-Sec Fast Booking', 'Social Proof Grid', 'Pain-to-Outcome Roadmap', 'Trust Badges'],
-    html: `<!DOCTYPE html>
+    html: \`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
