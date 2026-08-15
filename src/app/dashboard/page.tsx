@@ -18,6 +18,7 @@ import {
   Check,
   X,
   MessageCircle,
+  MessageSquare,
   FileText,
   Calendar as CalendarIcon,
   Shield,
@@ -406,6 +407,15 @@ export default function ExecutiveCrmDashboard() {
                                   <span>{notesCount}</span>
                                 </span>
                               )}
+                              {Array.isArray(lead.whatsapp_logs) && lead.whatsapp_logs.length > 0 && (
+                                <span
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0 shadow-2xs"
+                                  title={`${lead.whatsapp_logs.length} WhatsApp Message${lead.whatsapp_logs.length > 1 ? 's' : ''} Sent`}
+                                >
+                                  <MessageSquare className="w-2.5 h-2.5 text-emerald-600" />
+                                  <span>{lead.whatsapp_logs.length}</span>
+                                </span>
+                              )}
                             </div>
                             <div className="text-[11px] text-[#64748B] truncate font-normal">
                               {lead.email || 'No email provided'}
@@ -582,6 +592,15 @@ export default function ExecutiveCrmDashboard() {
                             >
                               <FileText className="w-2.5 h-2.5 text-amber-600" />
                               <span>{notesCount}</span>
+                            </span>
+                          )}
+                          {Array.isArray(lead.whatsapp_logs) && lead.whatsapp_logs.length > 0 && (
+                            <span
+                              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0 shadow-2xs"
+                              title={`${lead.whatsapp_logs.length} WhatsApp Message${lead.whatsapp_logs.length > 1 ? 's' : ''} Sent`}
+                            >
+                              <MessageSquare className="w-2.5 h-2.5 text-emerald-600" />
+                              <span>{lead.whatsapp_logs.length}</span>
                             </span>
                           )}
                         </div>

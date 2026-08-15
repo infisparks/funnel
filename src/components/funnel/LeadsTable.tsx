@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   Lock,
   FileText,
+  MessageSquare,
 } from 'lucide-react';
 import { isMeetingPassed } from '@/app/calendar/page';
 import { Badge } from '../ui/Badge';
@@ -34,6 +35,7 @@ export interface LeadRecord {
   step_progress?: string;
   survey_responses?: Record<string, any>;
   staff_notes?: any[];
+  whatsapp_logs?: any[];
   notes?: string;
   meeting_date?: string;
   meeting_time?: string;
@@ -338,6 +340,15 @@ export function LeadsTable() {
                                 >
                                   <FileText className="w-2.5 h-2.5 text-amber-600" />
                                   <span>{notesCount}</span>
+                                </span>
+                              )}
+                              {Array.isArray(lead.whatsapp_logs) && lead.whatsapp_logs.length > 0 && (
+                                <span
+                                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0 shadow-2xs"
+                                  title={`${lead.whatsapp_logs.length} WhatsApp Message${lead.whatsapp_logs.length > 1 ? 's' : ''} Sent`}
+                                >
+                                  <MessageSquare className="w-2.5 h-2.5 text-emerald-600" />
+                                  <span>{lead.whatsapp_logs.length}</span>
                                 </span>
                               )}
                             </div>
