@@ -70,6 +70,18 @@ export default function WhatsappAutomationPage() {
   const [scheduleMediaUrl, setScheduleMediaUrl] = useState('');
   const [scheduleMediaType, setScheduleMediaType] = useState<'image' | 'video' | 'document' | ''>('');
 
+  const getRemainingTimeText = (dateStr: string) => {
+    if (!dateStr) return 'Scheduled';
+    const diffMs = new Date(dateStr).getTime() - Date.now();
+    if (diffMs <= 0) return 'Triggering / Dispatched';
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.ceil(diffMs / (1000 * 60));
+    if (diffSec < 60) return `⚡ In ${diffSec}s`;
+    if (diffMin < 60) return `⏳ In ~${diffMin} min${diffMin > 1 ? 's' : ''}`;
+    const diffHours = Math.floor(diffMin / 60);
+    return `In ${diffHours}h ${diffMin % 60}m`;
+  };
+
   // Fetch GCP Cloud Tasks Queue & Quota from Node.js Server
   const fetchGcpQueue = async () => {
     setIsQueueLoading(true);
@@ -445,7 +457,12 @@ export default function WhatsappAutomationPage() {
                               <Clock className="w-3.5 h-3.5 text-indigo-600" />
                               <span>{new Date(task.scheduled_at).toLocaleString()}</span>
                             </div>
-                            <div className="text-[10px] text-indigo-600 font-medium">GCP Cloud Tasks Queue</div>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="text-[10px] text-gray-500 font-medium">GCP Queue •</span>
+                              <span className="px-1.5 py-0.2 rounded bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold">
+                                {getRemainingTimeText(task.scheduled_at)}
+                              </span>
+                            </div>
                           </td>
                           <td className="px-4 py-3">
                             <p className="max-w-xs text-[11px] text-gray-700 truncate" title={task.message_text}>
@@ -454,8 +471,8 @@ export default function WhatsappAutomationPage() {
                           </td>
                           <td className="px-4 py-3">
                             {isScheduled && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                                <Clock className="w-2.5 h-2.5" /> Scheduled in GCP
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                <Clock className="w-2.5 h-2.5 text-amber-600 animate-pulse" /> {getRemainingTimeText(task.scheduled_at)}
                               </span>
                             )}
                             {isCompleted && (

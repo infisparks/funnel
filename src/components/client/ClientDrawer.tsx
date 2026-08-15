@@ -57,7 +57,6 @@ export function ClientDrawer() {
   const [waSendStatus, setWaSendStatus] = useState<string | null>(null);
 
   // GCP Scheduling states in Drawer
-  const [waDispatchMode, setWaDispatchMode] = useState<'instant' | 'scheduled'>('instant');
   const [waScheduleDateTime, setWaScheduleDateTime] = useState('');
   const [isSchedulingGcp, setIsSchedulingGcp] = useState(false);
 
@@ -76,6 +75,18 @@ export function ClientDrawer() {
     { id: 'meeting_missed', name: '4. Meeting Missed' },
     { id: 'closed_won', name: '5. Closed Won' },
   ]);
+
+  const getRemainingTimeText = (dateStr: string) => {
+    if (!dateStr) return 'Scheduled';
+    const diffMs = new Date(dateStr).getTime() - Date.now();
+    if (diffMs <= 0) return 'Triggering / Dispatched';
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.ceil(diffMs / (1000 * 60));
+    if (diffSec < 60) return `Sending in ${diffSec}s ⚡`;
+    if (diffMin < 60) return `Sending in ~${diffMin} min${diffMin > 1 ? 's' : ''} ⏳`;
+    const diffHours = Math.floor(diffMin / 60);
+    return `In ${diffHours}h ${diffMin % 60}m`;
+  };
 
   // Fetch live WhatsApp logs from Supabase
   const fetchLeadWhatsappLogs = async () => {
@@ -110,6 +121,12 @@ export function ClientDrawer() {
       setWhatsappLogs(Array.isArray(selectedClient.whatsapp_logs) ? selectedClient.whatsapp_logs : []);
       if (selectedClient.meeting_date) setRescheduleDate(selectedClient.meeting_date);
       if (selectedClient.meeting_time) setRescheduleTime(selectedClient.meeting_time);
+      
+      // Auto set schedule to +1 min from now
+      const target = new Date(Date.now() + 1 * 60 * 1000);
+      const pad = (n: number) => String(n).padStart(2, '0');
+      setWaScheduleDateTime(`${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}T${pad(target.getHours())}:${pad(target.getMinutes())}`);
+      
       fetchLeadWhatsappLogs();
     }
   }, [selectedClient]);
@@ -121,63 +138,22 @@ export function ClientDrawer() {
     .toUpperCase()
     .substring(0, 2);
 
-  // Send Direct Immediate WhatsApp Message
-  const handleSendDirectWhatsapp = async () => {
-    if (!selectedClient || !selectedClient.phone || !directWaMessage.trim()) return;
-    setIsSendingWa(true);
-    setWaSendStatus(null);
-    try {
-      const parsed = directWaMessage
-        .replace(/\{\{\s*name\s*\}\}/gi, selectedClient.name || 'Client')
-        .replace(
-          /\{\{\s*meeting_url\s*\}\}/gi,
-          googleMeetUrl || 'https://meet.google.com/qbi-erbq-moy'
-        )
-        .replace(/\{\{\s*meeting_date\s*\}\}/gi, selectedClient.meeting_date || rescheduleDate)
-        .replace(/\{\{\s*meeting_time\s*\}\}/gi, selectedClient.meeting_time || rescheduleTime);
-
-      // Call backend server
-      const res = await fetch(`${SERVER_URL}/api/whatsapp/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phone: selectedClient.phone,
-          name: selectedClient.name,
-          email: selectedClient.email,
-          message: parsed,
-          leadData: {
-            id: selectedClient.id,
-            name: selectedClient.name,
-            phone: selectedClient.phone,
-            email: selectedClient.email,
-            google_meet_url: googleMeetUrl,
-          },
-        }),
-      });
-
-      const data = await res.json();
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to dispatch message via backend.');
-      }
-
-      setDirectWaMessage('');
-      setWaSendStatus('Message dispatched successfully! 🚀');
-      setTimeout(() => setWaSendStatus(null), 3500);
-      fetchLeadWhatsappLogs();
-    } catch (err: any) {
-      console.error('Error sending direct WhatsApp:', err);
-      setWaSendStatus(`Error sending message: ${err.message || 'Failed'}`);
-    } finally {
-      setIsSendingWa(false);
-    }
-  };
-
   // Schedule Message in Google Cloud Tasks Queue
   const handleScheduleGcpWhatsapp = async () => {
-    if (!selectedClient || !selectedClient.phone || !directWaMessage.trim() || !waScheduleDateTime) {
-      alert('Please fill in message text and select a valid future date & time.');
+    if (!selectedClient || !selectedClient.phone || !directWaMessage.trim()) {
+      alert('Please fill in message text.');
       return;
     }
+    
+    // Fallback if empty schedule time -> +1 min
+    let execTime = waScheduleDateTime;
+    if (!execTime) {
+      const target = new Date(Date.now() + 1 * 60 * 1000);
+      const pad = (n: number) => String(n).padStart(2, '0');
+      execTime = `${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}T${pad(target.getHours())}:${pad(target.getMinutes())}`;
+      setWaScheduleDateTime(execTime);
+    }
+
     setIsSchedulingGcp(true);
     setWaSendStatus(null);
     try {
@@ -197,7 +173,7 @@ export function ClientDrawer() {
           recipientPhone: selectedClient.phone,
           recipientName: selectedClient.name,
           messageText: parsed,
-          scheduleTime: waScheduleDateTime,
+          scheduleTime: execTime,
           userId: selectedClient.id || 'lead_drawer',
         }),
       });
@@ -207,10 +183,28 @@ export function ClientDrawer() {
         throw new Error(data.error || 'Failed to schedule task in Google Cloud Tasks.');
       }
 
+      // Append scheduled record immediately into client logs in UI
+      const scheduledLog = {
+        id: data.taskId || `gcp_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        scheduled_at: execTime,
+        trigger_step: 'gcp_scheduled_broadcast',
+        recipient_phone: selectedClient.phone,
+        recipient_name: selectedClient.name,
+        message: parsed,
+        status: 'scheduled',
+      };
+
+      const updated = [scheduledLog, ...(whatsappLogs || [])];
+      setWhatsappLogs(updated);
+
+      if (selectedClient.id) {
+        await supabase.from('leads').update({ whatsapp_logs: updated }).eq('id', selectedClient.id);
+      }
+
       setDirectWaMessage('');
-      setWaScheduleDateTime('');
-      setWaSendStatus(`🕒 Message scheduled in Google Cloud Tasks Queue for ${new Date(waScheduleDateTime).toLocaleString()}!`);
-      setTimeout(() => setWaSendStatus(null), 4000);
+      setWaSendStatus(`🕒 Message scheduled in Google Cloud Tasks! Will be sent to ${selectedClient.name} in ~1 min (${new Date(execTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`);
+      setTimeout(() => setWaSendStatus(null), 5000);
       fetchLeadWhatsappLogs();
     } catch (err: any) {
       console.error('Error scheduling GCP broadcast:', err);
@@ -473,18 +467,19 @@ export function ClientDrawer() {
           </Card>
 
           {/* Card 2: WhatsApp Messages & GCP Scheduling */}
+          {/* Card 2: WhatsApp Messages & GCP Scheduling */}
           <Card className="p-5 bg-white space-y-4">
             <div className="flex items-start justify-between gap-3 pb-2 border-b border-gray-100">
               <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                  <MessageCircle className="w-5 h-5" />
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                  <Clock className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="font-bold text-sm text-[#111827]">
-                    WhatsApp Messenger & GCP Scheduler
+                    Schedule via Google Cloud Tasks
                   </h3>
                   <p className="text-[11px] text-gray-500">
-                    Send instant messages or schedule broadcasts via Google Cloud Tasks.
+                    Queue automated WhatsApp dispatch in Google Cloud Tasks queue.
                   </p>
                 </div>
               </div>
@@ -493,98 +488,61 @@ export function ClientDrawer() {
               </Badge>
             </div>
 
-            {/* Mode Selector Tabs */}
-            <div className="flex rounded-xl bg-gray-100 p-1 text-xs font-bold">
-              <button
-                type="button"
-                onClick={() => setWaDispatchMode('instant')}
-                className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                  waDispatchMode === 'instant'
-                    ? 'bg-white text-indigo-700 shadow-2xs'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <Send className="w-3.5 h-3.5" />
-                <span>Send Instant WhatsApp</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setWaDispatchMode('scheduled');
-                  if (!waScheduleDateTime) {
-                    const target = new Date(Date.now() + 1 * 60 * 1000);
-                    const pad = (n: number) => String(n).padStart(2, '0');
-                    setWaScheduleDateTime(`${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}T${pad(target.getHours())}:${pad(target.getMinutes())}`);
-                  }
-                }}
-                className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                  waDispatchMode === 'scheduled'
-                    ? 'bg-white text-indigo-700 shadow-2xs'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <Clock className="w-3.5 h-3.5" />
-                <span>Schedule via Google Cloud Tasks 🕒</span>
-              </button>
-            </div>
-
             {/* Composer Box */}
             <div className="p-3.5 rounded-2xl bg-gray-50 border border-gray-200 space-y-3">
               {/* Scheduled Date/Time Picker */}
-              {waDispatchMode === 'scheduled' && (
-                <div className="space-y-1.5 pb-1 border-b border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[11px] font-bold text-gray-700">
-                      GCP Execution Date & Time *
-                    </label>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const target = new Date(Date.now() + 1 * 60 * 1000);
-                          const pad = (n: number) => String(n).padStart(2, '0');
-                          setWaScheduleDateTime(`${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}T${pad(target.getHours())}:${pad(target.getMinutes())}`);
-                        }}
-                        className="px-2 py-0.5 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-[10px] border border-indigo-200 cursor-pointer"
-                      >
-                        ⚡ +1 Min Test
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const target = new Date(Date.now() + 5 * 60 * 1000);
-                          const pad = (n: number) => String(n).padStart(2, '0');
-                          setWaScheduleDateTime(`${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}T${pad(target.getHours())}:${pad(target.getMinutes())}`);
-                        }}
-                        className="px-2 py-0.5 rounded bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-[10px] cursor-pointer"
-                      >
-                        +5 Min
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const target = new Date(Date.now() + 60 * 60 * 1000);
-                          const pad = (n: number) => String(n).padStart(2, '0');
-                          setWaScheduleDateTime(`${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}T${pad(target.getHours())}:${pad(target.getMinutes())}`);
-                        }}
-                        className="px-2 py-0.5 rounded bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-[10px] cursor-pointer"
-                      >
-                        +1 Hour
-                      </button>
-                    </div>
+              <div className="space-y-1.5 pb-1 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-gray-700">
+                    GCP Execution Date & Time *
+                  </label>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = new Date(Date.now() + 1 * 60 * 1000);
+                        const pad = (n: number) => String(n).padStart(2, '0');
+                        setWaScheduleDateTime(`${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}T${pad(target.getHours())}:${pad(target.getMinutes())}`);
+                      }}
+                      className="px-2 py-0.5 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-[10px] border border-indigo-200 cursor-pointer"
+                    >
+                      ⚡ +1 Min Test
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = new Date(Date.now() + 5 * 60 * 1000);
+                        const pad = (n: number) => String(n).padStart(2, '0');
+                        setWaScheduleDateTime(`${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}T${pad(target.getHours())}:${pad(target.getMinutes())}`);
+                      }}
+                      className="px-2 py-0.5 rounded bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-[10px] cursor-pointer"
+                    >
+                      +5 Min
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = new Date(Date.now() + 60 * 60 * 1000);
+                        const pad = (n: number) => String(n).padStart(2, '0');
+                        setWaScheduleDateTime(`${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}T${pad(target.getHours())}:${pad(target.getMinutes())}`);
+                      }}
+                      className="px-2 py-0.5 rounded bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-[10px] cursor-pointer"
+                    >
+                      +1 Hour
+                    </button>
                   </div>
-                  <input
-                    type="datetime-local"
-                    value={waScheduleDateTime}
-                    onChange={(e) => setWaScheduleDateTime(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs font-bold text-gray-900 bg-white focus:outline-none focus:border-indigo-500"
-                  />
                 </div>
-              )}
+                <input
+                  type="datetime-local"
+                  value={waScheduleDateTime}
+                  onChange={(e) => setWaScheduleDateTime(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs font-bold text-gray-900 bg-white focus:outline-none focus:border-indigo-500"
+                />
+              </div>
 
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-gray-700">
-                  {waDispatchMode === 'scheduled' ? 'Scheduled WhatsApp Content:' : `Send Message to ${selectedClient.name}:`}
+                  Scheduled WhatsApp Message to {selectedClient.name}:
                 </label>
                 <div className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-600 flex-wrap">
                   <button
@@ -614,7 +572,7 @@ export function ClientDrawer() {
               <textarea
                 value={directWaMessage}
                 onChange={(e) => setDirectWaMessage(e.target.value)}
-                placeholder="Type WhatsApp message..."
+                placeholder="Type message to schedule in Google Cloud Tasks..."
                 rows={2}
                 className="w-full p-2.5 rounded-xl border border-gray-300 text-xs bg-white text-gray-900 focus:outline-none focus:border-indigo-500"
               />
@@ -624,27 +582,15 @@ export function ClientDrawer() {
                   {selectedClient.phone || 'No Phone Number'}
                 </span>
 
-                {waDispatchMode === 'instant' ? (
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    disabled={isSendingWa || !directWaMessage.trim() || !selectedClient.phone}
-                    onClick={handleSendDirectWhatsapp}
-                    leftIcon={<Send className="w-3.5 h-3.5" />}
-                  >
-                    {isSendingWa ? 'Sending...' : 'Send WhatsApp Now 🚀'}
-                  </Button>
-                ) : (
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    disabled={isSchedulingGcp || !directWaMessage.trim() || !selectedClient.phone || !waScheduleDateTime}
-                    onClick={handleScheduleGcpWhatsapp}
-                    leftIcon={<Clock className="w-3.5 h-3.5" />}
-                  >
-                    {isSchedulingGcp ? 'Scheduling in GCP...' : 'Schedule in GCP Queue 🕒'}
-                  </Button>
-                )}
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={isSchedulingGcp || !directWaMessage.trim() || !selectedClient.phone}
+                  onClick={handleScheduleGcpWhatsapp}
+                  leftIcon={<Clock className="w-3.5 h-3.5" />}
+                >
+                  {isSchedulingGcp ? 'Scheduling in GCP...' : 'Schedule in GCP Queue 🕒'}
+                </Button>
               </div>
 
               {waSendStatus && (
@@ -657,7 +603,7 @@ export function ClientDrawer() {
             {/* Render Recorded WhatsApp Message History */}
             <div className="space-y-2 pt-1">
               <span className="text-xs font-bold text-gray-700 block">
-                Recorded WhatsApp Messages ({whatsappLogs.length}):
+                Recorded WhatsApp Messages & Queue ({whatsappLogs.length}):
               </span>
 
               {whatsappLogs && whatsappLogs.length > 0 ? (
@@ -666,7 +612,7 @@ export function ClientDrawer() {
                     const isStep1 = log.trigger_step?.includes('step1') || log.trigger_step === 'welcome';
                     const isStep2 = log.trigger_step?.includes('step2') || log.trigger_step === 'survey';
                     const isStep3 = log.trigger_step?.includes('step3') || log.trigger_step === 'meeting';
-                    const isGcp = log.trigger_step?.includes('gcp') || log.trigger_step === 'scheduled_broadcast';
+                    const isGcp = log.trigger_step?.includes('gcp') || log.trigger_step === 'scheduled_broadcast' || log.status === 'scheduled';
 
                     return (
                       <div
@@ -674,15 +620,19 @@ export function ClientDrawer() {
                         className="p-3 rounded-2xl bg-white border border-gray-200 text-xs shadow-2xs space-y-1.5"
                       >
                         <div className="flex items-center justify-between">
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${
+                            isGcp
+                              ? 'bg-amber-50 text-amber-800 border-amber-200'
+                              : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                          }`}>
                             {isStep1 && '1. Contact Welcome'}
                             {isStep2 && '2. Survey Qualified'}
                             {isStep3 && '3. Strategy Meeting Link'}
-                            {isGcp && 'GCP Scheduled Broadcast'}
+                            {isGcp && `🕒 GCP Scheduled (${getRemainingTimeText(log.scheduled_at || log.timestamp)})`}
                             {!isStep1 && !isStep2 && !isStep3 && !isGcp && (log.trigger_step || 'Direct Message')}
                           </span>
                           <span className="text-[10px] text-gray-400 font-medium">
-                            {new Date(log.timestamp).toLocaleString([], {
+                            {new Date(log.scheduled_at || log.timestamp).toLocaleString([], {
                               month: 'short',
                               day: 'numeric',
                               hour: '2-digit',
@@ -697,9 +647,13 @@ export function ClientDrawer() {
 
                         <div className="flex items-center justify-between text-[10px] text-gray-400 pt-0.5">
                           <span>Instance: <strong className="text-gray-700">{log.instance_name || 'instance'}</strong></span>
-                          <span className="text-emerald-600 font-bold flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            {log.status === 'sent' ? 'Sent & Delivered' : log.status}
+                          <span className={`font-bold flex items-center gap-1 ${
+                            log.status === 'scheduled' ? 'text-amber-600' : 'text-emerald-600'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${
+                              log.status === 'scheduled' ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'
+                            }`} />
+                            {log.status === 'scheduled' ? 'Scheduled in GCP Queue' : 'Sent & Delivered'}
                           </span>
                         </div>
                       </div>
@@ -709,7 +663,7 @@ export function ClientDrawer() {
               ) : (
                 <div className="p-4 rounded-xl border border-dashed border-gray-200 text-center">
                   <p className="text-xs text-gray-400 italic">
-                    No WhatsApp messages sent or logged to this client yet.
+                    No WhatsApp messages scheduled or logged for this client yet.
                   </p>
                 </div>
               )}
