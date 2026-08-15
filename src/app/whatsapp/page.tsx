@@ -36,7 +36,8 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 
-const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5005';
+const SERVER_URL = (process.env.NEXT_PUBLIC_SERVER_URL || 'https://funnel.infiplus.in').replace(/\/$/, '');
+
 
 export default function WhatsappAutomationPage() {
   const [config, setConfig] = useState<WhatsappConfig>(DEFAULT_WHATSAPP_CONFIG);

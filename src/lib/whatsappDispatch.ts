@@ -72,7 +72,8 @@ export function parseWhatsappTemplate(template: string, lead: WhatsappLeadData, 
     .replace(/\{\{\s*meeting_url\s*\}\}/gi, meetUrl);
 }
 
-const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5005';
+const SERVER_URL = (process.env.NEXT_PUBLIC_SERVER_URL || 'https://funnel.infiplus.in').replace(/\/$/, '');
+
 
 /**
  * Dispatch automatic WhatsApp trigger for a specific funnel step
