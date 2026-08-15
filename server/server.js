@@ -246,23 +246,51 @@ const server = http.createServer(async (req, res) => {
         }
       }
 
-      // If GCP returned tasks, use them as primary live source of truth; otherwise fetch Supabase backup
-      let finalTasks = gcpLiveTasks;
-      if (finalTasks.length === 0) {
-        try {
-          const { data, error } = await supabase
-            .from('scheduled_whatsapp_tasks')
-            .select('*')
-            .order('scheduled_at', { ascending: true })
-            .limit(100);
+      // Fetch tasks from Supabase to include completed / cancelled history
+      let dbTasks = [];
+      try {
+        const { data: dbData } = await supabase
+          .from('scheduled_whatsapp_tasks')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(50);
 
-          if (!error && data) {
-            finalTasks = data;
-          }
-        } catch (err) {
-          console.error('Error querying scheduled_whatsapp_tasks:', err);
-        }
+        if (dbData) dbTasks = dbData;
+      } catch (err) {
+        console.error('Error querying scheduled_whatsapp_tasks:', err);
       }
+
+      // Merge GCP Live Tasks with DB History
+      const liveTaskNames = new Set(gcpLiveTasks.map((t) => t.gcp_task_name || t.id));
+      const historyTasks = dbTasks
+        .filter((d) => !liveTaskNames.has(d.gcp_task_name) && !liveTaskNames.has(d.gcp_task_id) && !liveTaskNames.has(d.id))
+        .map((d) => ({
+          id: d.id || d.gcp_task_id,
+          gcp_task_id: d.gcp_task_id,
+          gcp_task_name: d.gcp_task_name,
+          recipient_phone: d.recipient_phone,
+          recipient_name: d.recipient_name,
+          message_text: d.message_text,
+          media_url: d.media_url,
+          media_type: d.media_type,
+          scheduled_at: d.scheduled_at,
+          status: d.status || 'completed',
+          source: 'DATABASE_HISTORY',
+          created_at: d.created_at,
+        }));
+
+      // Sort: Active scheduled first (ascending by time), completed/cancelled last (at bottom)
+      const allTasks = [...gcpLiveTasks, ...historyTasks];
+      const scheduledTasks = allTasks
+        .filter((t) => t.status === 'scheduled')
+        .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
+      
+      const finishedTasks = allTasks
+        .filter((t) => t.status !== 'scheduled')
+        .sort((a, b) => new Date(b.scheduled_at || b.created_at).getTime() - new Date(a.scheduled_at || a.created_at).getTime());
+
+      // Combined and limited to last 20 tasks
+      const finalTasks = [...scheduledTasks, ...finishedTasks].slice(0, 20);
 
       return sendJson(200, {
         success: true,
@@ -274,7 +302,7 @@ const server = http.createServer(async (req, res) => {
           liveCount: gcpLiveTasks.length,
         },
         quota,
-        totalScheduled: finalTasks.filter((t) => t.status === 'scheduled').length,
+        totalScheduled: scheduledTasks.length,
         tasks: finalTasks,
         gcpError,
       });
@@ -469,21 +497,25 @@ const server = http.createServer(async (req, res) => {
         }
       }
 
-      // Update / purge Supabase record
+      // Update status to 'cancelled' in Supabase record (retains deducted credit & shows at bottom of list)
       try {
-        if (taskId) {
+        if (taskId || fullTaskName) {
+          const matchCondition = fullTaskName
+            ? `gcp_task_name.eq.${fullTaskName},gcp_task_id.eq.${taskId},id.eq.${taskId}`
+            : `gcp_task_id.eq.${taskId},id.eq.${taskId}`;
+
           await supabase
             .from('scheduled_whatsapp_tasks')
-            .delete()
-            .or(`gcp_task_id.eq.${taskId},id.eq.${taskId},gcp_task_name.eq.${fullTaskName}`);
+            .update({ status: 'cancelled' })
+            .or(matchCondition);
         }
       } catch (dbErr) {
-        console.error('Database delete error:', dbErr);
+        console.error('Database update cancelled status error:', dbErr);
       }
 
       return sendJson(200, {
         success: true,
-        message: 'Task deleted directly from Google Cloud Tasks queue! 🗑️',
+        message: 'Task cancelled in GCP Cloud Tasks and archived at end of history (credit counted). 🗑️',
         taskId,
         gcpTaskName: fullTaskName,
         gcpDeleted,

@@ -700,63 +700,81 @@ export function ClientDrawer() {
 
             {/* Render Recorded WhatsApp Message History */}
             <div className="space-y-2 pt-1">
-              <span className="text-xs font-bold text-gray-700 block">
-                Recorded WhatsApp Messages & Queue ({whatsappLogs.length}):
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-gray-700 block">
+                  Recorded WhatsApp Messages (Last {Math.min(20, whatsappLogs.length)} of {whatsappLogs.length}):
+                </span>
+                <span className="text-[10px] text-gray-400 font-medium">Recent 20</span>
+              </div>
 
               {whatsappLogs && whatsappLogs.length > 0 ? (
                 <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
-                  {whatsappLogs.map((log: any, idx: number) => {
-                    const isStep1 = log.trigger_step?.includes('step1') || log.trigger_step === 'welcome';
-                    const isStep2 = log.trigger_step?.includes('step2') || log.trigger_step === 'survey';
-                    const isStep3 = log.trigger_step?.includes('step3') || log.trigger_step === 'meeting';
-                    const isGcp = log.trigger_step?.includes('gcp') || log.trigger_step === 'scheduled_broadcast' || log.status === 'scheduled';
+                  {(whatsappLogs || [])
+                    .slice(0, 20)
+                    .sort((a, b) => {
+                      if (a.status === 'scheduled' && b.status !== 'scheduled') return -1;
+                      if (a.status !== 'scheduled' && b.status === 'scheduled') return 1;
+                      if (a.status === 'cancelled' && b.status !== 'cancelled') return 1;
+                      if (a.status !== 'cancelled' && b.status === 'cancelled') return -1;
+                      return new Date(b.timestamp || b.scheduled_at).getTime() - new Date(a.timestamp || a.scheduled_at).getTime();
+                    })
+                    .map((log: any, idx: number) => {
+                      const isStep1 = log.trigger_step?.includes('step1') || log.trigger_step === 'welcome';
+                      const isStep2 = log.trigger_step?.includes('step2') || log.trigger_step === 'survey';
+                      const isStep3 = log.trigger_step?.includes('step3') || log.trigger_step === 'meeting';
+                      const isCancelled = log.status === 'cancelled';
+                      const isGcp = (log.trigger_step?.includes('gcp') || log.trigger_step === 'scheduled_broadcast' || log.status === 'scheduled') && !isCancelled;
 
-                    return (
-                      <div
-                        key={log.id || idx}
-                        className="p-3 rounded-2xl bg-white border border-gray-200 text-xs shadow-2xs space-y-1.5"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${
-                            isGcp
-                              ? 'bg-amber-50 text-amber-800 border-amber-200'
-                              : 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                          }`}>
-                            {isStep1 && '1. Contact Welcome'}
-                            {isStep2 && '2. Survey Qualified'}
-                            {isStep3 && '3. Strategy Meeting Link'}
-                            {isGcp && `🕒 GCP Scheduled (${getRemainingTimeText(log.scheduled_at || log.timestamp)})`}
-                            {!isStep1 && !isStep2 && !isStep3 && !isGcp && (log.trigger_step || 'Direct Message')}
-                          </span>
-                          <span className="text-[10px] text-gray-400 font-medium">
-                            {new Date(log.scheduled_at || log.timestamp).toLocaleString([], {
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </span>
+                      return (
+                        <div
+                          key={log.id || idx}
+                          className={`p-3 rounded-2xl border text-xs shadow-2xs space-y-1.5 ${
+                            isCancelled ? 'bg-gray-50/70 border-gray-200 opacity-75' : 'bg-white border-gray-200'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${
+                              isCancelled
+                                ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                : isGcp
+                                ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                            }`}>
+                              {isCancelled && 'Cancelled GCP Task'}
+                              {!isCancelled && isStep1 && '1. Contact Welcome'}
+                              {!isCancelled && isStep2 && '2. Survey Qualified'}
+                              {!isCancelled && isStep3 && '3. Strategy Meeting Link'}
+                              {!isCancelled && isGcp && `🕒 GCP Scheduled (${getRemainingTimeText(log.scheduled_at || log.timestamp)})`}
+                              {!isCancelled && !isStep1 && !isStep2 && !isStep3 && !isGcp && (log.trigger_step || 'Direct Message')}
+                            </span>
+                            <span className="text-[10px] text-gray-400 font-medium">
+                              {new Date(log.scheduled_at || log.timestamp).toLocaleString([], {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
+                          </div>
+
+                          <p className="text-gray-800 font-medium whitespace-pre-wrap bg-gray-50/80 p-2.5 rounded-xl border border-gray-100">
+                            {log.message}
+                          </p>
+
+                          <div className="flex items-center justify-between text-[10px] text-gray-400 pt-0.5">
+                            <span>Instance: <strong className="text-gray-700">{log.instance_name || 'instance'}</strong></span>
+                            <span className={`font-bold flex items-center gap-1 ${
+                              isCancelled ? 'text-rose-600' : log.status === 'scheduled' ? 'text-amber-600' : 'text-emerald-600'
+                            }`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${
+                                isCancelled ? 'bg-rose-500' : log.status === 'scheduled' ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'
+                              }`} />
+                              {isCancelled ? 'Cancelled (Credit Deducted)' : log.status === 'scheduled' ? 'Scheduled in GCP Queue' : 'Sent & Delivered'}
+                            </span>
+                          </div>
                         </div>
-
-                        <p className="text-gray-800 font-medium whitespace-pre-wrap bg-gray-50/80 p-2.5 rounded-xl border border-gray-100">
-                          {log.message}
-                        </p>
-
-                        <div className="flex items-center justify-between text-[10px] text-gray-400 pt-0.5">
-                          <span>Instance: <strong className="text-gray-700">{log.instance_name || 'instance'}</strong></span>
-                          <span className={`font-bold flex items-center gap-1 ${
-                            log.status === 'scheduled' ? 'text-amber-600' : 'text-emerald-600'
-                          }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${
-                              log.status === 'scheduled' ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'
-                            }`} />
-                            {log.status === 'scheduled' ? 'Scheduled in GCP Queue' : 'Sent & Delivered'}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
                 </div>
               ) : (
                 <div className="p-4 rounded-xl border border-dashed border-gray-200 text-center">
