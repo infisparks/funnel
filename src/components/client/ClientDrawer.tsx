@@ -24,19 +24,16 @@ import {
 } from 'lucide-react';
 import { Button, Badge, Card } from '../ui';
 
+const SERVER_URL = (process.env.NEXT_PUBLIC_SERVER_URL || 'https://funnel.infiplus.in').replace(/\/$/, '');
+
 export function ClientDrawer() {
   const { isOpen, selectedClient, closeClientDrawer } = useClientDrawer();
   const { accentColor } = useTheme();
 
-  // Local state for forms inside the drawer
-  const [pipelineStage, setPipelineStage] = useState(selectedClient?.step_progress || selectedClient?.stage || 'step1_contact');
-  const [dealValue, setDealValue] = useState<string>(
-    selectedClient?.deal_value !== undefined && selectedClient?.deal_value !== null
-      ? String(selectedClient.deal_value)
-      : ''
-  );
-  const [followupDate, setFollowupDate] = useState(selectedClient?.followup_date || selectedClient?.followupDate || '');
-  const [staffNotesHistory, setStaffNotesHistory] = useState<any[]>(
+  // Selected lead states
+  const [pipelineStage, setPipelineStage] = useState(selectedClient?.step_progress || 'step1_contact');
+  const [dealValue, setDealValue] = useState(selectedClient?.deal_value || '');
+  const [staffNotes, setStaffNotes] = useState<any[]>(
     Array.isArray(selectedClient?.staff_notes) ? selectedClient.staff_notes : []
   );
   const [googleMeetUrl, setGoogleMeetUrl] = useState(
@@ -46,7 +43,7 @@ export function ClientDrawer() {
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [isSavingMeet, setIsSavingMeet] = useState(false);
 
-  // WhatsApp Logs & Direct Messenger state
+  // WhatsApp Logs & Messenger state
   const [whatsappLogs, setWhatsappLogs] = useState<any[]>(
     Array.isArray(selectedClient?.whatsapp_logs) ? selectedClient.whatsapp_logs : []
   );
@@ -54,12 +51,17 @@ export function ClientDrawer() {
   const [isSendingWa, setIsSendingWa] = useState(false);
   const [waSendStatus, setWaSendStatus] = useState<string | null>(null);
 
-  const [broadcastDate, setBroadcastDate] = useState('');
-  const [senderInstance, setSenderInstance] = useState('-- Use Default Active --');
-  const [messageText, setMessageText] = useState('');
-  const [rescheduleDate, setRescheduleDate] = useState('2026-08-10');
-  const [rescheduleTime, setRescheduleTime] = useState('09:00 AM');
+  // GCP Scheduling states in Drawer
+  const [waDispatchMode, setWaDispatchMode] = useState<'instant' | 'scheduled'>('instant');
+  const [waScheduleDateTime, setWaScheduleDateTime] = useState('');
+  const [isSchedulingGcp, setIsSchedulingGcp] = useState(false);
+
+  const [rescheduleDate, setRescheduleDate] = useState('2026-08-16');
+  const [rescheduleTime, setRescheduleTime] = useState('11:00 AM');
   const [sendRescheduleWa, setSendRescheduleWa] = useState(true);
+  const [isRescheduling, setIsRescheduling] = useState(false);
+  const [rescheduleStatus, setRescheduleStatus] = useState<string | null>(null);
+
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedMeet, setCopiedMeet] = useState(false);
   const [workspaceStages, setWorkspaceStages] = useState<any[]>([
@@ -74,87 +76,196 @@ export function ClientDrawer() {
   const fetchLeadWhatsappLogs = async () => {
     if (!selectedClient) return;
     try {
-      // 1. From lead row
       if (selectedClient.id) {
         const { data: leadRow } = await supabase
           .from('leads')
-          .select('whatsapp_logs')
+          .select('whatsapp_logs, meeting_date, meeting_time')
           .eq('id', selectedClient.id)
-          .maybeSingle();
+          .single();
 
-        if (leadRow?.whatsapp_logs && Array.isArray(leadRow.whatsapp_logs)) {
+        if (leadRow && Array.isArray(leadRow.whatsapp_logs)) {
           setWhatsappLogs(leadRow.whatsapp_logs);
-          return;
-        }
-      }
-
-      // 2. From global whatsapp_message_logs
-      if (selectedClient.phone) {
-        const cleanPhone = selectedClient.phone.replace(/[^0-9]/g, '').slice(-10);
-        const { data: logs } = await supabase
-          .from('whatsapp_message_logs')
-          .select('*')
-          .ilike('recipient_phone', `%${cleanPhone}%`)
-          .order('created_at', { ascending: false });
-
-        if (logs && logs.length > 0) {
-          setWhatsappLogs(
-            logs.map((l) => ({
-              id: l.id,
-              timestamp: l.created_at,
-              trigger_step: l.trigger_type || 'direct_message',
-              recipient_phone: l.recipient_phone,
-              recipient_name: l.recipient_name,
-              message: l.message_text,
-              media_url: l.media_url,
-              instance_name: l.instance_name,
-              status: l.status || 'sent',
-            }))
-          );
         }
       }
     } catch (err) {
-      console.error('Error fetching WhatsApp logs:', err);
+      console.error('Error fetching lead WhatsApp logs:', err);
     }
   };
 
   useEffect(() => {
-    (async () => {
-      try {
-        const { data } = await supabase.from('funnel_workspaces').select('pipeline_stages').limit(1).maybeSingle();
-        if (data?.pipeline_stages && Array.isArray(data.pipeline_stages)) {
-          const active = data.pipeline_stages.filter((s: any) => !s.is_deleted);
-          if (active.length > 0) setWorkspaceStages(active);
-        }
-      } catch (err) {}
-    })();
-  }, []);
-
-  useEffect(() => {
     if (selectedClient) {
-      setPipelineStage(selectedClient.step_progress || selectedClient.stage || 'step1_contact');
-      setDealValue(
-        selectedClient.deal_value !== undefined && selectedClient.deal_value !== null
-          ? String(selectedClient.deal_value)
-          : ''
+      setPipelineStage(selectedClient.step_progress || 'step1_contact');
+      setDealValue(selectedClient.deal_value || '');
+      setStaffNotes(Array.isArray(selectedClient.staff_notes) ? selectedClient.staff_notes : []);
+      setGoogleMeetUrl(
+        selectedClient.google_meet_url || selectedClient.googleMeetUrl || 'https://meet.google.com/qbi-erbq-moy'
       );
-      setFollowupDate(selectedClient.followup_date || selectedClient.followupDate || '');
-      setStaffNotesHistory(Array.isArray(selectedClient.staff_notes) ? selectedClient.staff_notes : []);
-      setGoogleMeetUrl(selectedClient.google_meet_url || selectedClient.googleMeetUrl || 'https://meet.google.com/qbi-erbq-moy');
       setWhatsappLogs(Array.isArray(selectedClient.whatsapp_logs) ? selectedClient.whatsapp_logs : []);
+      if (selectedClient.meeting_date) setRescheduleDate(selectedClient.meeting_date);
+      if (selectedClient.meeting_time) setRescheduleTime(selectedClient.meeting_time);
       fetchLeadWhatsappLogs();
     }
   }, [selectedClient]);
 
   if (!isOpen || !selectedClient) return null;
 
-  const initials = selectedClient.name
+  const initials = (selectedClient.name || 'Lead')
     .split(' ')
-    .map((n) => n[0])
+    .map((n: string) => n[0])
     .join('')
-    .substring(0, 2)
-    .toUpperCase();
+    .toUpperCase()
+    .substring(0, 2);
 
+  // Send Direct Immediate WhatsApp Message
+  const handleSendDirectWhatsapp = async () => {
+    if (!directWaMessage.trim() || !selectedClient.phone) return;
+    setIsSendingWa(true);
+    setWaSendStatus(null);
+    try {
+      const parsed = directWaMessage
+        .replace(/\{\{\s*name\s*\}\}/gi, selectedClient.name || 'Client')
+        .replace(
+          /\{\{\s*meeting_url\s*\}\}/gi,
+          googleMeetUrl || 'https://meet.google.com/qbi-erbq-moy'
+        )
+        .replace(/\{\{\s*meeting_date\s*\}\}/gi, selectedClient.meeting_date || rescheduleDate)
+        .replace(/\{\{\s*meeting_time\s*\}\}/gi, selectedClient.meeting_time || rescheduleTime);
+
+      // Call backend server
+      const res = await fetch(`${SERVER_URL}/api/whatsapp/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: selectedClient.phone,
+          name: selectedClient.name,
+          email: selectedClient.email,
+          message: parsed,
+          leadData: {
+            id: selectedClient.id,
+            name: selectedClient.name,
+            phone: selectedClient.phone,
+            email: selectedClient.email,
+            google_meet_url: googleMeetUrl,
+          },
+        }),
+      });
+
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to dispatch message via backend.');
+      }
+
+      setDirectWaMessage('');
+      setWaSendStatus('Message dispatched successfully! 🚀');
+      setTimeout(() => setWaSendStatus(null), 3500);
+      fetchLeadWhatsappLogs();
+    } catch (err: any) {
+      console.error('Error sending direct WhatsApp:', err);
+      setWaSendStatus(`Error sending message: ${err.message || 'Failed'}`);
+    } finally {
+      setIsSendingWa(false);
+    }
+  };
+
+  // Schedule Message in Google Cloud Tasks Queue
+  const handleScheduleGcpWhatsapp = async () => {
+    if (!directWaMessage.trim() || !selectedClient.phone || !waScheduleDateTime) {
+      alert('Please fill in message text and select a valid future date & time.');
+      return;
+    }
+    setIsSchedulingGcp(true);
+    setWaSendStatus(null);
+    try {
+      const parsed = directWaMessage
+        .replace(/\{\{\s*name\s*\}\}/gi, selectedClient.name || 'Client')
+        .replace(
+          /\{\{\s*meeting_url\s*\}\}/gi,
+          googleMeetUrl || 'https://meet.google.com/qbi-erbq-moy'
+        )
+        .replace(/\{\{\s*meeting_date\s*\}\}/gi, selectedClient.meeting_date || rescheduleDate)
+        .replace(/\{\{\s*meeting_time\s*\}\}/gi, selectedClient.meeting_time || rescheduleTime);
+
+      const res = await fetch(`${SERVER_URL}/api/tasks/schedule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipientPhone: selectedClient.phone,
+          recipientName: selectedClient.name,
+          messageText: parsed,
+          scheduleTime: waScheduleDateTime,
+          userId: selectedClient.id || 'lead_drawer',
+        }),
+      });
+
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to schedule task in Google Cloud Tasks.');
+      }
+
+      setDirectWaMessage('');
+      setWaScheduleDateTime('');
+      setWaSendStatus(`🕒 Message scheduled in Google Cloud Tasks Queue for ${new Date(waScheduleDateTime).toLocaleString()}!`);
+      setTimeout(() => setWaSendStatus(null), 4000);
+      fetchLeadWhatsappLogs();
+    } catch (err: any) {
+      console.error('Error scheduling GCP broadcast:', err);
+      setWaSendStatus(`Error: ${err.message}`);
+    } finally {
+      setIsSchedulingGcp(false);
+    }
+  };
+
+  // Confirm and Reschedule Meeting with Instant Notification
+  const handleRescheduleMeeting = async () => {
+    if (!selectedClient?.id) return;
+    setIsRescheduling(true);
+    setRescheduleStatus(null);
+    try {
+      // 1. Update Supabase leads record
+      const { error } = await supabase
+        .from('leads')
+        .update({
+          meeting_date: rescheduleDate,
+          meeting_time: rescheduleTime,
+          step_progress: 'meeting_booked',
+        })
+        .eq('id', selectedClient.id);
+
+      if (error) throw error;
+
+      selectedClient.meeting_date = rescheduleDate;
+      selectedClient.meeting_time = rescheduleTime;
+
+      // 2. Dispatch WhatsApp Notification to user/lead
+      if (sendRescheduleWa && selectedClient.phone) {
+        const meetUrl = googleMeetUrl || 'https://meet.google.com/qbi-erbq-moy';
+        const notifMsg = `Hello ${selectedClient.name || 'Friend'}, your strategy meeting has been successfully rescheduled to *${rescheduleDate}* at *${rescheduleTime}*.\n\nJoin Google Meet link: ${meetUrl}\n\nLooking forward to meeting with you!`;
+
+        await fetch(`${SERVER_URL}/api/whatsapp/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phone: selectedClient.phone,
+            name: selectedClient.name,
+            email: selectedClient.email,
+            message: notifMsg,
+          }),
+        });
+
+        fetchLeadWhatsappLogs();
+      }
+
+      setRescheduleStatus(`Meeting rescheduled to ${rescheduleDate} @ ${rescheduleTime} and notification sent! 🗓️`);
+      setTimeout(() => setRescheduleStatus(null), 4000);
+    } catch (err: any) {
+      console.error('Error rescheduling meeting:', err);
+      setRescheduleStatus(`Error: ${err.message || 'Failed to reschedule'}`);
+    } finally {
+      setIsRescheduling(false);
+    }
+  };
+
+  // Update pipeline stage
   const handleUpdateStage = async (val: string) => {
     setPipelineStage(val);
     if (selectedClient?.id) {
@@ -162,14 +273,17 @@ export function ClientDrawer() {
     }
   };
 
-  const handleSaveDealValue = async (val?: string) => {
-    const valueToSave = val !== undefined ? val : dealValue;
+  // Save deal value
+  const handleSaveDealValue = async (val?: string | number) => {
+    const valueToSave = val !== undefined ? String(val) : String(dealValue || '');
     const finalVal = valueToSave.trim() === '' ? null : valueToSave.trim();
     if (selectedClient?.id) {
       await supabase.from('leads').update({ deal_value: finalVal }).eq('id', selectedClient.id);
     }
   };
 
+  // Save followup date
+  const [followupDate, setFollowupDate] = useState(selectedClient?.followup_date || selectedClient?.followupDate || '');
   const handleSaveFollowupDate = async (val: string) => {
     setFollowupDate(val);
     if (selectedClient?.id) {
@@ -177,6 +291,10 @@ export function ClientDrawer() {
     }
   };
 
+  // Add a new staff note
+  const [staffNotesHistory, setStaffNotesHistory] = useState<any[]>(
+    Array.isArray(selectedClient?.staff_notes) ? selectedClient.staff_notes : []
+  );
   const handleAddStaffNote = async () => {
     if (!noteText.trim() || !selectedClient?.id) return;
     setIsSavingNote(true);
@@ -198,6 +316,7 @@ export function ClientDrawer() {
     }
   };
 
+  // Save customized Google Meet link
   const handleSaveGoogleMeetUrl = async () => {
     if (!selectedClient?.id) return;
     setIsSavingMeet(true);
@@ -210,23 +329,14 @@ export function ClientDrawer() {
     }
   };
 
+  // Delete lead
   const handleDeleteLead = async () => {
     if (!selectedClient?.id) return;
-
-    const savedPin = typeof window !== 'undefined' ? localStorage.getItem('workspace_delete_pin') || '1234' : '1234';
-    const enteredPin = prompt(`🔒 SECURITY PIN REQUIRED\nEnter 4-digit security PIN to delete lead "${selectedClient.name}":`);
-
-    if (enteredPin === null) return; // User cancelled prompt
-
-    if (enteredPin.trim() !== savedPin.trim()) {
-      alert('❌ Incorrect 4-Digit Security PIN! Lead deletion cancelled.');
-      return;
-    }
-
+    if (!confirm(`Are you sure you want to permanently delete lead "${selectedClient.name}"?`)) return;
     try {
       await supabase.from('leads').delete().eq('id', selectedClient.id);
-      alert('✓ Lead deleted successfully.');
       closeClientDrawer();
+      window.location.reload();
     } catch (err) {
       console.error('Error deleting lead:', err);
       alert('Error deleting lead from database.');
@@ -243,82 +353,6 @@ export function ClientDrawer() {
     navigator.clipboard.writeText(googleMeetUrl);
     setCopiedMeet(true);
     setTimeout(() => setCopiedMeet(false), 2000);
-  };
-
-  const handleSendDirectWhatsapp = async () => {
-    if (!directWaMessage.trim() || !selectedClient?.phone) return;
-    setIsSendingWa(true);
-    setWaSendStatus(null);
-    try {
-      // 1. Fetch workspace whatsapp_config
-      const { data: ws } = await supabase
-        .from('funnel_workspaces')
-        .select('whatsapp_config')
-        .limit(1)
-        .maybeSingle();
-
-      const cfg = ws?.whatsapp_config;
-      const cleanPhone = selectedClient.phone.replace(/[^0-9]/g, '');
-      const formatted = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
-      const parsed = directWaMessage
-        .replace(/\{\{\s*name\s*\}\}/gi, selectedClient.name || 'Client')
-        .replace(
-          /\{\{\s*meeting_url\s*\}\}/gi,
-          googleMeetUrl || 'https://meet.google.com/qbi-erbq-moy'
-        );
-
-      if (cfg?.evolution_api_url && cfg?.evolution_apikey) {
-        const baseUrl = cfg.evolution_api_url.replace(/\/$/, '');
-        const inst = cfg.instance_name || 'instance';
-        await fetch(`${baseUrl}/message/sendText/${encodeURIComponent(inst)}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            apikey: cfg.evolution_apikey,
-          },
-          body: JSON.stringify({ number: formatted, text: parsed }),
-        });
-      }
-
-      // Log into whatsapp_message_logs and leads.whatsapp_logs
-      const newLog = {
-        id: `wa_${Date.now()}_${Math.random().toString(36).substring(7)}`,
-        timestamp: new Date().toISOString(),
-        trigger_step: 'direct_admin_message',
-        recipient_phone: formatted,
-        recipient_name: selectedClient.name,
-        message: parsed,
-        instance_name: cfg?.instance_name || 'instance',
-        status: 'sent',
-      };
-
-      await supabase.from('whatsapp_message_logs').insert([
-        {
-          recipient_phone: formatted,
-          recipient_name: selectedClient.name,
-          trigger_type: 'direct_admin_message',
-          message_text: parsed,
-          status: 'sent',
-          instance_name: cfg?.instance_name || 'instance',
-          created_at: new Date().toISOString(),
-        },
-      ]);
-
-      const updated = [newLog, ...(whatsappLogs || [])];
-      setWhatsappLogs(updated);
-      setDirectWaMessage('');
-      setWaSendStatus('Message sent & logged in Supabase! 🚀');
-      setTimeout(() => setWaSendStatus(null), 3500);
-
-      if (selectedClient.id) {
-        await supabase.from('leads').update({ whatsapp_logs: updated }).eq('id', selectedClient.id);
-      }
-    } catch (err: any) {
-      console.error('Error sending direct WhatsApp:', err);
-      setWaSendStatus(`Error sending message: ${err.message || 'Failed'}`);
-    } finally {
-      setIsSendingWa(false);
-    }
   };
 
   return (
@@ -435,7 +469,7 @@ export function ClientDrawer() {
             </div>
           </Card>
 
-          {/* Card 2: WhatsApp Messages & Automation History (whatsapp_logs) */}
+          {/* Card 2: WhatsApp Messages & GCP Scheduling */}
           <Card className="p-5 bg-white space-y-4">
             <div className="flex items-start justify-between gap-3 pb-2 border-b border-gray-100">
               <div className="flex items-start gap-3">
@@ -444,10 +478,10 @@ export function ClientDrawer() {
                 </div>
                 <div>
                   <h3 className="font-bold text-sm text-[#111827]">
-                    WhatsApp Messages & History Logs
+                    WhatsApp Messenger & GCP Scheduler
                   </h3>
-                  <p className="text-[11px] text-gray-400">
-                    Stored in <span className="font-mono text-emerald-600 font-bold">leads.whatsapp_logs</span> JSONB
+                  <p className="text-[11px] text-gray-500">
+                    Send instant messages or schedule broadcasts via Google Cloud Tasks.
                   </p>
                 </div>
               </div>
@@ -456,13 +490,100 @@ export function ClientDrawer() {
               </Badge>
             </div>
 
-            {/* Direct Instant WhatsApp Sender */}
-            <div className="p-3.5 rounded-2xl bg-gray-50 border border-gray-200 space-y-2.5">
+            {/* Mode Selector Tabs */}
+            <div className="flex rounded-xl bg-gray-100 p-1 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setWaDispatchMode('instant')}
+                className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  waDispatchMode === 'instant'
+                    ? 'bg-white text-indigo-700 shadow-2xs'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>Send Instant WhatsApp</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setWaDispatchMode('scheduled');
+                  if (!waScheduleDateTime) {
+                    const target = new Date(Date.now() + 1 * 60 * 1000);
+                    const pad = (n: number) => String(n).padStart(2, '0');
+                    setWaScheduleDateTime(`${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}T${pad(target.getHours())}:${pad(target.getMinutes())}`);
+                  }
+                }}
+                className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  waDispatchMode === 'scheduled'
+                    ? 'bg-white text-indigo-700 shadow-2xs'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Clock className="w-3.5 h-3.5" />
+                <span>Schedule via Google Cloud Tasks 🕒</span>
+              </button>
+            </div>
+
+            {/* Composer Box */}
+            <div className="p-3.5 rounded-2xl bg-gray-50 border border-gray-200 space-y-3">
+              {/* Scheduled Date/Time Picker */}
+              {waDispatchMode === 'scheduled' && (
+                <div className="space-y-1.5 pb-1 border-b border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-gray-700">
+                      GCP Execution Date & Time *
+                    </label>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const target = new Date(Date.now() + 1 * 60 * 1000);
+                          const pad = (n: number) => String(n).padStart(2, '0');
+                          setWaScheduleDateTime(`${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}T${pad(target.getHours())}:${pad(target.getMinutes())}`);
+                        }}
+                        className="px-2 py-0.5 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-[10px] border border-indigo-200 cursor-pointer"
+                      >
+                        ⚡ +1 Min Test
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const target = new Date(Date.now() + 5 * 60 * 1000);
+                          const pad = (n: number) => String(n).padStart(2, '0');
+                          setWaScheduleDateTime(`${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}T${pad(target.getHours())}:${pad(target.getMinutes())}`);
+                        }}
+                        className="px-2 py-0.5 rounded bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-[10px] cursor-pointer"
+                      >
+                        +5 Min
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const target = new Date(Date.now() + 60 * 60 * 1000);
+                          const pad = (n: number) => String(n).padStart(2, '0');
+                          setWaScheduleDateTime(`${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}T${pad(target.getHours())}:${pad(target.getMinutes())}`);
+                        }}
+                        className="px-2 py-0.5 rounded bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-[10px] cursor-pointer"
+                      >
+                        +1 Hour
+                      </button>
+                    </div>
+                  </div>
+                  <input
+                    type="datetime-local"
+                    value={waScheduleDateTime}
+                    onChange={(e) => setWaScheduleDateTime(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs font-bold text-gray-900 bg-white focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              )}
+
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-gray-700">
-                  Send Direct WhatsApp to {selectedClient.name}:
+                  {waDispatchMode === 'scheduled' ? 'Scheduled WhatsApp Content:' : `Send Message to ${selectedClient.name}:`}
                 </label>
-                <div className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-600">
+                <div className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-600 flex-wrap">
                   <button
                     type="button"
                     onClick={() => setDirectWaMessage((prev) => prev + ' {{name}}')}
@@ -477,34 +598,54 @@ export function ClientDrawer() {
                   >
                     + {'{{meeting_url}}'}
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setDirectWaMessage((prev) => prev + ' {{meeting_date}}')}
+                    className="px-2 py-0.5 rounded bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 cursor-pointer"
+                  >
+                    + {'{{meeting_date}}'}
+                  </button>
                 </div>
               </div>
 
               <textarea
                 value={directWaMessage}
                 onChange={(e) => setDirectWaMessage(e.target.value)}
-                placeholder="Type direct WhatsApp message..."
+                placeholder="Type WhatsApp message..."
                 rows={2}
                 className="w-full p-2.5 rounded-xl border border-gray-300 text-xs bg-white text-gray-900 focus:outline-none focus:border-indigo-500"
               />
 
               <div className="flex items-center justify-between">
                 <span className="text-[10px] text-gray-400 font-mono">
-                  {selectedClient.phone || 'No Phone'}
+                  {selectedClient.phone || 'No Phone Number'}
                 </span>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  disabled={isSendingWa || !directWaMessage.trim() || !selectedClient.phone}
-                  onClick={handleSendDirectWhatsapp}
-                  leftIcon={<Send className="w-3.5 h-3.5" />}
-                >
-                  {isSendingWa ? 'Sending...' : 'Send & Log WhatsApp 🚀'}
-                </Button>
+
+                {waDispatchMode === 'instant' ? (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    disabled={isSendingWa || !directWaMessage.trim() || !selectedClient.phone}
+                    onClick={handleSendDirectWhatsapp}
+                    leftIcon={<Send className="w-3.5 h-3.5" />}
+                  >
+                    {isSendingWa ? 'Sending...' : 'Send WhatsApp Now 🚀'}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    disabled={isSchedulingGcp || !directWaMessage.trim() || !selectedClient.phone || !waScheduleDateTime}
+                    onClick={handleScheduleGcpWhatsapp}
+                    leftIcon={<Clock className="w-3.5 h-3.5" />}
+                  >
+                    {isSchedulingGcp ? 'Scheduling in GCP...' : 'Schedule in GCP Queue 🕒'}
+                  </Button>
+                )}
               </div>
 
               {waSendStatus && (
-                <div className="p-2 rounded-lg bg-indigo-50 text-indigo-800 text-[11px] font-bold">
+                <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-900 border border-indigo-200 text-[11px] font-bold">
                   {waSendStatus}
                 </div>
               )}
@@ -811,13 +952,26 @@ export function ClientDrawer() {
               <span>💬 Send Reschedule WhatsApp Notification to Client</span>
             </label>
 
+            {rescheduleStatus && (
+              <div
+                className={`p-3 rounded-xl text-xs font-bold ${
+                  rescheduleStatus.includes('Error')
+                    ? 'bg-rose-50 text-rose-800 border border-rose-200'
+                    : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                }`}
+              >
+                {rescheduleStatus}
+              </div>
+            )}
+
             <Button
               variant="primary"
               className="w-full"
+              disabled={isRescheduling}
               leftIcon={<Calendar className="w-4 h-4" />}
-              onClick={() => alert(`Meeting rescheduled to ${rescheduleDate} at ${rescheduleTime}`)}
+              onClick={handleRescheduleMeeting}
             >
-              Confirm & Reschedule Meeting 🗓️
+              {isRescheduling ? 'Rescheduling & Notifying...' : 'Confirm & Reschedule Meeting 🗓️'}
             </Button>
           </Card>
 
