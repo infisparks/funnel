@@ -1,4 +1,4 @@
-# Production Dockerfile for Node.js GCP Cloud Tasks & WhatsApp Automation Backend
+# Root Production Dockerfile for Backend Deployment on Coolify / Docker
 FROM node:20-alpine AS base
 
 # Install dumb-init and curl for healthchecks
@@ -7,20 +7,20 @@ RUN apk add --no-cache dumb-init curl
 # Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY package.json ./
+# Copy server package configuration
+COPY server/package.json ./
 
 # Install production dependencies
 RUN npm install --omit=dev --no-audit --no-fund
 
-# Copy server code and configs
-COPY server.js whatappmanage.js ./
-COPY .env* ./
+# Copy backend source files
+COPY server/server.js server/whatappmanage.js ./
+COPY server/.env* ./
 
 # Expose backend port
 EXPOSE 5005
 
-# Set production environment
+# Environment defaults
 ENV NODE_ENV=production
 ENV PORT=5005
 
@@ -28,7 +28,7 @@ ENV PORT=5005
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:5005/health || exit 1
 
-# Run with dumb-init
+# Run with dumb-init for graceful shutdown
 USER node
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["node", "server.js"]
