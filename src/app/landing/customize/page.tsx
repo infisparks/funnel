@@ -420,9 +420,9 @@ export default function CustomizeStudioPage() {
 
   return (
     <MainLayout>
-      <div className="flex flex-col h-[calc(100vh-80px)] font-sans">
-        {/* Top Studio Header Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E5E7EB] shrink-0">
+      <div className="flex flex-col min-h-0 lg:h-[calc(100vh-125px)] font-sans">
+        {/* Top Studio Header Bar - Sticky & Anchored */}
+        <div className="sticky top-0 z-20 bg-[#F5F6F8] flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E5E7EB] shrink-0">
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.push('/landing')}
@@ -433,7 +433,7 @@ export default function CustomizeStudioPage() {
             </button>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold tracking-tight text-[#111827]">
+                <h1 className="text-lg sm:text-xl font-bold tracking-tight text-[#111827]">
                   Funnel & Popup Designer Studio
                 </h1>
                 <Badge variant="info">3-Step Modal Engine</Badge>
@@ -444,7 +444,7 @@ export default function CustomizeStudioPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -495,13 +495,13 @@ export default function CustomizeStudioPage() {
         </div>
 
         {/* Studio Split Grid (Left Controls | Right Real-Time Interactive Mockup) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 flex-1 overflow-hidden mt-3 rounded-2xl border border-[#E5E7EB] bg-white shadow-2xs">
+        <div className="grid grid-cols-1 lg:grid-cols-12 flex-1 min-h-0 overflow-hidden mt-3 rounded-2xl border border-[#E5E7EB] bg-white shadow-2xs">
           
           {/* LEFT 6 COLUMNS: TABBED CONTROLS */}
-          <div className="lg:col-span-6 border-r border-[#E5E7EB] flex flex-col bg-[#F5F6F8]/60 overflow-hidden">
+          <div className="lg:col-span-6 border-r border-[#E5E7EB] flex flex-col min-h-0 bg-[#F5F6F8]/60 overflow-hidden">
             
             {/* Step Navigation Tabs */}
-            <div className="p-2.5 bg-white border-b border-[#E5E7EB] flex items-center gap-1 overflow-x-auto shrink-0 scrollbar-none">
+            <div className="p-2.5 bg-white border-b border-[#E5E7EB] flex items-center gap-1.5 overflow-x-auto shrink-0 scrollbar-none whitespace-nowrap">
               <button
                 onClick={() => setActiveStepTab(1)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${

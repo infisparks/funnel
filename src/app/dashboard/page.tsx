@@ -28,6 +28,7 @@ import {
   ChevronRight,
   Sparkles,
 } from 'lucide-react';
+import { isMeetingPassed } from '../calendar/page';
 
 export default function ExecutiveCrmDashboard() {
   const { user, workspace } = useAuth();
@@ -367,6 +368,9 @@ export default function ExecutiveCrmDashboard() {
                 filteredLeads.map((lead) => {
                   const hasSurvey = lead.survey_responses && Object.keys(lead.survey_responses).length > 0;
                   const isMeetingBooked = lead.step_progress === 'meeting_booked' || Boolean(lead.meeting_date);
+                  const notesCount = Array.isArray(lead.staff_notes)
+                    ? lead.staff_notes.length
+                    : (lead.notes && typeof lead.notes === 'string' && lead.notes.trim() ? 1 : 0);
 
                   return (
                     <tr
@@ -374,15 +378,34 @@ export default function ExecutiveCrmDashboard() {
                       onClick={() => openClientDrawer(lead)}
                       className="hover:bg-slate-50/80 cursor-pointer transition-colors group"
                     >
-                      {/* LEAD / CLIENT: Avatar + Name + Email */}
+                      {/* LEAD / CLIENT: Avatar + Name + Email + Note Badge */}
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-full bg-[#6366F1] text-white flex items-center justify-center font-semibold text-[11px] shadow-xs shrink-0">
+                          <div className="w-8 h-8 rounded-full bg-[#6366F1] text-white flex items-center justify-center font-semibold text-[11px] shadow-xs shrink-0 relative">
                             {getInitials(lead.name)}
+                            {notesCount > 0 && (
+                              <span
+                                className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 text-white rounded-full text-[9px] font-extrabold flex items-center justify-center border-2 border-white shadow-xs"
+                                title={`${notesCount} Note${notesCount > 1 ? 's' : ''}`}
+                              >
+                                {notesCount}
+                              </span>
+                            )}
                           </div>
                           <div className="min-w-0">
-                            <div className="font-semibold text-[#0F172A] group-hover:text-[#6366F1] transition-colors truncate text-xs">
-                              {lead.name || 'Anonymous Visitor'}
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-semibold text-[#0F172A] group-hover:text-[#6366F1] transition-colors truncate text-xs">
+                                {lead.name || 'Anonymous Visitor'}
+                              </span>
+                              {notesCount > 0 && (
+                                <span
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200/90 shrink-0 shadow-2xs"
+                                  title={`${notesCount} Staff Note${notesCount > 1 ? 's' : ''}`}
+                                >
+                                  <FileText className="w-2.5 h-2.5 text-amber-600" />
+                                  <span>{notesCount}</span>
+                                </span>
+                              )}
                             </div>
                             <div className="text-[11px] text-[#64748B] truncate font-normal">
                               {lead.email || 'No email provided'}
@@ -426,12 +449,21 @@ export default function ExecutiveCrmDashboard() {
 
                           {/* 3. Booked Meeting Badge */}
                           {isMeetingBooked ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                              <CalendarIcon className="w-3 h-3 text-emerald-600" />
-                              <span>
-                                Meeting ({lead.meeting_date || '2026-08-10'}{lead.meeting_time ? ` @ ${lead.meeting_time}` : ''})
+                            isMeetingPassed(lead.meeting_date, lead.meeting_time) ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded font-medium bg-rose-50 text-rose-700 border border-rose-200" title="Meeting time has passed">
+                                <CalendarIcon className="w-3 h-3 text-rose-600" />
+                                <span>
+                                  Meeting Passed ({lead.meeting_date || 'Past Date'}{lead.meeting_time ? ` @ ${lead.meeting_time}` : ''})
+                                </span>
                               </span>
-                            </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <CalendarIcon className="w-3 h-3 text-emerald-600" />
+                                <span>
+                                  Meeting ({lead.meeting_date || '2026-08-10'}{lead.meeting_time ? ` @ ${lead.meeting_time}` : ''})
+                                </span>
+                              </span>
+                            )
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded font-medium bg-rose-50 text-rose-700 border border-rose-200">
                               <X className="w-3 h-3 stroke-[2.5]" />
@@ -514,6 +546,9 @@ export default function ExecutiveCrmDashboard() {
             filteredLeads.map((lead) => {
               const hasSurvey = lead.survey_responses && Object.keys(lead.survey_responses).length > 0;
               const isMeetingBooked = lead.step_progress === 'meeting_booked' || Boolean(lead.meeting_date);
+              const notesCount = Array.isArray(lead.staff_notes)
+                ? lead.staff_notes.length
+                : (lead.notes && typeof lead.notes === 'string' && lead.notes.trim() ? 1 : 0);
 
               return (
                 <div
@@ -524,13 +559,32 @@ export default function ExecutiveCrmDashboard() {
                   {/* Card Header: Avatar + Name + Time */}
                   <div className="flex items-start justify-between gap-2.5">
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8 h-8 rounded-full bg-[#6366F1] text-white flex items-center justify-center font-semibold text-xs shadow-xs shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-[#6366F1] text-white flex items-center justify-center font-semibold text-xs shadow-xs shrink-0 relative">
                         {getInitials(lead.name)}
+                        {notesCount > 0 && (
+                          <span
+                            className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 text-white rounded-full text-[9px] font-extrabold flex items-center justify-center border-2 border-white shadow-xs"
+                            title={`${notesCount} Note${notesCount > 1 ? 's' : ''}`}
+                          >
+                            {notesCount}
+                          </span>
+                        )}
                       </div>
                       <div className="min-w-0">
-                        <h3 className="font-semibold text-xs text-[#0F172A] truncate">
-                          {lead.name || 'Anonymous Visitor'}
-                        </h3>
+                        <div className="flex items-center gap-1.5">
+                          <h3 className="font-semibold text-xs text-[#0F172A] truncate">
+                            {lead.name || 'Anonymous Visitor'}
+                          </h3>
+                          {notesCount > 0 && (
+                            <span
+                              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200/90 shrink-0 shadow-2xs"
+                              title={`${notesCount} Staff Note${notesCount > 1 ? 's' : ''}`}
+                            >
+                              <FileText className="w-2.5 h-2.5 text-amber-600" />
+                              <span>{notesCount}</span>
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[11px] text-[#64748B] truncate font-normal">
                           {lead.email || 'No email provided'}
                         </p>
@@ -588,12 +642,21 @@ export default function ExecutiveCrmDashboard() {
 
                         {/* 3. Meeting */}
                         {isMeetingBooked ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            <CalendarIcon className="w-3 h-3 text-emerald-600" />
-                            <span>
-                              Meeting ({lead.meeting_date || '2026-08-10'}{lead.meeting_time ? ` @ ${lead.meeting_time}` : ''})
+                          isMeetingPassed(lead.meeting_date, lead.meeting_time) ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded font-medium bg-rose-50 text-rose-700 border border-rose-200" title="Meeting time has passed">
+                              <CalendarIcon className="w-3 h-3 text-rose-600" />
+                              <span>
+                                Meeting Passed ({lead.meeting_date || 'Past Date'}{lead.meeting_time ? ` @ ${lead.meeting_time}` : ''})
+                              </span>
                             </span>
-                          </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              <CalendarIcon className="w-3 h-3 text-emerald-600" />
+                              <span>
+                                Meeting ({lead.meeting_date || '2026-08-10'}{lead.meeting_time ? ` @ ${lead.meeting_time}` : ''})
+                              </span>
+                            </span>
+                          )
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded font-medium bg-rose-50 text-rose-700 border border-rose-200">
                             <X className="w-3 h-3 stroke-[2.5]" />

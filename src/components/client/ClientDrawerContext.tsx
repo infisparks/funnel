@@ -14,6 +14,7 @@ export interface ClientData {
   followup_date?: string;
   followupDate?: string;
   staff_notes?: any[];
+  whatsapp_logs?: any[];
   google_meet_url?: string;
   step_progress?: string;
   survey_responses?: Record<string, any>;

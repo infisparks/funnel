@@ -321,12 +321,13 @@ export function LandingPageClient({
   // PUBLIC STANDALONE SUBDOMAIN VIEW
   if (isPublicView) {
     return (
-      <div className="w-screen h-screen overflow-hidden bg-white relative font-sans">
+      <div className="w-screen h-screen overflow-hidden bg-[#FAFAFC] relative font-sans">
         <iframe
           srcDoc={processedHtmlCode}
           title="Live Landing Page"
-          className="w-full h-full border-0"
-          sandbox="allow-scripts allow-forms"
+          className="w-full h-full border-0 block"
+          sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
+          loading="eager"
         />
 
         <ThreePopupFunnelModal

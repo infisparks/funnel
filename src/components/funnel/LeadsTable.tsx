@@ -17,7 +17,9 @@ import {
   RefreshCw,
   CheckCircle2,
   Lock,
+  FileText,
 } from 'lucide-react';
+import { isMeetingPassed } from '@/app/calendar/page';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 
@@ -31,6 +33,8 @@ export interface LeadRecord {
   user_id?: string;
   step_progress?: string;
   survey_responses?: Record<string, any>;
+  staff_notes?: any[];
+  notes?: string;
   meeting_date?: string;
   meeting_time?: string;
 }
@@ -304,16 +308,39 @@ export function LeadsTable() {
                     .toUpperCase()
                     .slice(0, 2);
 
+                  const notesCount = Array.isArray(lead.staff_notes)
+                    ? lead.staff_notes.length
+                    : (lead.notes && typeof lead.notes === 'string' && lead.notes.trim() ? 1 : 0);
+
                   return (
                     <tr key={lead.id} className="hover:bg-[#F9FAFB] transition-colors">
-                      {/* Name + Email + Avatar */}
+                      {/* Name + Email + Avatar + Note Badge */}
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-900 border border-amber-500/30 flex items-center justify-center font-extrabold text-xs shrink-0">
+                          <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-900 border border-amber-500/30 flex items-center justify-center font-extrabold text-xs shrink-0 relative">
                             {initials}
+                            {notesCount > 0 && (
+                              <span
+                                className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 text-white rounded-full text-[9px] font-extrabold flex items-center justify-center border-2 border-white shadow-xs"
+                                title={`${notesCount} Note${notesCount > 1 ? 's' : ''}`}
+                              >
+                                {notesCount}
+                              </span>
+                            )}
                           </div>
                           <div>
-                            <div className="font-bold text-gray-900">{lead.name || 'Anonymous Visitor'}</div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-gray-900">{lead.name || 'Anonymous Visitor'}</span>
+                              {notesCount > 0 && (
+                                <span
+                                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200/90 shrink-0 shadow-2xs"
+                                  title={`${notesCount} Staff Note${notesCount > 1 ? 's' : ''}`}
+                                >
+                                  <FileText className="w-2.5 h-2.5 text-amber-600" />
+                                  <span>{notesCount}</span>
+                                </span>
+                              )}
+                            </div>
                             <div className="text-[11px] text-gray-500 flex items-center gap-1">
                               <Mail className="w-3 h-3 text-gray-400" />
                               <span>{lead.email || 'No email provided'}</span>
@@ -333,16 +360,29 @@ export function LeadsTable() {
                       {/* Booked Meeting Slot */}
                       <td className="px-5 py-3.5">
                         {lead.meeting_date ? (
-                          <div className="space-y-0.5">
-                            <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 inline-flex items-center gap-1">
-                              <Calendar className="w-3 h-3 text-emerald-600" />
-                              <span>{lead.meeting_date}</span>
-                            </span>
-                            <div className="text-[11px] text-gray-500 flex items-center gap-1">
-                              <Clock className="w-3 h-3 text-amber-500" />
-                              <span>{lead.meeting_time || '02:00 PM'}</span>
-                            </div>
-                          </div>
+                          (() => {
+                            const isPassed = isMeetingPassed(lead.meeting_date, lead.meeting_time);
+                            return (
+                              <div className="space-y-0.5">
+                                <span
+                                  className={`font-bold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 text-xs ${
+                                    isPassed
+                                      ? 'text-rose-700 bg-rose-50 border-rose-200'
+                                      : 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                                  }`}
+                                  title={isPassed ? 'Meeting time has passed' : 'Confirmed upcoming slot'}
+                                >
+                                  <Calendar className={`w-3 h-3 ${isPassed ? 'text-rose-600' : 'text-emerald-600'}`} />
+                                  <span>{lead.meeting_date}</span>
+                                  {isPassed && <span className="text-[10px] opacity-80">(Passed)</span>}
+                                </span>
+                                <div className="text-[11px] text-gray-500 flex items-center gap-1">
+                                  <Clock className="w-3 h-3 text-amber-500" />
+                                  <span>{lead.meeting_time || '02:00 PM'}</span>
+                                </div>
+                              </div>
+                            );
+                          })()
                         ) : (
                           <span className="text-gray-400 italic">No slot selected</span>
                         )}

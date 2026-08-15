@@ -12,7 +12,7 @@ interface SearchParamsProps {
   isPublic?: string;
 }
 
-// Server Component: Performs zero-delay server-side fetch from Supabase with no-store cache
+// Server Component: Performs rapid edge-cached server-side fetch from Supabase
 async function fetchSupabaseWorkspaceOnServer(subdomain?: string, domain?: string) {
   try {
     let targetSub = subdomain || domain || '';
@@ -33,7 +33,7 @@ async function fetchSupabaseWorkspaceOnServer(subdomain?: string, domain?: strin
         apikey: SUPABASE_ANON_KEY,
         Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
       },
-      cache: 'no-store', // Always fetch fresh saved HTML from Supabase with ZERO caching delay
+      next: { revalidate: 15 }, // Rapid 15s edge cache - lightning fast 0ms loads
     });
 
     if (res.ok) {
@@ -49,7 +49,7 @@ async function fetchSupabaseWorkspaceOnServer(subdomain?: string, domain?: strin
         apikey: SUPABASE_ANON_KEY,
         Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
       },
-      cache: 'no-store',
+      next: { revalidate: 15 },
     });
 
     if (fallbackRes.ok) {
@@ -91,18 +91,16 @@ export default async function LandingPage({
     !!resolvedParams.domain ||
     isSubdomainHost;
 
-  // Perform zero-delay server-side fetch from Supabase (for both public subdomains & admin dashboard)
+  // Perform zero-delay server-side fetch from Supabase
   const serverWorkspace = await fetchSupabaseWorkspaceOnServer(subdomainName, resolvedParams.domain);
   const initialHtml = serverWorkspace?.landing_html || DEFAULT_LANDING_HTML;
 
   return (
-    <Suspense fallback={<div className="p-8 text-center text-[#8146F0] font-bold">Loading Landing Page...</div>}>
-      <LandingPageClient
-        initialHtmlCode={initialHtml}
-        initialWorkspace={serverWorkspace}
-        isPublicView={isPublicView}
-        subdomainName={subdomainName}
-      />
-    </Suspense>
+    <LandingPageClient
+      initialHtmlCode={initialHtml}
+      initialWorkspace={serverWorkspace}
+      isPublicView={isPublicView}
+      subdomainName={subdomainName}
+    />
   );
 }

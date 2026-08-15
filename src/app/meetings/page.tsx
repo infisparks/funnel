@@ -1,144 +1,229 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, Badge, Button } from '@/components/ui';
-import { useTheme } from '@/components/theme/ThemeProvider';
+import { useAuth } from '@/components/auth/AuthContext';
+import { useClientDrawer } from '@/components/client/ClientDrawerContext';
+import { supabase } from '@/lib/supabaseClient';
 import {
   CalendarCheck,
   Clock,
   Video,
-  MoreHorizontal,
   Plus,
   Calendar,
-  ChevronDown,
   RefreshCw,
+  MessageCircle,
+  Phone,
+  Mail,
+  FileText,
+  ExternalLink,
 } from 'lucide-react';
 import Link from 'next/link';
+import { isMeetingPassed } from '../calendar/page';
 
 export default function ScheduledMeetingsPage() {
-  const { accentColor } = useTheme();
+  const { user } = useAuth();
+  const { openClientDrawer } = useClientDrawer();
 
-  const meetings = [
-    {
-      id: 1,
-      title: 'Naiyar Mankad - Strategy Call',
-      date: 'Aug 10, 2026',
-      time: '03:00 PM',
-      attendee: 'Naiyar Mankad',
-      platform: 'Zoom Video Conference',
-      status: 'Confirmed',
-      type: 'green',
-    },
-    {
-      id: 2,
-      title: 'Sadaf Shaikh - Executive Demo',
-      date: 'Aug 10, 2026',
-      time: '02:00 PM',
-      attendee: 'Sadaf Shaikh',
-      platform: 'Google Meet',
-      status: 'Confirmed',
-      type: 'green',
-    },
-    {
-      id: 3,
-      title: 'Asif Khan - Qualification Discussion',
-      date: 'Aug 09, 2026',
-      time: '03:00 PM',
-      attendee: 'Asif Khan',
-      platform: 'Zoom Video Conference',
-      status: 'Completed',
-      type: 'red',
-    },
-    {
-      id: 4,
-      title: 'Javed Ali - Discovery Session',
-      date: 'Aug 11, 2026',
-      time: '03:00 PM',
-      attendee: 'Javed Ali',
-      platform: 'Microsoft Teams',
-      status: 'Confirmed',
-      type: 'green',
-    },
-  ];
+  const [leads, setLeads] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [googleMeetUrl, setGoogleMeetUrl] = useState('https://meet.google.com/qbi-erbq-moy');
+
+  const fetchMeetings = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        // Filter leads with meeting_date or meeting_booked
+        const bookedOnly = data.filter((l) => l.meeting_date || l.step_progress === 'meeting_booked');
+        setLeads(bookedOnly.length > 0 ? bookedOnly : data);
+      } else {
+        setLeads([]);
+      }
+    } catch (err) {
+      console.error('Error fetching meetings:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMeetings();
+
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('funnel_workspaces')
+          .select('google_meet_url')
+          .limit(1)
+          .maybeSingle();
+
+        if (data?.google_meet_url) {
+          setGoogleMeetUrl(data.google_meet_url);
+        }
+      } catch (err) {
+        console.error('Error loading workspace google meet:', err);
+      }
+    })();
+  }, []);
 
   return (
     <MainLayout>
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#111827]">
-            Scheduled Meetings
-          </h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Complete list of confirmed and pending client appointments
-          </p>
-        </div>
+      <div className="space-y-5 font-sans">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#111827]">
+                Scheduled Meetings
+              </h1>
+              <Badge variant="info">Live Landing Page Bookings</Badge>
+            </div>
+            <p className="text-xs text-[#6B7280] mt-0.5">
+              Complete real-time list of confirmed strategy call appointments captured from your domain.
+            </p>
+          </div>
 
-        <div className="flex items-center gap-3">
-          <Link href="/calendar">
-            <Button variant="outline" leftIcon={<Calendar className="w-4 h-4" />}>
-              View Calendar
+          <div className="flex items-center gap-3">
+            <Link href="/calendar">
+              <Button variant="outline" size="sm" leftIcon={<Calendar className="w-3.5 h-3.5 text-indigo-600" />}>
+                View Visual Calendar
+              </Button>
+            </Link>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchMeetings}
+              isLoading={isLoading}
+              leftIcon={<RefreshCw className="w-3.5 h-3.5 text-indigo-600" />}
+            >
+              Refresh
             </Button>
-          </Link>
-          <Button variant="primary" leftIcon={<Plus className="w-4 h-4" />}>
-            Book New Meeting
-          </Button>
+          </div>
         </div>
-      </div>
 
-      <div className="space-y-4">
-        {meetings.map((meeting) => (
-          <Card
-            key={meeting.id}
-            interactive
-            padding="md"
-            className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-[#E5E7EB]"
-          >
-            <div className="flex items-start gap-4">
-              <div
-                className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-base shrink-0 shadow-2xs ${
-                  meeting.type === 'green' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
-                }`}
-              >
+        {/* Meetings List Container */}
+        <div className="space-y-3">
+          {isLoading ? (
+            <Card className="p-8 text-center bg-white border border-[#E5E7EB]">
+              <RefreshCw className="w-5 h-5 animate-spin mx-auto text-indigo-600 mb-2" />
+              <p className="text-xs font-semibold text-gray-500">Loading your landing page scheduled meetings...</p>
+            </Card>
+          ) : leads.length === 0 ? (
+            <Card className="p-10 text-center bg-white border border-[#E5E7EB] space-y-2">
+              <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto">
                 <CalendarCheck className="w-6 h-6" />
               </div>
+              <h3 className="text-sm font-bold text-gray-900">No Meetings Booked Yet</h3>
+              <p className="text-xs text-gray-500 max-w-sm mx-auto">
+                When visitors book strategy call time slots in your 3-popup funnel, their confirmed meetings will appear here automatically.
+              </p>
+            </Card>
+          ) : (
+            leads.map((meeting) => {
+              const notesCount = Array.isArray(meeting.staff_notes)
+                ? meeting.staff_notes.length
+                : (meeting.notes && typeof meeting.notes === 'string' && meeting.notes.trim() ? 1 : 0);
 
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-bold text-base text-[#111827]">
-                    {meeting.title}
-                  </h3>
-                  <Badge variant={meeting.status === 'Confirmed' ? 'success' : 'warning'}>
-                    {meeting.status}
-                  </Badge>
-                </div>
+              const isPassed = isMeetingPassed(meeting.meeting_date, meeting.meeting_time);
+              const meetingLink = meeting.google_meet_url || googleMeetUrl;
 
-                <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-gray-500">
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5" /> {meeting.date} ({meeting.time})
-                  </span>
-                  <span>•</span>
-                  <span>{meeting.platform}</span>
-                </div>
-              </div>
-            </div>
+              return (
+                <Card
+                  key={meeting.id}
+                  interactive
+                  onClick={() => openClientDrawer(meeting)}
+                  padding="md"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-[#E5E7EB] hover:border-indigo-300 transition-all cursor-pointer group shadow-2xs"
+                >
+                  <div className="flex items-start gap-3.5 min-w-0">
+                    <div
+                      className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-base shrink-0 shadow-2xs border ${
+                        isPassed
+                          ? 'bg-rose-50 text-rose-700 border-rose-200'
+                          : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      }`}
+                    >
+                      <CalendarCheck className="w-5 h-5" />
+                    </div>
 
-            <div className="flex items-center gap-3 sm:self-center">
-              <Button
-                variant="primary"
-                size="sm"
-                leftIcon={<Video className="w-3.5 h-3.5" />}
-              >
-                Join Call
-              </Button>
-              <button className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
-                <MoreHorizontal className="w-4 h-4" />
-              </button>
-            </div>
-          </Card>
-        ))}
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-sm text-[#111827] group-hover:text-indigo-600 transition-colors truncate">
+                          {meeting.name || 'Anonymous Visitor'} — Strategy Call
+                        </h3>
+                        <Badge variant={isPassed ? 'error' : 'success'}>
+                          {isPassed ? 'Passed' : 'Confirmed'}
+                        </Badge>
+                        {notesCount > 0 && (
+                          <span
+                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200"
+                            title={`${notesCount} Staff Notes`}
+                          >
+                            <FileText className="w-2.5 h-2.5 text-amber-600" />
+                            <span>{notesCount}</span>
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-gray-500">
+                        <span className="flex items-center gap-1 text-gray-700 font-semibold">
+                          <Clock className="w-3.5 h-3.5 text-indigo-600" />
+                          <span>{meeting.meeting_date || 'Date Pending'}</span>
+                          {meeting.meeting_time && <span>({meeting.meeting_time})</span>}
+                        </span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1 text-gray-600">
+                          <Mail className="w-3 h-3 text-gray-400" />
+                          <span>{meeting.email || 'No email'}</span>
+                        </span>
+                        {meeting.phone && (
+                          <>
+                            <span>•</span>
+                            <span className="font-mono text-gray-700 font-semibold">{meeting.phone}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 sm:self-center shrink-0">
+                    {meeting.phone && (
+                      <a
+                        href={`https://wa.me/${meeting.phone.replace(/[^0-9]/g, '')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-2xs"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        <span>WhatsApp</span>
+                      </a>
+                    )}
+
+                    <a
+                      href={meetingLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-2xs"
+                    >
+                      <Video className="w-3.5 h-3.5" />
+                      <span>Join Meet Call 🎥</span>
+                    </a>
+                  </div>
+                </Card>
+              );
+            })
+          )}
+        </div>
       </div>
     </MainLayout>
   );
 }
+

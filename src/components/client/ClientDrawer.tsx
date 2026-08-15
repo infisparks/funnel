@@ -46,6 +46,14 @@ export function ClientDrawer() {
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [isSavingMeet, setIsSavingMeet] = useState(false);
 
+  // WhatsApp Logs & Direct Messenger state
+  const [whatsappLogs, setWhatsappLogs] = useState<any[]>(
+    Array.isArray(selectedClient?.whatsapp_logs) ? selectedClient.whatsapp_logs : []
+  );
+  const [directWaMessage, setDirectWaMessage] = useState('');
+  const [isSendingWa, setIsSendingWa] = useState(false);
+  const [waSendStatus, setWaSendStatus] = useState<string | null>(null);
+
   const [broadcastDate, setBroadcastDate] = useState('');
   const [senderInstance, setSenderInstance] = useState('-- Use Default Active --');
   const [messageText, setMessageText] = useState('');
@@ -61,6 +69,54 @@ export function ClientDrawer() {
     { id: 'meeting_missed', name: '4. Meeting Missed' },
     { id: 'closed_won', name: '5. Closed Won' },
   ]);
+
+  // Fetch live WhatsApp logs from Supabase
+  const fetchLeadWhatsappLogs = async () => {
+    if (!selectedClient) return;
+    try {
+      // 1. From lead row
+      if (selectedClient.id) {
+        const { data: leadRow } = await supabase
+          .from('leads')
+          .select('whatsapp_logs')
+          .eq('id', selectedClient.id)
+          .maybeSingle();
+
+        if (leadRow?.whatsapp_logs && Array.isArray(leadRow.whatsapp_logs)) {
+          setWhatsappLogs(leadRow.whatsapp_logs);
+          return;
+        }
+      }
+
+      // 2. From global whatsapp_message_logs
+      if (selectedClient.phone) {
+        const cleanPhone = selectedClient.phone.replace(/[^0-9]/g, '').slice(-10);
+        const { data: logs } = await supabase
+          .from('whatsapp_message_logs')
+          .select('*')
+          .ilike('recipient_phone', `%${cleanPhone}%`)
+          .order('created_at', { ascending: false });
+
+        if (logs && logs.length > 0) {
+          setWhatsappLogs(
+            logs.map((l) => ({
+              id: l.id,
+              timestamp: l.created_at,
+              trigger_step: l.trigger_type || 'direct_message',
+              recipient_phone: l.recipient_phone,
+              recipient_name: l.recipient_name,
+              message: l.message_text,
+              media_url: l.media_url,
+              instance_name: l.instance_name,
+              status: l.status || 'sent',
+            }))
+          );
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching WhatsApp logs:', err);
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -85,6 +141,8 @@ export function ClientDrawer() {
       setFollowupDate(selectedClient.followup_date || selectedClient.followupDate || '');
       setStaffNotesHistory(Array.isArray(selectedClient.staff_notes) ? selectedClient.staff_notes : []);
       setGoogleMeetUrl(selectedClient.google_meet_url || selectedClient.googleMeetUrl || 'https://meet.google.com/qbi-erbq-moy');
+      setWhatsappLogs(Array.isArray(selectedClient.whatsapp_logs) ? selectedClient.whatsapp_logs : []);
+      fetchLeadWhatsappLogs();
     }
   }, [selectedClient]);
 
@@ -185,6 +243,82 @@ export function ClientDrawer() {
     navigator.clipboard.writeText(googleMeetUrl);
     setCopiedMeet(true);
     setTimeout(() => setCopiedMeet(false), 2000);
+  };
+
+  const handleSendDirectWhatsapp = async () => {
+    if (!directWaMessage.trim() || !selectedClient?.phone) return;
+    setIsSendingWa(true);
+    setWaSendStatus(null);
+    try {
+      // 1. Fetch workspace whatsapp_config
+      const { data: ws } = await supabase
+        .from('funnel_workspaces')
+        .select('whatsapp_config')
+        .limit(1)
+        .maybeSingle();
+
+      const cfg = ws?.whatsapp_config;
+      const cleanPhone = selectedClient.phone.replace(/[^0-9]/g, '');
+      const formatted = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+      const parsed = directWaMessage
+        .replace(/\{\{\s*name\s*\}\}/gi, selectedClient.name || 'Client')
+        .replace(
+          /\{\{\s*meeting_url\s*\}\}/gi,
+          googleMeetUrl || 'https://meet.google.com/qbi-erbq-moy'
+        );
+
+      if (cfg?.evolution_api_url && cfg?.evolution_apikey) {
+        const baseUrl = cfg.evolution_api_url.replace(/\/$/, '');
+        const inst = cfg.instance_name || 'instance';
+        await fetch(`${baseUrl}/message/sendText/${encodeURIComponent(inst)}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: cfg.evolution_apikey,
+          },
+          body: JSON.stringify({ number: formatted, text: parsed }),
+        });
+      }
+
+      // Log into whatsapp_message_logs and leads.whatsapp_logs
+      const newLog = {
+        id: `wa_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+        timestamp: new Date().toISOString(),
+        trigger_step: 'direct_admin_message',
+        recipient_phone: formatted,
+        recipient_name: selectedClient.name,
+        message: parsed,
+        instance_name: cfg?.instance_name || 'instance',
+        status: 'sent',
+      };
+
+      await supabase.from('whatsapp_message_logs').insert([
+        {
+          recipient_phone: formatted,
+          recipient_name: selectedClient.name,
+          trigger_type: 'direct_admin_message',
+          message_text: parsed,
+          status: 'sent',
+          instance_name: cfg?.instance_name || 'instance',
+          created_at: new Date().toISOString(),
+        },
+      ]);
+
+      const updated = [newLog, ...(whatsappLogs || [])];
+      setWhatsappLogs(updated);
+      setDirectWaMessage('');
+      setWaSendStatus('Message sent & logged in Supabase! 🚀');
+      setTimeout(() => setWaSendStatus(null), 3500);
+
+      if (selectedClient.id) {
+        await supabase.from('leads').update({ whatsapp_logs: updated }).eq('id', selectedClient.id);
+      }
+    } catch (err: any) {
+      console.error('Error sending direct WhatsApp:', err);
+      setWaSendStatus(`Error sending message: ${err.message || 'Failed'}`);
+    } finally {
+      setIsSendingWa(false);
+    }
   };
 
   return (
@@ -301,98 +435,140 @@ export function ClientDrawer() {
             </div>
           </Card>
 
-          {/* Card 2: Scheduled WhatsApp Broadcasts by Date & Time */}
+          {/* Card 2: WhatsApp Messages & Automation History (whatsapp_logs) */}
           <Card className="p-5 bg-white space-y-4">
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start justify-between gap-3 pb-2 border-b border-gray-100">
               <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-                  <Calendar className="w-5 h-5" />
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                  <MessageCircle className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="font-bold text-sm text-[#111827]">
-                    Scheduled WhatsApp Broadcasts by Date & Time
+                    WhatsApp Messages & History Logs
                   </h3>
                   <p className="text-[11px] text-gray-400">
-                    Stored in <span className="font-mono text-indigo-600">/lead_whatapp_send_by_date</span> node (Auto retries if failed)
+                    Stored in <span className="font-mono text-emerald-600 font-bold">leads.whatsapp_logs</span> JSONB
                   </p>
                 </div>
               </div>
-              <Badge variant="info">0 Scheduled</Badge>
+              <Badge variant={whatsappLogs.length > 0 ? 'success' : 'default'}>
+                {whatsappLogs.length} {whatsappLogs.length === 1 ? 'Message' : 'Messages'}
+              </Badge>
             </div>
 
-            <button className="px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 font-bold text-xs border border-indigo-200 hover:bg-indigo-100 transition-colors cursor-pointer">
-              G View Live GCP Queue
-            </button>
-
-            {/* Broadcast Form */}
-            <div className="space-y-3 pt-2">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-gray-600 mb-1">
-                    TARGET DATE & TIME *
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={broadcastDate}
-                    onChange={(e) => setBroadcastDate(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] text-xs font-medium bg-[#F5F6F8]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-600 mb-1">
-                    SENDER INSTANCE
-                  </label>
-                  <select
-                    value={senderInstance}
-                    onChange={(e) => setSenderInstance(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] text-xs font-medium bg-[#F5F6F8]"
+            {/* Direct Instant WhatsApp Sender */}
+            <div className="p-3.5 rounded-2xl bg-gray-50 border border-gray-200 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-gray-700">
+                  Send Direct WhatsApp to {selectedClient.name}:
+                </label>
+                <div className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-600">
+                  <button
+                    type="button"
+                    onClick={() => setDirectWaMessage((prev) => prev + ' {{name}}')}
+                    className="px-2 py-0.5 rounded bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 cursor-pointer"
                   >
-                    <option>-- Use Default Active --</option>
-                    <option>Instance #1 (Sales Team)</option>
-                    <option>Instance #2 (Support)</option>
-                  </select>
+                    + {'{{name}}'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDirectWaMessage((prev) => prev + ' {{meeting_url}}')}
+                    className="px-2 py-0.5 rounded bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 cursor-pointer"
+                  >
+                    + {'{{meeting_url}}'}
+                  </button>
                 </div>
               </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-bold text-gray-600">
-                    Custom Message Text:
-                  </label>
-                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-indigo-600">
-                    <button
-                      type="button"
-                      onClick={() => setMessageText((prev) => prev + ' {{name}}')}
-                      className="px-2 py-0.5 rounded bg-indigo-50 hover:bg-indigo-100"
-                    >
-                      + {"{{name}}"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setMessageText((prev) => prev + ' {{meeting_url}}')}
-                      className="px-2 py-0.5 rounded bg-indigo-50 hover:bg-indigo-100"
-                    >
-                      + {"{{meeting_url}}"}
-                    </button>
-                  </div>
-                </div>
-                <textarea
-                  value={messageText}
-                  onChange={(e) => setMessageText(e.target.value)}
-                  placeholder="Enter message (e.g. Hello {{name}}, reminder for our call!)..."
-                  className="w-full h-24 p-3 rounded-xl border border-[#E5E7EB] text-xs bg-[#F5F6F8] focus:bg-white focus:outline-none"
-                />
+              <textarea
+                value={directWaMessage}
+                onChange={(e) => setDirectWaMessage(e.target.value)}
+                placeholder="Type direct WhatsApp message..."
+                rows={2}
+                className="w-full p-2.5 rounded-xl border border-gray-300 text-xs bg-white text-gray-900 focus:outline-none focus:border-indigo-500"
+              />
+
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-gray-400 font-mono">
+                  {selectedClient.phone || 'No Phone'}
+                </span>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={isSendingWa || !directWaMessage.trim() || !selectedClient.phone}
+                  onClick={handleSendDirectWhatsapp}
+                  leftIcon={<Send className="w-3.5 h-3.5" />}
+                >
+                  {isSendingWa ? 'Sending...' : 'Send & Log WhatsApp 🚀'}
+                </Button>
               </div>
 
-              <Button
-                variant="primary"
-                className="w-full"
-                leftIcon={<Send className="w-4 h-4" />}
-                onClick={() => alert('WhatsApp broadcast scheduled successfully!')}
-              >
-                Schedule WhatsApp Broadcast 🚀
-              </Button>
+              {waSendStatus && (
+                <div className="p-2 rounded-lg bg-indigo-50 text-indigo-800 text-[11px] font-bold">
+                  {waSendStatus}
+                </div>
+              )}
+            </div>
+
+            {/* Render Recorded WhatsApp Message History */}
+            <div className="space-y-2 pt-1">
+              <span className="text-xs font-bold text-gray-700 block">
+                Recorded WhatsApp Messages ({whatsappLogs.length}):
+              </span>
+
+              {whatsappLogs && whatsappLogs.length > 0 ? (
+                <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                  {whatsappLogs.map((log: any, idx: number) => {
+                    const isStep1 = log.trigger_step?.includes('step1') || log.trigger_step === 'welcome';
+                    const isStep2 = log.trigger_step?.includes('step2') || log.trigger_step === 'survey';
+                    const isStep3 = log.trigger_step?.includes('step3') || log.trigger_step === 'meeting';
+                    const isGcp = log.trigger_step?.includes('gcp') || log.trigger_step === 'scheduled_broadcast';
+
+                    return (
+                      <div
+                        key={log.id || idx}
+                        className="p-3 rounded-2xl bg-white border border-gray-200 text-xs shadow-2xs space-y-1.5"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                            {isStep1 && '1. Contact Welcome'}
+                            {isStep2 && '2. Survey Qualified'}
+                            {isStep3 && '3. Strategy Meeting Link'}
+                            {isGcp && 'GCP Scheduled Broadcast'}
+                            {!isStep1 && !isStep2 && !isStep3 && !isGcp && (log.trigger_step || 'Direct Message')}
+                          </span>
+                          <span className="text-[10px] text-gray-400 font-medium">
+                            {new Date(log.timestamp).toLocaleString([], {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
+                        </div>
+
+                        <p className="text-gray-800 font-medium whitespace-pre-wrap bg-gray-50/80 p-2.5 rounded-xl border border-gray-100">
+                          {log.message}
+                        </p>
+
+                        <div className="flex items-center justify-between text-[10px] text-gray-400 pt-0.5">
+                          <span>Instance: <strong className="text-gray-700">{log.instance_name || 'instance'}</strong></span>
+                          <span className="text-emerald-600 font-bold flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            {log.status === 'sent' ? 'Sent & Delivered' : log.status}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="p-4 rounded-xl border border-dashed border-gray-200 text-center">
+                  <p className="text-xs text-gray-400 italic">
+                    No WhatsApp messages sent or logged to this client yet.
+                  </p>
+                </div>
+              )}
             </div>
           </Card>
 
