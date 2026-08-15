@@ -108,6 +108,51 @@ export function ClientDrawer() {
     }
   };
 
+  const [gcpLiveQueueTasks, setGcpLiveQueueTasks] = useState<any[]>([]);
+  const [isGcpQueueLoading, setIsGcpQueueLoading] = useState(false);
+
+  // Fetch live tasks directly from Google Cloud Tasks API
+  const fetchGcpLiveQueue = async () => {
+    if (!selectedClient?.phone) return;
+    setIsGcpQueueLoading(true);
+    try {
+      const res = await fetch(`${SERVER_URL}/api/tasks/queue`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.tasks)) {
+        const cleanTarget = selectedClient.phone.replace(/[^0-9]/g, '').slice(-10);
+        const filtered = data.tasks.filter((t: any) => {
+          const cleanTaskPhone = (t.recipient_phone || '').replace(/[^0-9]/g, '').slice(-10);
+          return cleanTaskPhone === cleanTarget || (t.recipient_phone && t.recipient_phone.includes(cleanTarget));
+        });
+        setGcpLiveQueueTasks(filtered);
+      }
+    } catch (err) {
+      console.warn('Could not fetch live GCP tasks in drawer:', err);
+    } finally {
+      setIsGcpQueueLoading(false);
+    }
+  };
+
+  const handleCancelGcpTaskInDrawer = async (taskId: string, gcpTaskName: string) => {
+    if (!confirm('Are you sure you want to cancel and delete this scheduled task directly from Google Cloud Tasks Queue?')) return;
+    try {
+      const res = await fetch(`${SERVER_URL}/api/tasks/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId, gcpTaskName }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setWaSendStatus('Task successfully deleted directly from Google Cloud Tasks! 🗑️');
+        setTimeout(() => setWaSendStatus(null), 4000);
+        fetchGcpLiveQueue();
+        fetchLeadWhatsappLogs();
+      }
+    } catch (err) {
+      console.error('Error cancelling GCP task:', err);
+    }
+  };
+
   useEffect(() => {
     if (selectedClient) {
       setPipelineStage(selectedClient.step_progress || 'step1_contact');
@@ -128,6 +173,7 @@ export function ClientDrawer() {
       setWaScheduleDateTime(`${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}T${pad(target.getHours())}:${pad(target.getMinutes())}`);
       
       fetchLeadWhatsappLogs();
+      fetchGcpLiveQueue();
     }
   }, [selectedClient]);
 
@@ -154,6 +200,12 @@ export function ClientDrawer() {
       setWaScheduleDateTime(execTime);
     }
 
+    // Convert local datetime to exact ISO string with timezone
+    const scheduledDateObj = new Date(execTime);
+    const isoScheduleTimestamp = isNaN(scheduledDateObj.getTime())
+      ? new Date(Date.now() + 60 * 1000).toISOString()
+      : scheduledDateObj.toISOString();
+
     setIsSchedulingGcp(true);
     setWaSendStatus(null);
     try {
@@ -173,7 +225,7 @@ export function ClientDrawer() {
           recipientPhone: selectedClient.phone,
           recipientName: selectedClient.name,
           messageText: parsed,
-          scheduleTime: execTime,
+          scheduleTime: isoScheduleTimestamp,
           userId: selectedClient.id || 'lead_drawer',
         }),
       });
@@ -187,7 +239,7 @@ export function ClientDrawer() {
       const scheduledLog = {
         id: data.taskId || `gcp_${Date.now()}`,
         timestamp: new Date().toISOString(),
-        scheduled_at: execTime,
+        scheduled_at: isoScheduleTimestamp,
         trigger_step: 'gcp_scheduled_broadcast',
         recipient_phone: selectedClient.phone,
         recipient_name: selectedClient.name,
@@ -203,9 +255,10 @@ export function ClientDrawer() {
       }
 
       setDirectWaMessage('');
-      setWaSendStatus(`🕒 Message scheduled in Google Cloud Tasks! Will be sent to ${selectedClient.name} in ~1 min (${new Date(execTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`);
-      setTimeout(() => setWaSendStatus(null), 5000);
+      setWaSendStatus(`🕒 Confirmed! Scheduled directly in Google Cloud Tasks Queue for ${scheduledDateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })} IST`);
+      setTimeout(() => setWaSendStatus(null), 6000);
       fetchLeadWhatsappLogs();
+      fetchGcpLiveQueue();
     } catch (err: any) {
       console.error('Error scheduling GCP broadcast:', err);
       setWaSendStatus(`Error: ${err.message}`);
@@ -599,6 +652,51 @@ export function ClientDrawer() {
                 </div>
               )}
             </div>
+
+            {/* Live Google Cloud Tasks Queue (Directly from GCP API) */}
+            {gcpLiveQueueTasks && gcpLiveQueueTasks.length > 0 && (
+              <div className="p-3.5 rounded-2xl bg-indigo-50/80 border border-indigo-200 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-900">
+                    <Clock className="w-4 h-4 text-indigo-600 animate-pulse" />
+                    <span>Confirmed in Google Cloud Tasks Queue ({gcpLiveQueueTasks.length})</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                    ● ACTIVE IN GCP
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {gcpLiveQueueTasks.map((t: any) => (
+                    <div key={t.id || t.gcp_task_id} className="p-2.5 rounded-xl bg-white border border-indigo-100 text-xs shadow-2xs space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-gray-900">
+                            🕒 {new Date(t.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })} IST
+                          </span>
+                          <span className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-bold">
+                            {getRemainingTimeText(t.scheduled_at)}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleCancelGcpTaskInDrawer(t.id || t.gcp_task_id, t.gcp_task_name)}
+                          className="px-2 py-0.5 rounded text-rose-600 hover:bg-rose-50 font-bold text-[10px] border border-rose-200 cursor-pointer"
+                        >
+                          Cancel in GCP ✕
+                        </button>
+                      </div>
+                      <p className="text-gray-700 text-[11px] truncate bg-gray-50 p-1.5 rounded border border-gray-100">
+                        {t.message_text}
+                      </p>
+                      <div className="text-[9px] text-gray-400 font-mono truncate">
+                        GCP ID: {t.gcp_task_name || t.id}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Render Recorded WhatsApp Message History */}
             <div className="space-y-2 pt-1">

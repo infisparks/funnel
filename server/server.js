@@ -311,14 +311,34 @@ const server = http.createServer(async (req, res) => {
         });
       }
 
-      const scheduleDate = new Date(scheduleTime);
+      let scheduleDate;
+      if (typeof scheduleTime === 'number') {
+        scheduleDate = new Date(scheduleTime);
+      } else if (typeof scheduleTime === 'string') {
+        const trimmed = scheduleTime.trim();
+        if (trimmed.endsWith('Z') || trimmed.includes('+') || (trimmed.split('-').length > 3)) {
+          scheduleDate = new Date(trimmed);
+        } else {
+          // Interpret input datetime from Indian Standard Time (IST +05:30)
+          scheduleDate = new Date(`${trimmed}:00+05:30`);
+          if (isNaN(scheduleDate.getTime())) {
+            scheduleDate = new Date(`${trimmed}+05:30`);
+          }
+          if (isNaN(scheduleDate.getTime())) {
+            scheduleDate = new Date(trimmed);
+          }
+        }
+      } else {
+        scheduleDate = new Date(scheduleTime);
+      }
+
       const scheduleTimeSeconds = Math.floor(scheduleDate.getTime() / 1000);
       const nowSeconds = Math.floor(Date.now() / 1000);
 
       if (isNaN(scheduleTimeSeconds) || scheduleTimeSeconds < nowSeconds) {
         return sendJson(400, {
           success: false,
-          error: 'Scheduled time must be a valid future date and time.',
+          error: `Scheduled time (${scheduleDate.toISOString()}) must be in the future. Current server time: ${new Date().toISOString()}`,
         });
       }
 
