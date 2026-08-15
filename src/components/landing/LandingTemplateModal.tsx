@@ -229,24 +229,36 @@ export function LandingTemplateModal({
                   >
                     {/* Mini Mobile Hero Section Preview Thumbnail */}
                     <div
-                      className="relative w-full h-56 bg-slate-900/5 overflow-hidden border-b border-gray-100 cursor-pointer group/thumb flex items-center justify-center p-2.5"
+                      className="relative w-full h-60 bg-gradient-to-b from-gray-100 to-gray-200/80 overflow-hidden border-b border-gray-100 cursor-pointer group/thumb flex items-center justify-center p-3"
                       onClick={() => setPreviewTemplate(template)}
                       title="Click to view full mobile preview"
                     >
-                      <div className="relative w-[375px] h-[520px] origin-top scale-[0.40] rounded-[28px] overflow-hidden border-[5px] border-slate-900 shadow-xl bg-white pointer-events-none select-none shrink-0">
-                        <iframe
-                          srcDoc={template.html}
-                          title={template.name}
-                          className="w-full h-full border-0 bg-white"
-                          tabIndex={-1}
-                          sandbox="allow-same-origin"
-                        />
+                      {/* Smartphone Device Frame */}
+                      <div className="w-[165px] h-[215px] rounded-[24px] bg-slate-900 p-2 shadow-xl border-2 border-slate-700 relative flex flex-col shrink-0">
+                        {/* Dynamic Island */}
+                        <div className="w-9 h-2 bg-slate-950 rounded-full mx-auto mb-1 shrink-0" />
+
+                        {/* Screen Display */}
+                        <div className="w-full flex-1 rounded-[14px] overflow-hidden bg-white relative">
+                          <div className="w-[375px] h-[460px] origin-top-left scale-[0.398] absolute inset-0 pointer-events-none select-none">
+                            <iframe
+                              srcDoc={template.html}
+                              title={template.name}
+                              className="w-full h-full border-0 bg-white"
+                              tabIndex={-1}
+                              sandbox="allow-same-origin"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Home Bar */}
+                        <div className="w-9 h-1 bg-white/40 rounded-full mx-auto mt-1 shrink-0" />
                       </div>
 
                       {/* Hover Fullscreen Prompt */}
-                      <div className="absolute inset-0 bg-indigo-950/50 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white font-bold text-xs backdrop-blur-2xs">
+                      <div className="absolute inset-0 bg-indigo-950/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white font-bold text-xs backdrop-blur-2xs">
                         <Smartphone className="w-4 h-4" />
-                        <span>Mobile Preview 📱</span>
+                        <span>Click for Full Preview 📱</span>
                       </div>
                     </div>
 
