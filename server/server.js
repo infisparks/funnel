@@ -91,7 +91,9 @@ if (gcpCreds) {
 }
 
 // Initialize Supabase Client
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
 
 // Helper: Calculate Month Key
 function getMonthKey() {

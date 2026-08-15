@@ -1,5 +1,5 @@
 # Production Dockerfile for Node.js GCP Cloud Tasks & WhatsApp Automation Backend
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 
 # Install dumb-init and curl for healthchecks
 RUN apk add --no-cache dumb-init curl
@@ -25,7 +25,7 @@ ENV NODE_ENV=production
 ENV PORT=5005
 
 # Healthcheck
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=20s --timeout=5s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:5005/health || exit 1
 
 # Run with dumb-init
