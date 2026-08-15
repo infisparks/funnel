@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button, Badge } from '@/components/ui';
 import {
   Sparkles,
@@ -16,6 +16,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { LANDING_PAGE_TEMPLATES, LandingTemplate } from '@/lib/landingTemplates';
+import { supabase } from '@/lib/supabaseClient';
 
 interface LandingTemplateModalProps {
   isOpen: boolean;
@@ -30,17 +31,57 @@ export function LandingTemplateModal({
   onSelectTemplate,
   currentTemplateId,
 }: LandingTemplateModalProps) {
+  const [templates, setTemplates] = useState<LandingTemplate[]>(LANDING_PAGE_TEMPLATES);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [previewTemplate, setPreviewTemplate] = useState<LandingTemplate | null>(null);
   const [previewViewport, setPreviewViewport] = useState<'desktop' | 'mobile'>('desktop');
   const [appliedId, setAppliedId] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (isOpen) {
+      const loadSupabaseTemplates = async () => {
+        try {
+          const { data } = await supabase
+            .from('landing_templates')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+          if (data && data.length > 0) {
+            const formatted: LandingTemplate[] = data.map((d: any) => ({
+              id: d.id,
+              name: d.name,
+              category: d.category,
+              badge: d.badge || 'Custom Template',
+              accentColor: d.accent_color || '#8146F0',
+              description: d.description || '',
+              triggerButtons: Array.isArray(d.trigger_buttons)
+                ? d.trigger_buttons
+                : typeof d.trigger_buttons === 'string'
+                ? JSON.parse(d.trigger_buttons)
+                : ['Get Started Free'],
+              features: Array.isArray(d.features)
+                ? d.features
+                : typeof d.features === 'string'
+                ? JSON.parse(d.features)
+                : ['High Converting', 'Mobile Optimized'],
+              html: d.html,
+            }));
+            setTemplates(formatted);
+          }
+        } catch (err) {
+          console.warn('Could not load Supabase templates, using local fallback');
+        }
+      };
+      loadSupabaseTemplates();
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const categories = ['All', 'Consulting', 'SaaS', 'Coaching', 'Real Estate', 'Healthcare', 'E-Commerce'];
 
-  const filteredTemplates = LANDING_PAGE_TEMPLATES.filter((tpl) => {
+  const filteredTemplates = templates.filter((tpl) => {
     const matchesCategory = selectedCategory === 'All' || tpl.category === selectedCategory;
     const matchesSearch =
       tpl.name.toLowerCase().includes(searchQuery.toLowerCase()) ||

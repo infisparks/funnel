@@ -15,6 +15,7 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  Layers,
 } from 'lucide-react';
 
 export function Sidebar() {
@@ -39,6 +40,7 @@ export function Sidebar() {
   // Strictly required navigation items
   const navItems = [
     { label: 'Landing Page', icon: Sparkles, href: '/landing' },
+    { label: 'Landing Templates', icon: Layers, href: '/templates' },
     { label: 'Dashboard & Leads', icon: TrendingUp, href: '/dashboard' },
     { label: 'Pipeline Board', icon: Columns, href: '/pipeline' },
     { label: 'WhatsApp Automation', icon: MessageSquare, href: '/whatsapp' },
