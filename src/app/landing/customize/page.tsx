@@ -1770,6 +1770,19 @@ export default function CustomizeStudioPage() {
           </div>
         </div>
       </div>
+
+      {appliedToast && (
+        <div className="fixed bottom-6 right-6 z-50 bg-indigo-900 text-white px-5 py-3 rounded-2xl shadow-2xl border border-indigo-700 flex items-center gap-2 text-xs font-bold animate-in fade-in slide-in-from-bottom-5">
+          <Sparkles className="w-4 h-4 text-indigo-300" />
+          <span>{appliedToast}</span>
+        </div>
+      )}
+
+      <LandingTemplateModal
+        isOpen={isTemplateModalOpen}
+        onClose={() => setIsTemplateModalOpen(false)}
+        onSelectTemplate={handleApplyTemplate}
+      />
     </MainLayout>
   );
 }
