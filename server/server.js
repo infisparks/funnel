@@ -328,8 +328,12 @@ const server = http.createServer(async (req, res) => {
       // Dispatch to GCP Cloud Tasks queue
       if (cloudTasksClient && queuePath) {
         try {
+          const userCfg = await whatsappManager.getUserWhatsappConfig(userId, supabase);
+          const resolvedInstance = userCfg?.instance_name || 'mudassir';
+
           const payload = {
             userId,
+            instanceName: resolvedInstance,
             recipientPhone,
             recipientName,
             messageText,
@@ -360,7 +364,7 @@ const server = http.createServer(async (req, res) => {
 
           gcpTaskName = createdTask.name;
           gcpTaskId = createdTask.name ? createdTask.name.split('/').pop() : null;
-          console.log(`[GCP Cloud Tasks] Task scheduled directly in GCP: ${gcpTaskName}`);
+          console.log(`[GCP Cloud Tasks] Task scheduled directly in GCP: ${gcpTaskName} (Instance: ${resolvedInstance})`);
         } catch (gcpErr) {
           console.error('[GCP CreateTask Error]:', gcpErr.message);
           gcpTaskId = `gcp_task_${Date.now()}_${Math.random().toString(36).substring(7)}`;
@@ -529,53 +533,75 @@ const server = http.createServer(async (req, res) => {
     // 6. POST /api/whatsapp/execute-task - Webhook invoked by GCP Cloud Tasks
     if (req.method === 'POST' && (pathname === '/api/whatsapp/execute-task' || pathname === '/api/tasks/webhook-execute')) {
       const body = await readJsonBody();
-      const { recipientPhone, recipientName, messageText, mediaUrl, mediaType, gcpTaskId } = body;
+      const { recipientPhone, recipientName, messageText, mediaUrl, mediaType, gcpTaskId, userId, instanceName } = body;
 
-      console.log(`[GCP Webhook Triggered] Sending WhatsApp to ${recipientPhone}`);
+      console.log(`[GCP Webhook Triggered] Sending WhatsApp to ${recipientPhone} (instance: ${instanceName || 'auto'})`);
 
-      // Dispatch via whatappmanage.js
+      // Dispatch via whatappmanage.js with Supabase instance resolution
       let sendSuccess = true;
       let sendResponse = null;
+      let usedInstance = instanceName || 'gcp_queue';
+      let errorMsg = null;
+
       try {
-        const result = await whatsappManager.sendWhatsappMessage({
-          recipientPhone,
-          messageText,
-          mediaUrl,
-          mediaType,
-        });
+        const result = await whatsappManager.sendWhatsappMessage(
+          {
+            recipientPhone,
+            messageText,
+            mediaUrl,
+            mediaType,
+            userId,
+            instanceName,
+          },
+          supabase
+        );
         sendResponse = result.response;
+        usedInstance = result.instanceName || usedInstance;
+        console.log(`[GCP Webhook WhatsApp Dispatch SUCCESS] to ${recipientPhone} via instance "${usedInstance}"`);
       } catch (sendErr) {
         console.error('[GCP Webhook WhatsApp Dispatch Error]:', sendErr.message);
         sendSuccess = false;
+        errorMsg = sendErr.message;
       }
 
-      // Update task status to completed or failed
-      if (gcpTaskId) {
-        await supabase
-          .from('scheduled_whatsapp_tasks')
-          .update({ status: sendSuccess ? 'completed' : 'failed' })
-          .eq('gcp_task_id', gcpTaskId);
+      // Update task status in scheduled_whatsapp_tasks
+      try {
+        if (gcpTaskId) {
+          await supabase
+            .from('scheduled_whatsapp_tasks')
+            .update({ status: sendSuccess ? 'completed' : 'failed' })
+            .eq('gcp_task_id', gcpTaskId);
+        }
+      } catch (dbErr) {
+        console.error('Error updating task in DB:', dbErr);
       }
 
       // Log in database
-      await whatsappManager.logWhatsappToDatabase(
-        {
-          phone: recipientPhone,
-          name: recipientName || 'Lead',
-          message: messageText,
-          mediaUrl: mediaUrl || null,
-          triggerType: 'gcp_scheduled_broadcast',
-          instanceName: 'gcp_queue',
-          responsePayload: sendResponse,
-          status: sendSuccess ? 'sent' : 'failed',
-        },
-        supabase
-      );
+      try {
+        await whatsappManager.logWhatsappToDatabase(
+          {
+            phone: recipientPhone,
+            name: recipientName || 'Lead',
+            message: messageText,
+            mediaUrl: mediaUrl || null,
+            triggerType: 'gcp_scheduled_broadcast',
+            instanceName: usedInstance,
+            responsePayload: sendResponse || { error: errorMsg },
+            status: sendSuccess ? 'sent' : 'failed',
+          },
+          supabase
+        );
+      } catch (dbLogErr) {
+        console.error('Error logging to DB:', dbLogErr);
+      }
 
       return sendJson(200, {
         success: sendSuccess,
-        message: sendSuccess ? 'WhatsApp dispatched successfully via GCP Cloud Tasks trigger.' : 'Failed to send WhatsApp via Evolution API',
+        message: sendSuccess
+          ? `WhatsApp dispatched successfully via GCP Cloud Tasks trigger using instance "${usedInstance}".`
+          : `Failed to send WhatsApp via Evolution API: ${errorMsg}`,
         recipientPhone,
+        instanceName: usedInstance,
       });
     }
 

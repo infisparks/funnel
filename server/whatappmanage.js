@@ -45,16 +45,33 @@ function parseWhatsappTemplate(template, data = {}, defaultMeetUrl = 'https://me
 async function getUserWhatsappConfig(userIdOrWorkspaceId, supabase) {
   if (!supabase) return null;
   try {
-    let query = supabase.from('funnel_workspaces').select('id, user_id, whatsapp_config, google_meet_url');
-    if (userIdOrWorkspaceId && userIdOrWorkspaceId !== 'default_user') {
-      query = query.or(`id.eq.${userIdOrWorkspaceId},user_id.eq.${userIdOrWorkspaceId}`);
+    if (userIdOrWorkspaceId && userIdOrWorkspaceId !== 'default_user' && userIdOrWorkspaceId !== 'lead_drawer') {
+      const { data } = await supabase
+        .from('funnel_workspaces')
+        .select('id, user_id, whatsapp_config, google_meet_url')
+        .or(`id.eq.${userIdOrWorkspaceId},user_id.eq.${userIdOrWorkspaceId}`)
+        .limit(1)
+        .maybeSingle();
+
+      if (data && data.whatsapp_config && data.whatsapp_config.instance_name) {
+        return {
+          ...data.whatsapp_config,
+          google_meet_url: data.google_meet_url || data.whatsapp_config.google_meet_url,
+        };
+      }
     }
 
-    const { data } = await query.limit(1).maybeSingle();
-    if (data && data.whatsapp_config) {
+    // Default workspace fallback
+    const { data: defaultWs } = await supabase
+      .from('funnel_workspaces')
+      .select('id, user_id, whatsapp_config, google_meet_url')
+      .limit(1)
+      .maybeSingle();
+
+    if (defaultWs && defaultWs.whatsapp_config) {
       return {
-        ...data.whatsapp_config,
-        google_meet_url: data.google_meet_url || data.whatsapp_config.google_meet_url,
+        ...defaultWs.whatsapp_config,
+        google_meet_url: defaultWs.google_meet_url || defaultWs.whatsapp_config.google_meet_url,
       };
     }
   } catch (err) {
