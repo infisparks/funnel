@@ -242,10 +242,33 @@ export function LandingTemplateModal({
                 return (
                   <div
                     key={template.id}
-                    className={`group bg-white rounded-2xl border transition-all duration-200 flex flex-col justify-between overflow-hidden shadow-2xs hover:shadow-md ${
-                      isSelected ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-gray-200 hover:border-indigo-300'
+                    className={`group bg-white rounded-2xl border transition-all duration-300 flex flex-col justify-between overflow-hidden shadow-2xs hover:shadow-lg hover:-translate-y-1 ${
+                      isSelected ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-gray-200 hover:border-indigo-400'
                     }`}
                   >
+                    {/* Mini Live Preview Thumbnail */}
+                    <div
+                      className="relative w-full h-44 bg-slate-900/5 overflow-hidden border-b border-gray-100 cursor-pointer group/thumb"
+                      onClick={() => setPreviewTemplate(template)}
+                      title="Click to view full screen preview"
+                    >
+                      <div className="absolute inset-0 origin-top-left scale-[0.30] w-[333.3%] h-[333.3%] pointer-events-none select-none">
+                        <iframe
+                          srcDoc={template.html}
+                          title={template.name}
+                          className="w-full h-full border-0 bg-white"
+                          tabIndex={-1}
+                          sandbox="allow-same-origin"
+                        />
+                      </div>
+
+                      {/* Hover Fullscreen Prompt */}
+                      <div className="absolute inset-0 bg-indigo-950/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white font-bold text-xs backdrop-blur-2xs">
+                        <Eye className="w-4 h-4" />
+                        <span>Click for Full Preview 🔍</span>
+                      </div>
+                    </div>
+
                     {/* Visual Card Header */}
                     <div className="p-5 space-y-3">
                       <div className="flex items-center justify-between">
@@ -263,7 +286,10 @@ export function LandingTemplateModal({
                       </div>
 
                       <div>
-                        <h3 className="font-extrabold text-base text-gray-900 group-hover:text-indigo-600 transition-colors">
+                        <h3
+                          className="font-extrabold text-base text-gray-900 group-hover:text-indigo-600 transition-colors cursor-pointer"
+                          onClick={() => setPreviewTemplate(template)}
+                        >
                           {template.name}
                         </h3>
                         <p className="text-xs text-gray-500 mt-1 line-clamp-2 leading-relaxed">

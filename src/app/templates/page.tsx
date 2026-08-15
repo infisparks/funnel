@@ -263,8 +263,31 @@ export default function TemplatesPage() {
           {filteredTemplates.map((template) => (
             <div
               key={template.id}
-              className="group bg-white rounded-3xl border border-gray-200 hover:border-indigo-300 transition-all duration-200 flex flex-col justify-between overflow-hidden shadow-2xs hover:shadow-lg"
+              className="group bg-white rounded-3xl border border-gray-200 hover:border-indigo-400 transition-all duration-300 flex flex-col justify-between overflow-hidden shadow-2xs hover:shadow-xl hover:-translate-y-1"
             >
+              {/* Mini Live Page Preview Thumbnail */}
+              <div
+                className="relative w-full h-52 bg-slate-900/5 overflow-hidden border-b border-gray-200/80 cursor-pointer group/thumb"
+                onClick={() => setPreviewTemplate(template)}
+                title="Click to open full page preview"
+              >
+                <div className="absolute inset-0 origin-top-left scale-[0.32] w-[312.5%] h-[312.5%] pointer-events-none select-none">
+                  <iframe
+                    srcDoc={template.html}
+                    title={template.name}
+                    className="w-full h-full border-0 bg-white"
+                    tabIndex={-1}
+                    sandbox="allow-same-origin"
+                  />
+                </div>
+
+                {/* Hover Fullscreen Prompt */}
+                <div className="absolute inset-0 bg-indigo-950/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center gap-2 text-white font-bold text-xs backdrop-blur-2xs">
+                  <Eye className="w-4.5 h-4.5" />
+                  <span>Click for Full Screen Preview 🔍</span>
+                </div>
+              </div>
+
               <div className="p-6 space-y-4">
                 <div className="flex items-center justify-between">
                   <span
@@ -281,7 +304,10 @@ export default function TemplatesPage() {
                 </div>
 
                 <div>
-                  <h3 className="font-extrabold text-lg text-gray-900 group-hover:text-indigo-600 transition-colors">
+                  <h3
+                    className="font-extrabold text-lg text-gray-900 group-hover:text-indigo-600 transition-colors cursor-pointer"
+                    onClick={() => setPreviewTemplate(template)}
+                  >
                     {template.name}
                   </h3>
                   <p className="text-xs text-gray-500 mt-1.5 line-clamp-2 leading-relaxed">
@@ -307,7 +333,7 @@ export default function TemplatesPage() {
                   onClick={() => setPreviewTemplate(template)}
                   className="px-3.5 py-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-200/80 border border-gray-200 transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
-                  <Eye className="w-3.5 h-3.5" /> Preview
+                  <Eye className="w-3.5 h-3.5" /> Full Preview
                 </button>
 
                 <div className="flex items-center gap-1.5">
