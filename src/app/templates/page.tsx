@@ -265,13 +265,14 @@ export default function TemplatesPage() {
               key={template.id}
               className="group bg-white rounded-3xl border border-gray-200 hover:border-indigo-400 transition-all duration-300 flex flex-col justify-between overflow-hidden shadow-2xs hover:shadow-xl hover:-translate-y-1"
             >
-              {/* Mini Live Page Preview Thumbnail */}
+              {/* Mini Mobile Hero Section Preview Thumbnail */}
               <div
-                className="relative w-full h-52 bg-slate-900/5 overflow-hidden border-b border-gray-200/80 cursor-pointer group/thumb"
+                className="relative w-full h-64 bg-slate-900/5 overflow-hidden border-b border-gray-200/80 cursor-pointer group/thumb flex items-center justify-center p-3"
                 onClick={() => setPreviewTemplate(template)}
-                title="Click to open full page preview"
+                title="Click to view full mobile preview"
               >
-                <div className="absolute inset-0 origin-top-left scale-[0.32] w-[312.5%] h-[312.5%] pointer-events-none select-none">
+                {/* Mobile Device Screen Container */}
+                <div className="relative w-[375px] h-[520px] origin-top scale-[0.46] rounded-[32px] overflow-hidden border-[6px] border-slate-900 shadow-2xl bg-white pointer-events-none select-none shrink-0">
                   <iframe
                     srcDoc={template.html}
                     title={template.name}
@@ -282,9 +283,9 @@ export default function TemplatesPage() {
                 </div>
 
                 {/* Hover Fullscreen Prompt */}
-                <div className="absolute inset-0 bg-indigo-950/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center gap-2 text-white font-bold text-xs backdrop-blur-2xs">
-                  <Eye className="w-4.5 h-4.5" />
-                  <span>Click for Full Screen Preview 🔍</span>
+                <div className="absolute inset-0 bg-indigo-950/50 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center gap-2 text-white font-bold text-xs backdrop-blur-2xs">
+                  <Smartphone className="w-4.5 h-4.5" />
+                  <span>View Mobile Preview 📱</span>
                 </div>
               </div>
 
@@ -333,7 +334,7 @@ export default function TemplatesPage() {
                   onClick={() => setPreviewTemplate(template)}
                   className="px-3.5 py-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-200/80 border border-gray-200 transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
-                  <Eye className="w-3.5 h-3.5" /> Full Preview
+                  <Smartphone className="w-3.5 h-3.5" /> Mobile Preview
                 </button>
 
                 <div className="flex items-center gap-1.5">
@@ -379,44 +380,22 @@ export default function TemplatesPage() {
         </div>
       )}
 
-      {/* MODAL 1: Live Interactive Preview */}
+      {/* MODAL 1: Live Mobile Phone Preview (Dedicated Mobile View) */}
       {previewTemplate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-xs font-sans animate-in fade-in duration-150">
-          <div className="bg-white border border-gray-200 rounded-3xl w-full max-w-6xl h-[90vh] shadow-2xl flex flex-col overflow-hidden">
+          <div className="bg-white border border-gray-200 rounded-3xl w-full max-w-2xl h-[92vh] shadow-2xl flex flex-col overflow-hidden">
             <div className="px-6 py-3.5 bg-white border-b border-gray-200 flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-3">
-                <h3 className="font-extrabold text-base text-gray-900">{previewTemplate.name}</h3>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                  {previewTemplate.category}
-                </span>
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <Smartphone className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-gray-900">{previewTemplate.name}</h3>
+                  <span className="text-[11px] text-gray-500">Mobile Conversion Preview</span>
+                </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <div className="flex items-center bg-gray-100 p-1 rounded-xl border border-gray-200">
-                  <button
-                    type="button"
-                    onClick={() => setPreviewViewport('desktop')}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                      previewViewport === 'desktop'
-                        ? 'bg-white shadow-2xs text-indigo-600'
-                        : 'text-gray-500 hover:text-gray-800'
-                    }`}
-                  >
-                    <Monitor className="w-3.5 h-3.5" /> Desktop
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPreviewViewport('mobile')}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                      previewViewport === 'mobile'
-                        ? 'bg-white shadow-2xs text-indigo-600'
-                        : 'text-gray-500 hover:text-gray-800'
-                    }`}
-                  >
-                    <Smartphone className="w-3.5 h-3.5" /> Mobile
-                  </button>
-                </div>
-
+              <div className="flex items-center gap-2.5">
                 <Button
                   variant="primary"
                   size="sm"
@@ -432,25 +411,31 @@ export default function TemplatesPage() {
                 <button
                   type="button"
                   onClick={() => setPreviewTemplate(null)}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
 
-            <div className="flex-1 p-4 bg-gray-100 flex items-center justify-center overflow-auto">
-              <div
-                className={`bg-white rounded-2xl shadow-xl border border-gray-300 overflow-hidden transition-all duration-300 h-full ${
-                  previewViewport === 'mobile' ? 'w-[375px] max-h-[720px]' : 'w-full h-full'
-                }`}
-              >
-                <iframe
-                  title="Live Preview"
-                  srcDoc={previewTemplate.html}
-                  className="w-full h-full border-0"
-                  sandbox="allow-scripts allow-same-origin allow-forms"
-                />
+            {/* Mobile Device Frame */}
+            <div className="flex-1 p-4 sm:p-6 bg-slate-900/5 flex items-center justify-center overflow-auto">
+              <div className="w-[375px] h-[680px] rounded-[42px] bg-slate-900 p-3 shadow-2xl relative border-4 border-slate-700 shrink-0">
+                {/* Dynamic Island / Speaker Pill */}
+                <div className="absolute top-5 left-1/2 -translate-x-1/2 w-24 h-4 bg-slate-950 rounded-full z-20" />
+
+                {/* Screen */}
+                <div className="w-full h-full rounded-[32px] overflow-hidden bg-white relative">
+                  <iframe
+                    title="Mobile Live Preview"
+                    srcDoc={previewTemplate.html}
+                    className="w-full h-full border-0 bg-white pt-5"
+                    sandbox="allow-scripts allow-same-origin allow-forms"
+                  />
+                </div>
+
+                {/* Home Indicator */}
+                <div className="absolute bottom-5 left-1/2 -translate-x-1/2 w-28 h-1 bg-white/40 rounded-full z-20 pointer-events-none" />
               </div>
             </div>
           </div>
