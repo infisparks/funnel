@@ -35,6 +35,9 @@ import { HtmlCodeEditorModal } from '@/components/landing/HtmlCodeEditorModal';
 import { CustomDomainModal } from '@/components/landing/CustomDomainModal';
 import { ThreePopupFunnelModal, PopupThemeConfig } from '@/components/funnel/ThreePopupFunnelModal';
 import { SurveyQuestion } from '@/components/funnel/SurveyBuilderModal';
+import { LandingTemplateModal } from '@/components/landing/LandingTemplateModal';
+import { LandingTemplate } from '@/lib/landingTemplates';
+import { supabase } from '@/lib/supabaseClient';
 
 interface LandingPageClientProps {
   initialHtmlCode: string;
@@ -78,11 +81,38 @@ export function LandingPageClient({
   const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isDomainModalOpen, setIsDomainModalOpen] = useState(false);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [isPopupFunnelOpen, setIsPopupFunnelOpen] = useState(false);
   const [isSavingSupabase, setIsSavingSupabase] = useState(false);
   const [supabaseToastMsg, setSupabaseToastMsg] = useState('');
   const [isCopiedDomain, setIsCopiedDomain] = useState(false);
   const [iframeKey, setIframeKey] = useState(0);
+
+  // Apply chosen pre-built landing page template
+  const handleApplyTemplate = async (template: LandingTemplate) => {
+    setHtmlCode(template.html);
+    if (template.triggerButtons && template.triggerButtons.length > 0) {
+      setTriggerButtons(template.triggerButtons);
+    }
+    setIframeKey((prev) => prev + 1);
+
+    try {
+      if (workspace?.id) {
+        await supabase
+          .from('funnel_workspaces')
+          .update({
+            landing_html: template.html,
+            trigger_buttons: template.triggerButtons || triggerButtons,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', workspace.id);
+      }
+      setSupabaseToastMsg(`🎉 Applied "${template.name}" template to your landing page!`);
+      setTimeout(() => setSupabaseToastMsg(''), 4500);
+    } catch (err) {
+      console.error('Error saving template:', err);
+    }
+  };
 
   // Target Button Trigger Picker state & component visibility
   const [isPickerActive, setIsPickerActive] = useState(false);
@@ -384,6 +414,16 @@ export function LandingPageClient({
 
         {/* Action Controls Toolbar */}
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsTemplateModalOpen(true)}
+            leftIcon={<Sparkles className="w-3.5 h-3.5 text-indigo-600" />}
+            className="text-xs font-bold bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 border-indigo-200"
+          >
+            🎨 Browse Templates
+          </Button>
+
           <Button
             variant="outline"
             size="sm"
@@ -762,6 +802,12 @@ export function LandingPageClient({
         onComplete={(lead) => {
           console.log('Lead captured via 3-Popup funnel:', lead);
         }}
+      />
+
+      <LandingTemplateModal
+        isOpen={isTemplateModalOpen}
+        onClose={() => setIsTemplateModalOpen(false)}
+        onSelectTemplate={handleApplyTemplate}
       />
     </MainLayout>
   );

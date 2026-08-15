@@ -47,6 +47,9 @@ import {
   FileText,
 } from 'lucide-react';
 import { PopupThemeConfig, SurveyQuestion, SuccessButton } from '@/components/funnel/ThreePopupFunnelModal';
+import { LandingTemplateModal } from '@/components/landing/LandingTemplateModal';
+import { LandingTemplate } from '@/lib/landingTemplates';
+import { supabase } from '@/lib/supabaseClient';
 
 const DEFAULT_POPUP_THEME: PopupThemeConfig = {
   primaryColor: '#8146F0',
@@ -225,6 +228,27 @@ export default function CustomizeStudioPage() {
   const [fullJsonText, setFullJsonText] = useState('');
   const [jsonCopied, setJsonCopied] = useState(false);
   const [jsonError, setJsonError] = useState<string | null>(null);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [appliedToast, setAppliedToast] = useState('');
+
+  const handleApplyTemplate = async (template: LandingTemplate) => {
+    try {
+      if (workspace?.id) {
+        await supabase
+          .from('funnel_workspaces')
+          .update({
+            landing_html: template.html,
+            trigger_buttons: template.triggerButtons,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', workspace.id);
+      }
+      setAppliedToast(`🎉 Applied "${template.name}" template successfully!`);
+      setTimeout(() => setAppliedToast(''), 4000);
+    } catch (err) {
+      console.error('Error applying template:', err);
+    }
+  };
 
   useEffect(() => {
     if (workspace) {
@@ -445,6 +469,16 @@ export default function CustomizeStudioPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsTemplateModalOpen(true)}
+              leftIcon={<Sparkles className="w-3.5 h-3.5 text-indigo-600" />}
+              className="text-xs font-bold bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 border-indigo-200"
+            >
+              🎨 Browse Templates
+            </Button>
+
             <Button
               variant="outline"
               size="sm"
