@@ -43,6 +43,11 @@ export function ClientDrawer() {
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [isSavingMeet, setIsSavingMeet] = useState(false);
 
+  const [followupDate, setFollowupDate] = useState(selectedClient?.followup_date || selectedClient?.followupDate || '');
+  const [staffNotesHistory, setStaffNotesHistory] = useState<any[]>(
+    Array.isArray(selectedClient?.staff_notes) ? selectedClient.staff_notes : []
+  );
+
   // WhatsApp Logs & Messenger state
   const [whatsappLogs, setWhatsappLogs] = useState<any[]>(
     Array.isArray(selectedClient?.whatsapp_logs) ? selectedClient.whatsapp_logs : []
@@ -97,6 +102,8 @@ export function ClientDrawer() {
       setPipelineStage(selectedClient.step_progress || 'step1_contact');
       setDealValue(selectedClient.deal_value || '');
       setStaffNotes(Array.isArray(selectedClient.staff_notes) ? selectedClient.staff_notes : []);
+      setStaffNotesHistory(Array.isArray(selectedClient.staff_notes) ? selectedClient.staff_notes : []);
+      setFollowupDate(selectedClient.followup_date || selectedClient.followupDate || '');
       setGoogleMeetUrl(
         selectedClient.google_meet_url || selectedClient.googleMeetUrl || 'https://meet.google.com/qbi-erbq-moy'
       );
@@ -107,9 +114,7 @@ export function ClientDrawer() {
     }
   }, [selectedClient]);
 
-  if (!isOpen || !selectedClient) return null;
-
-  const initials = (selectedClient.name || 'Lead')
+  const initials = (selectedClient?.name || 'Lead')
     .split(' ')
     .map((n: string) => n[0])
     .join('')
@@ -118,7 +123,7 @@ export function ClientDrawer() {
 
   // Send Direct Immediate WhatsApp Message
   const handleSendDirectWhatsapp = async () => {
-    if (!directWaMessage.trim() || !selectedClient.phone) return;
+    if (!selectedClient || !selectedClient.phone || !directWaMessage.trim()) return;
     setIsSendingWa(true);
     setWaSendStatus(null);
     try {
@@ -169,7 +174,7 @@ export function ClientDrawer() {
 
   // Schedule Message in Google Cloud Tasks Queue
   const handleScheduleGcpWhatsapp = async () => {
-    if (!directWaMessage.trim() || !selectedClient.phone || !waScheduleDateTime) {
+    if (!selectedClient || !selectedClient.phone || !directWaMessage.trim() || !waScheduleDateTime) {
       alert('Please fill in message text and select a valid future date & time.');
       return;
     }
@@ -217,7 +222,7 @@ export function ClientDrawer() {
 
   // Confirm and Reschedule Meeting with Instant Notification
   const handleRescheduleMeeting = async () => {
-    if (!selectedClient?.id) return;
+    if (!selectedClient || !selectedClient.id) return;
     setIsRescheduling(true);
     setRescheduleStatus(null);
     try {
@@ -283,7 +288,6 @@ export function ClientDrawer() {
   };
 
   // Save followup date
-  const [followupDate, setFollowupDate] = useState(selectedClient?.followup_date || selectedClient?.followupDate || '');
   const handleSaveFollowupDate = async (val: string) => {
     setFollowupDate(val);
     if (selectedClient?.id) {
@@ -292,9 +296,6 @@ export function ClientDrawer() {
   };
 
   // Add a new staff note
-  const [staffNotesHistory, setStaffNotesHistory] = useState<any[]>(
-    Array.isArray(selectedClient?.staff_notes) ? selectedClient.staff_notes : []
-  );
   const handleAddStaffNote = async () => {
     if (!noteText.trim() || !selectedClient?.id) return;
     setIsSavingNote(true);
@@ -344,7 +345,7 @@ export function ClientDrawer() {
   };
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(`https://infisparkfunnel.com/survey/${selectedClient.id || 1}`);
+    navigator.clipboard.writeText(`https://infisparkfunnel.com/survey/${selectedClient?.id || 1}`);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
   };
@@ -354,6 +355,8 @@ export function ClientDrawer() {
     setCopiedMeet(true);
     setTimeout(() => setCopiedMeet(false), 2000);
   };
+
+  if (!isOpen || !selectedClient) return null;
 
   return (
     <>
