@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  gcp-whatsapp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: funnel-gcp-whatsapp-server
+    restart: unless-stopped
+    ports:
+      - "5005:5005"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=5005
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5005/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s

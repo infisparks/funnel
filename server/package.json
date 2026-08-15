@@ -1,0 +1,19 @@
+{
+  "name": "funnel-gcp-whatsapp-server",
+  "version": "1.0.0",
+  "description": "Production Node.js Backend Server for GCP Cloud Tasks Scheduling and WhatsApp Automation",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "@google-cloud/tasks": "^5.5.0",
+    "@supabase/supabase-js": "^2.49.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "InfiSpark",
+  "license": "ISC"
+}
