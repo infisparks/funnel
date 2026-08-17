@@ -67,6 +67,36 @@ export function StandaloneSurveyClient({ workspace }: StandaloneSurveyClientProp
     setHasSavedDetails(false);
   };
 
+  const lookupLeadByPhone = async (rawPhone: string): Promise<any> => {
+    if (!rawPhone) return null;
+    const digits = rawPhone.replace(/\D/g, '');
+    const last10 = digits.length >= 10 ? digits.slice(-10) : digits;
+    if (!last10) return null;
+
+    try {
+      let query = supabase
+        .from('leads')
+        .select('id, name, email, phone, step_progress, survey_responses, meeting_date, meeting_time')
+        .or(`phone.ilike.%${last10}%,phone.eq.${rawPhone.trim()},phone.eq.${digits}`);
+
+      if (workspace?.id) {
+        query = query.eq('funnel_id', workspace.id);
+      } else if (workspace?.user_id) {
+        query = query.eq('user_id', workspace.user_id);
+      }
+
+      const { data } = await query
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      return data || null;
+    } catch (err) {
+      console.error('[Survey Phone Lookup Error]:', err);
+      return null;
+    }
+  };
+
   const handleSelectOption = (qId: string, opt: string) => {
     const questionObj = surveyQuestions.find((q: any) => q.id === qId || q.label === qId);
     const keyToUse = questionObj?.label || qId;
@@ -81,21 +111,10 @@ export function StandaloneSurveyClient({ workspace }: StandaloneSurveyClientProp
         let activeLeadId = savedLeadId;
 
         if (!activeLeadId && cleanPhone) {
-          let phoneQuery = supabase
-            .from('leads')
-            .select('id')
-            .eq('phone', cleanPhone);
-          if (workspace?.id) phoneQuery = phoneQuery.eq('funnel_id', workspace.id);
-          else if (workspace?.user_id) phoneQuery = phoneQuery.eq('user_id', workspace.user_id);
-
-          const { data: found } = await phoneQuery
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-          if (found?.id) {
-            activeLeadId = found.id;
-            setSavedLeadId(found.id);
+          const matched = await lookupLeadByPhone(cleanPhone);
+          if (matched?.id) {
+            activeLeadId = matched.id;
+            setSavedLeadId(matched.id);
           }
         }
 
@@ -134,20 +153,10 @@ export function StandaloneSurveyClient({ workspace }: StandaloneSurveyClientProp
 
     try {
       if (!activeLeadId && cleanPhone) {
-        let phoneQuery = supabase
-          .from('leads')
-          .select('id')
-          .eq('phone', cleanPhone);
-        if (workspace?.id) phoneQuery = phoneQuery.eq('funnel_id', workspace.id);
-        else if (workspace?.user_id) phoneQuery = phoneQuery.eq('user_id', workspace.user_id);
-
-        const { data: found } = await phoneQuery
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (found?.id) {
-          activeLeadId = found.id;
+        const matched = await lookupLeadByPhone(cleanPhone);
+        if (matched?.id) {
+          activeLeadId = matched.id;
+          setSavedLeadId(matched.id);
         }
       }
 

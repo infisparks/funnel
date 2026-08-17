@@ -43,19 +43,26 @@ export function StandaloneMeetingClient({ workspace }: StandaloneMeetingClientPr
       meeting_time: meetingTime,
     };
 
+    const cleanPhone = (phone || '').trim();
+    const digits = cleanPhone.replace(/\D/g, '');
+    const last10 = digits.length >= 10 ? digits.slice(-10) : digits;
+
     try {
       let targetId = null;
-      const cleanPhone = (phone || '').trim();
 
-      if (cleanPhone) {
-        let phoneQuery = supabase
+      if (last10) {
+        let query = supabase
           .from('leads')
           .select('id')
-          .eq('phone', cleanPhone);
-        if (workspace?.id) phoneQuery = phoneQuery.eq('funnel_id', workspace.id);
-        else if (workspace?.user_id) phoneQuery = phoneQuery.eq('user_id', workspace.user_id);
+          .or(`phone.ilike.%${last10}%,phone.eq.${cleanPhone},phone.eq.${digits}`);
 
-        const { data: found } = await phoneQuery
+        if (workspace?.id) {
+          query = query.eq('funnel_id', workspace.id);
+        } else if (workspace?.user_id) {
+          query = query.eq('user_id', workspace.user_id);
+        }
+
+        const { data: found } = await query
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();

@@ -390,6 +390,36 @@ export function ThreePopupFunnelModal({
     } catch (err) {}
   };
 
+  const lookupLeadByPhone = async (rawPhone: string): Promise<any> => {
+    if (!rawPhone) return null;
+    const digits = rawPhone.replace(/\D/g, '');
+    const last10 = digits.length >= 10 ? digits.slice(-10) : digits;
+    if (!last10) return null;
+
+    try {
+      let query = supabase
+        .from('leads')
+        .select('id, name, email, phone, step_progress, survey_responses, meeting_date, meeting_time')
+        .or(`phone.ilike.%${last10}%,phone.eq.${rawPhone.trim()},phone.eq.${digits}`);
+
+      if (funnelId) {
+        query = query.eq('funnel_id', funnelId);
+      } else if (userId) {
+        query = query.eq('user_id', userId);
+      }
+
+      const { data } = await query
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      return data || null;
+    } catch (err) {
+      console.error('[Phone Lookup Error]:', err);
+      return null;
+    }
+  };
+
   const handleStep1Submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !phone || !email) {
@@ -404,24 +434,14 @@ export function ThreePopupFunnelModal({
     try {
       // 1. Phone Deduplication Check strictly within THIS funnel
       if (!activeLeadId && cleanPhone) {
-        try {
-          let phoneQuery = supabase
-            .from('leads')
-            .select('id')
-            .eq('phone', cleanPhone);
-          if (funnelId) phoneQuery = phoneQuery.eq('funnel_id', funnelId);
-          else if (userId) phoneQuery = phoneQuery.eq('user_id', userId);
-
-          const { data: phoneMatch } = await phoneQuery
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-          if (phoneMatch?.id) {
-            activeLeadId = phoneMatch.id;
-            setExistingLeadId(phoneMatch.id);
+        const matched = await lookupLeadByPhone(cleanPhone);
+        if (matched?.id) {
+          activeLeadId = matched.id;
+          setExistingLeadId(matched.id);
+          if (matched.survey_responses && Object.keys(matched.survey_responses).length > 0) {
+            setSurveyAnswers((prev) => ({ ...matched.survey_responses, ...prev }));
           }
-        } catch (err) {}
+        }
       }
 
       const step1Payload: any = {
@@ -470,9 +490,13 @@ export function ThreePopupFunnelModal({
             .insert({ name, email, phone: cleanPhone, step_progress: 'step1_contact' })
             .select()
             .maybeSingle();
-          if (fbData?.id) activeLeadId = fbData.id;
+          if (fbData?.id) {
+            activeLeadId = fbData.id;
+            setExistingLeadId(fbData.id);
+          }
         } else if (data?.id) {
           activeLeadId = data.id;
+          setExistingLeadId(data.id);
         }
       }
 
@@ -506,22 +530,16 @@ export function ThreePopupFunnelModal({
       let targetId = existingLeadId;
       const cleanPhone = phone.trim();
       if (!targetId && cleanPhone) {
-        const { data: found } = await supabase
-          .from('leads')
-          .select('id')
-          .eq('phone', cleanPhone)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (found?.id) {
-          targetId = found.id;
-          setExistingLeadId(found.id);
+        const matched = await lookupLeadByPhone(cleanPhone);
+        if (matched?.id) {
+          targetId = matched.id;
+          setExistingLeadId(matched.id);
         }
       }
 
       const payload: any = {
-        name,
-        email,
+        name: name || 'Lead',
+        email: email || '',
         phone: cleanPhone,
         step_progress: 'survey_completed',
         survey_responses: responses,
@@ -532,7 +550,7 @@ export function ThreePopupFunnelModal({
       if (targetId) {
         await supabase.from('leads').update(payload).eq('id', targetId);
         console.log('[Supabase Sync] Updated survey responses for lead ID:', targetId, responses);
-      } else if (name || cleanPhone) {
+      } else if (cleanPhone) {
         const { data: inserted } = await supabase.from('leads').insert(payload).select('id').maybeSingle();
         if (inserted?.id) {
           setExistingLeadId(inserted.id);
@@ -586,25 +604,20 @@ export function ThreePopupFunnelModal({
       const cleanPhone = phone.trim();
 
       if (!targetId && cleanPhone) {
-        let phoneQuery = supabase
-          .from('leads')
-          .select('id')
-          .eq('phone', cleanPhone);
-        if (funnelId) phoneQuery = phoneQuery.eq('funnel_id', funnelId);
-        else if (userId) phoneQuery = phoneQuery.eq('user_id', userId);
-
-        const { data: found } = await phoneQuery
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (found?.id) targetId = found.id;
+        const matched = await lookupLeadByPhone(cleanPhone);
+        if (matched?.id) {
+          targetId = matched.id;
+          setExistingLeadId(matched.id);
+        }
       }
 
       if (targetId) {
         await supabase.from('leads').update(finalLeadPayload).eq('id', targetId);
       } else {
-        await supabase.from('leads').insert(finalLeadPayload);
+        const { data: inserted } = await supabase.from('leads').insert(finalLeadPayload).select('id').maybeSingle();
+        if (inserted?.id) {
+          setExistingLeadId(inserted.id);
+        }
       }
     } catch (err) {
       console.error('Error inserting/updating lead in Supabase:', err);

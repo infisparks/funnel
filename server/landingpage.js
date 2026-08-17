@@ -536,11 +536,14 @@ async function captureLead(body, supabase) {
 
   // Check phone deduplication STRICTLY within THIS funnel_id
   let existingLeadId = body.lead_id || null;
-  if (!existingLeadId && cleanPhone) {
+  const digits = cleanPhone.replace(/\D/g, '');
+  const last10 = digits.length >= 10 ? digits.slice(-10) : digits;
+
+  if (!existingLeadId && last10) {
     let phoneQuery = supabase
       .from('leads')
       .select('id')
-      .eq('phone', cleanPhone);
+      .or(`phone.ilike.%${last10}%,phone.eq.${cleanPhone},phone.eq.${digits}`);
 
     if (resolvedFunnelId) phoneQuery = phoneQuery.eq('funnel_id', resolvedFunnelId);
     else if (resolvedUserId) phoneQuery = phoneQuery.eq('user_id', resolvedUserId);
