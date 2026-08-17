@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button, Badge, Card } from '@/components/ui';
 import { useAuth } from '@/components/auth/AuthContext';
@@ -23,14 +23,21 @@ import {
   Globe,
   Palette,
   FileCode,
+  Share2,
+  Download,
 } from 'lucide-react';
 import { LANDING_PAGE_TEMPLATES, LandingTemplate } from '@/lib/landingTemplates';
+import { ShareLandingModal } from '@/components/landing/ShareLandingModal';
+import { ImportSharedDesignModal, SharedDesignData } from '@/components/landing/ImportSharedDesignModal';
+import { Suspense } from 'react';
 
-export default function TemplatesPage() {
+function TemplatesContent() {
   const router = useRouter();
-  const { workspace } = useAuth();
+  const searchParams = useSearchParams();
+  const { user, workspace, saveWorkspaceConfig } = useAuth();
 
   const [templates, setTemplates] = useState<LandingTemplate[]>(LANDING_PAGE_TEMPLATES);
+  const [sharedWithMeList, setSharedWithMeList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -39,6 +46,9 @@ export default function TemplatesPage() {
   const [previewTemplate, setPreviewTemplate] = useState<LandingTemplate | null>(null);
   const [previewViewport, setPreviewViewport] = useState<'desktop' | 'mobile'>('desktop');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importShareCode, setImportShareCode] = useState('');
   const [appliedToast, setAppliedToast] = useState('');
 
   // Add Template Form State
@@ -83,7 +93,6 @@ export default function TemplatesPage() {
         }));
         setTemplates(formatted);
       } else {
-        // Fallback to default templates
         setTemplates(LANDING_PAGE_TEMPLATES);
       }
     } catch (err) {
@@ -94,11 +103,48 @@ export default function TemplatesPage() {
     }
   };
 
+  // Fetch designs shared with current user's email
+  const fetchSharedWithMe = async () => {
+    try {
+      let query = supabase.from('shared_landing_designs').select('*');
+      if (user?.email) {
+        query = query.or(`recipient_email.ilike.%${user.email.trim()}%,recipient_email.is.null`);
+      }
+      const { data } = await query.order('created_at', { ascending: false });
+      if (data && data.length > 0) {
+        setSharedWithMeList(data);
+      }
+    } catch (err) {
+      console.warn('Error fetching shared designs:', err);
+    }
+  };
+
   useEffect(() => {
     fetchTemplatesFromSupabase();
-  }, []);
+    fetchSharedWithMe();
+  }, [user]);
 
-  const categories = ['All', 'Consulting', 'SaaS', 'Coaching', 'Real Estate', 'Healthcare', 'E-Commerce'];
+  // Detect shared link query params (e.g. /templates?share_code=SLP-7X8K or ?import=SLP-7X8K)
+  useEffect(() => {
+    const code = searchParams.get('share_code') || searchParams.get('import');
+    if (code) {
+      setImportShareCode(code);
+      setIsImportModalOpen(true);
+    }
+  }, [searchParams]);
+
+  const categories = [
+    'All',
+    ...(sharedWithMeList.length > 0 ? [`Shared With Me (${sharedWithMeList.length})`] : ['Shared With Me']),
+    'Consulting',
+    'SaaS',
+    'Coaching',
+    'Real Estate',
+    'Healthcare',
+    'E-Commerce',
+  ];
+
+  const isSharedTab = selectedCategory.startsWith('Shared With Me');
 
   const filteredTemplates = templates.filter((tpl) => {
     const matchesCat = selectedCategory === 'All' || tpl.category === selectedCategory;
@@ -109,23 +155,64 @@ export default function TemplatesPage() {
     return matchesCat && matchesQuery;
   });
 
+  const filteredSharedList = sharedWithMeList.filter((item) => {
+    const matchesQuery =
+      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.sender_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.sender_email || '').toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesQuery;
+  });
+
   // 1-Click Apply Template to Active Workspace
   const handleApplyTemplate = async (template: LandingTemplate) => {
     try {
-      if (workspace?.id) {
-        await supabase
-          .from('funnel_workspaces')
-          .update({
-            landing_html: template.html,
-            trigger_buttons: template.triggerButtons,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', workspace.id);
-      }
+      await saveWorkspaceConfig({
+        landing_html: template.html,
+        trigger_buttons: template.triggerButtons,
+      });
       setAppliedToast(`🎉 Applied "${template.name}" to your workspace landing page!`);
       setTimeout(() => setAppliedToast(''), 4500);
     } catch (err: any) {
       alert(`Error applying template: ${err.message}`);
+    }
+  };
+
+  // 1-Click Apply Shared Design to Active Workspace
+  const handleApplyImportedToWorkspace = async (design: SharedDesignData) => {
+    try {
+      await saveWorkspaceConfig({
+        landing_html: design.landing_html,
+        trigger_buttons: design.trigger_buttons || [],
+        popup_theme: design.popup_theme || {},
+        survey_questions: design.survey_questions || [],
+      });
+      setAppliedToast(`🎉 Imported "${design.title}" by ${design.creator_name || 'User'} into your live workspace!`);
+      setTimeout(() => setAppliedToast(''), 4500);
+    } catch (err) {
+      console.error('Error applying imported design:', err);
+    }
+  };
+
+  // 1-Click Save Shared Design into Templates Library Store
+  const handleSaveImportedToTemplates = async (design: SharedDesignData) => {
+    try {
+      const newId = `tpl_${Date.now()}`;
+      await supabase.from('landing_templates').insert({
+        id: newId,
+        name: design.title,
+        category: design.category || 'Consulting',
+        badge: 'Imported Shared Design',
+        accent_color: design.popup_theme?.primaryColor || '#8146F0',
+        description: `Shared by ${design.creator_name || 'User'}. ${design.description || ''}`,
+        trigger_buttons: design.trigger_buttons || [],
+        features: ['Imported Shared Design', 'High Converting', 'Mobile Ready'],
+        html: design.landing_html,
+      });
+      await fetchTemplatesFromSupabase();
+      setAppliedToast(`💾 Added "${design.title}" to your Templates Library!`);
+      setTimeout(() => setAppliedToast(''), 4500);
+    } catch (err) {
+      console.error('Error saving template:', err);
     }
   };
 
@@ -207,14 +294,32 @@ export default function TemplatesPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsImportModalOpen(true)}
+              leftIcon={<Download className="w-3.5 h-3.5 text-indigo-600" />}
+              className="bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 border-indigo-200 font-semibold"
+            >
+              📥 Import Shared Design
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsShareModalOpen(true)}
+              leftIcon={<Share2 className="w-3.5 h-3.5 text-indigo-600" />}
+              className="bg-indigo-50/50 hover:bg-indigo-100/80 text-indigo-700 border-indigo-200"
+            >
+              Share Page & Design
+            </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={() => router.push('/landing')}
               leftIcon={<Globe className="w-3.5 h-3.5" />}
             >
-              View Active Landing Page
+              View Active Page
             </Button>
             <Button
               variant="primary"
@@ -222,10 +327,39 @@ export default function TemplatesPage() {
               onClick={() => setIsAddModalOpen(true)}
               leftIcon={<Plus className="w-4 h-4" />}
             >
-              ➕ Add New Template
+              ➕ Add Template
             </Button>
           </div>
         </div>
+
+        {/* Shared With Me Notification Banner */}
+        {sharedWithMeList.length > 0 && !isSharedTab && (
+          <div className="p-3.5 bg-indigo-50/80 border border-indigo-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                🎁
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-indigo-950">
+                  You have {sharedWithMeList.length} landing page design(s) shared with you!
+                </h3>
+                <p className="text-[11px] text-indigo-700">
+                  Other funnel users have granted you access to their landing page designs.
+                </p>
+              </div>
+            </div>
+
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setSelectedCategory(categories[1])}
+              leftIcon={<Sparkles className="w-3.5 h-3.5" />}
+              className="text-xs font-semibold shrink-0"
+            >
+              View Shared Designs ({sharedWithMeList.length})
+            </Button>
+          </div>
+        )}
 
         {/* Filters & Search */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-3.5 bg-white p-3 rounded-2xl border border-gray-200 shadow-2xs">
@@ -258,7 +392,159 @@ export default function TemplatesPage() {
           </div>
         </div>
 
-        {/* Template Grid */}
+        {/* SHARED WITH ME TEMPLATES GRID */}
+        {isSharedTab && (
+          <div>
+            {filteredSharedList.length === 0 ? (
+              <div className="text-center py-16 px-4 bg-white rounded-3xl border border-gray-200 shadow-2xs space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mx-auto">
+                  <Share2 className="w-6 h-6" />
+                </div>
+                <h3 className="text-sm font-bold text-gray-900">
+                  No Shared Designs Found Yet
+                </h3>
+                <p className="text-xs text-gray-500 max-w-sm mx-auto">
+                  When other funnel users share their landing page design with your email ({user?.email || 'registered email'}), they will automatically appear here for 1-click import.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredSharedList.map((item) => (
+                  <div
+                    key={item.id}
+                    className="group bg-white rounded-3xl border border-indigo-200 hover:border-indigo-500 transition-all duration-300 flex flex-col justify-between overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1"
+                  >
+                    {/* Screen Showcase */}
+                    <div
+                      className="relative w-full h-[380px] bg-gradient-to-b from-indigo-50/70 via-gray-100 to-slate-200/90 overflow-hidden cursor-pointer group/thumb flex items-center justify-center p-3 sm:p-4"
+                      onClick={() =>
+                        setPreviewTemplate({
+                          id: item.id,
+                          name: item.title,
+                          category: item.category || 'Shared',
+                          badge: 'Shared with You',
+                          accentColor: item.popup_theme?.primaryColor || '#8146F0',
+                          description: item.description || '',
+                          triggerButtons: item.trigger_buttons || [],
+                          features: ['Shared Design', '1-Click Import'],
+                          html: item.landing_html,
+                        })
+                      }
+                      title="Click for full preview"
+                    >
+                      <div className="w-[200px] h-[340px] rounded-[32px] bg-slate-950 p-2 shadow-2xl border-[3px] border-slate-700 relative flex flex-col shrink-0">
+                        <div className="w-14 h-2.5 bg-slate-900 rounded-full mx-auto mb-1.5 shrink-0" />
+                        <div className="w-full flex-1 rounded-[22px] overflow-hidden bg-white relative">
+                          <div className="w-[375px] h-[600px] origin-top-left scale-[0.49] absolute inset-0 pointer-events-none select-none">
+                            <iframe
+                              srcDoc={item.landing_html}
+                              title={item.title}
+                              className="w-full h-full border-0 bg-white"
+                              tabIndex={-1}
+                              sandbox="allow-scripts allow-same-origin"
+                            />
+                          </div>
+                        </div>
+                        <div className="w-12 h-1 bg-white/40 rounded-full mx-auto mt-1.5 shrink-0" />
+                      </div>
+
+                      <div className="absolute top-3 left-3 bg-indigo-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md flex items-center gap-1">
+                        <Sparkles className="w-3 h-3" />
+                        <span>Shared with You</span>
+                      </div>
+
+                      <div className="absolute inset-0 bg-indigo-950/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center gap-2 text-white font-bold text-xs backdrop-blur-2xs">
+                        <Smartphone className="w-4 h-4" />
+                        <span>Click for Full Preview 📱</span>
+                      </div>
+                    </div>
+
+                    {/* Footer Details */}
+                    <div className="p-4 bg-white border-t border-gray-100 flex flex-col gap-3">
+                      <div>
+                        <div className="flex items-center justify-between gap-2">
+                          <h3
+                            className="font-extrabold text-sm text-gray-900 group-hover:text-indigo-600 transition-colors truncate cursor-pointer"
+                            onClick={() =>
+                              setPreviewTemplate({
+                                id: item.id,
+                                name: item.title,
+                                category: (item.category as any) || 'Consulting',
+                                badge: 'Shared with You',
+                                accentColor: item.popup_theme?.primaryColor || '#8146F0',
+                                description: item.description || '',
+                                triggerButtons: item.trigger_buttons || [],
+                                features: ['Shared Design', '1-Click Import'],
+                                html: item.landing_html,
+                              })
+                            }
+                          >
+                            {item.title}
+                          </h3>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 text-[11px] text-gray-500 mt-1">
+                          <span className="font-semibold text-indigo-700">
+                            By {item.sender_name || item.sender_email || 'User'}
+                          </span>
+                          <span>•</span>
+                          <span>{new Date(item.created_at).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPreviewTemplate({
+                              id: item.id,
+                              name: item.title,
+                              category: (item.category as any) || 'Consulting',
+                              badge: 'Shared with You',
+                              accentColor: item.popup_theme?.primaryColor || '#8146F0',
+                              description: item.description || '',
+                              triggerButtons: item.trigger_buttons || [],
+                              features: ['Shared Design', '1-Click Import'],
+                              html: item.landing_html,
+                            })
+                          }
+                          className="flex-1 py-2.5 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-100 border border-gray-200 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <Smartphone className="w-3.5 h-3.5" /> Preview
+                        </button>
+
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() =>
+                            handleApplyTemplate({
+                              id: item.id,
+                              name: item.title,
+                              category: (item.category as any) || 'Consulting',
+                              badge: 'Shared Design',
+                              accentColor: item.popup_theme?.primaryColor || '#8146F0',
+                              description: item.description || '',
+                              triggerButtons: item.trigger_buttons || [],
+                              features: ['Shared Design'],
+                              html: item.landing_html,
+                            })
+                          }
+                          leftIcon={<Sparkles className="w-3.5 h-3.5" />}
+                          className="flex-1 py-2.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
+                        >
+                          Import & Apply 🚀
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* DEFAULT TEMPLATES GRID */}
+        {!isSharedTab && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredTemplates.map((template) => (
             <div
@@ -355,6 +641,7 @@ export default function TemplatesPage() {
             </div>
           ))}
         </div>
+        )}
       </div>
 
       {/* Floating Success Toast */}
@@ -590,6 +877,44 @@ export default function TemplatesPage() {
           </div>
         </div>
       )}
+
+      <ShareLandingModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        subdomain={workspace?.subdomain || ''}
+        customDomain={workspace?.custom_domain || 'firstoption.cloud'}
+        htmlCode={workspace?.landing_html || ''}
+        triggerButtons={workspace?.trigger_buttons || []}
+        popupTheme={workspace?.popup_theme || {}}
+        surveyQuestions={workspace?.survey_questions || []}
+      />
+
+      <ImportSharedDesignModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        initialShareCode={importShareCode}
+        onApplyToWorkspace={handleApplyImportedToWorkspace}
+        onSaveToTemplateStore={handleSaveImportedToTemplates}
+      />
     </MainLayout>
+  );
+}
+
+export default function TemplatesPage() {
+  return (
+    <Suspense
+      fallback={
+        <MainLayout>
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="flex items-center gap-2 text-xs font-semibold text-gray-500">
+              <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse" />
+              <span>Loading Templates Library...</span>
+            </div>
+          </div>
+        </MainLayout>
+      }
+    >
+      <TemplatesContent />
+    </Suspense>
   );
 }

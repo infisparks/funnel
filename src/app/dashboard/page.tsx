@@ -44,13 +44,26 @@ export default function ExecutiveCrmDashboard() {
   const [isLoadingLeads, setIsLoadingLeads] = useState(true);
 
   const fetchUserIsolatedLeads = async () => {
+    if (!user) {
+      setLeadsData([]);
+      setIsLoadingLeads(false);
+      return;
+    }
+
     setIsLoadingLeads(true);
     try {
-      // Query MASTER LEADS TABLE 'leads' directly from Supabase
-      const { data, error } = await supabase
+      let query = supabase
         .from('leads')
         .select('*')
         .order('created_at', { ascending: false });
+
+      if (workspace?.id) {
+        query = query.or(`user_id.eq.${user.id},funnel_id.eq.${workspace.id}`);
+      } else {
+        query = query.eq('user_id', user.id);
+      }
+
+      const { data, error } = await query;
 
       if (!error) {
         setLeadsData(data || []);
@@ -67,7 +80,9 @@ export default function ExecutiveCrmDashboard() {
   };
 
   useEffect(() => {
-    fetchUserIsolatedLeads();
+    if (user) {
+      fetchUserIsolatedLeads();
+    }
   }, [user, workspace]);
 
   const filteredLeads = leadsData.filter((lead) => {

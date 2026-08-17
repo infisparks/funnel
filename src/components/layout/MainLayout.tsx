@@ -1,14 +1,43 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { ThemeCustomizer } from '../theme/ThemeCustomizer';
 import { useTheme } from '../theme/ThemeProvider';
 import { ClientDrawer } from '../client/ClientDrawer';
+import { useAuth } from '../auth/AuthContext';
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const { isMobileOpen, setIsMobileOpen } = useTheme();
+  const { user, loading } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // If user is not authenticated and not in public flow, redirect to /login
+  useEffect(() => {
+    if (!loading && !user && pathname !== '/login') {
+      router.replace('/login');
+    }
+  }, [user, loading, router, pathname]);
+
+  // Loading spinner while checking auth session
+  if (loading) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-[#F5F6F8]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-3 border-indigo-600 border-t-transparent animate-spin" />
+          <p className="text-xs font-semibold text-[#6B7280]">Loading workspace...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If not logged in, render nothing (router is redirecting to /login)
+  if (!user && pathname !== '/login') {
+    return null;
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#F5F6F8] text-[#111827] font-sans antialiased">

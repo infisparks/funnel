@@ -29,6 +29,8 @@ import {
   Layers,
   ChevronDown,
   ChevronUp,
+  Share2,
+  Download,
 } from 'lucide-react';
 import { DEFAULT_LANDING_HTML } from '@/lib/defaultLandingHtml';
 import { HtmlCodeEditorModal } from '@/components/landing/HtmlCodeEditorModal';
@@ -36,6 +38,8 @@ import { CustomDomainModal } from '@/components/landing/CustomDomainModal';
 import { ThreePopupFunnelModal, PopupThemeConfig } from '@/components/funnel/ThreePopupFunnelModal';
 import { SurveyQuestion } from '@/components/funnel/SurveyBuilderModal';
 import { LandingTemplateModal } from '@/components/landing/LandingTemplateModal';
+import { ShareLandingModal } from '@/components/landing/ShareLandingModal';
+import { ImportSharedDesignModal, SharedDesignData } from '@/components/landing/ImportSharedDesignModal';
 import { LandingTemplate } from '@/lib/landingTemplates';
 import { supabase } from '@/lib/supabaseClient';
 
@@ -82,6 +86,9 @@ export function LandingPageClient({
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isDomainModalOpen, setIsDomainModalOpen] = useState(false);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importShareCode, setImportShareCode] = useState('');
   const [isPopupFunnelOpen, setIsPopupFunnelOpen] = useState(false);
   const [isSavingSupabase, setIsSavingSupabase] = useState(false);
   const [supabaseToastMsg, setSupabaseToastMsg] = useState('');
@@ -97,21 +104,40 @@ export function LandingPageClient({
     setIframeKey((prev) => prev + 1);
 
     try {
-      if (workspace?.id) {
-        await supabase
-          .from('funnel_workspaces')
-          .update({
-            landing_html: template.html,
-            trigger_buttons: template.triggerButtons || triggerButtons,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', workspace.id);
-      }
+      await saveWorkspaceConfig({
+        landing_html: template.html,
+        trigger_buttons: template.triggerButtons || triggerButtons,
+      });
       setSupabaseToastMsg(`🎉 Applied "${template.name}" template to your landing page!`);
       setTimeout(() => setSupabaseToastMsg(''), 4500);
     } catch (err) {
       console.error('Error saving template:', err);
     }
+  };
+
+  // Apply imported shared landing page design
+  const handleApplyImportedDesign = async (design: SharedDesignData) => {
+    if (design.landing_html) setHtmlCode(design.landing_html);
+    if (design.trigger_buttons && design.trigger_buttons.length > 0) {
+      setTriggerButtons(design.trigger_buttons);
+    }
+    if (design.popup_theme && Object.keys(design.popup_theme).length > 0) {
+      setPopupTheme(design.popup_theme);
+    }
+    if (design.survey_questions && design.survey_questions.length > 0) {
+      setSurveyQuestions(design.survey_questions);
+    }
+    setIframeKey((prev) => prev + 1);
+
+    setIsSavingSupabase(true);
+    await saveWorkspaceConfig({
+      landing_html: design.landing_html,
+      trigger_buttons: design.trigger_buttons || triggerButtons,
+      popup_theme: design.popup_theme || popupTheme,
+      survey_questions: design.survey_questions || surveyQuestions,
+    });
+    setIsSavingSupabase(false);
+    showToast(`🎉 Applied shared design "${design.title}" by ${design.creator_name || 'User'}!`);
   };
 
   // Target Button Trigger Picker state & component visibility
@@ -135,11 +161,7 @@ export function LandingPageClient({
       if (workspace.popup_theme && Object.keys(workspace.popup_theme).length > 0) {
         setPopupTheme(workspace.popup_theme);
       }
-    } else if (typeof window !== 'undefined') {
-      const cached = localStorage.getItem('landing_custom_html');
-      if (cached && cached.trim()) {
-        setHtmlCode((prev) => (!prev || prev === DEFAULT_LANDING_HTML ? cached : prev));
-      }
+      setIframeKey((prev) => prev + 1);
     }
   }, [workspace]);
 
@@ -147,11 +169,18 @@ export function LandingPageClient({
   useEffect(() => {
     if (initialHtmlCode && initialHtmlCode.trim() && initialHtmlCode !== DEFAULT_LANDING_HTML) {
       setHtmlCode(initialHtmlCode);
+      setIframeKey((prev) => prev + 1);
     }
   }, [initialHtmlCode]);
 
-  // Auto-open modal if URL contains ?step=detail, ?step=survey, or ?step=meeting
+  // Check URL searchParams for share_code / import or step triggers
   useEffect(() => {
+    const shareCodeParam = searchParams.get('share_code') || searchParams.get('import');
+    if (shareCodeParam) {
+      setImportShareCode(shareCodeParam);
+      setIsImportModalOpen(true);
+    }
+
     const step = searchParams.get('step');
     if (step && ['detail', 'survey', 'meeting', 'confirmation'].includes(step.toLowerCase())) {
       setIsPopupFunnelOpen(true);
@@ -427,6 +456,26 @@ export function LandingPageClient({
           <Button
             variant="outline"
             size="sm"
+            onClick={() => setIsShareModalOpen(true)}
+            leftIcon={<Share2 className="w-3.5 h-3.5 text-indigo-600" />}
+            className="text-xs font-semibold bg-indigo-50/50 hover:bg-indigo-100/80 text-indigo-700 border-indigo-200"
+          >
+            Share Page & Design
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsImportModalOpen(true)}
+            leftIcon={<Download className="w-3.5 h-3.5 text-indigo-600" />}
+            className="text-xs font-semibold hover:bg-gray-100"
+          >
+            Import Shared Design
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleSyncToSupabase}
             isLoading={isSavingSupabase}
             leftIcon={<Database className="w-3.5 h-3.5 text-gray-500" />}
@@ -482,6 +531,14 @@ export function LandingPageClient({
               <ExternalLink className="w-3.5 h-3.5" />
             </a>
           </div>
+
+          <button
+            onClick={() => setIsShareModalOpen(true)}
+            className="px-2.5 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <Share2 className="w-3.5 h-3.5" />
+            <span>Share</span>
+          </button>
 
           <button
             onClick={() => setIsDomainModalOpen(true)}
@@ -716,24 +773,33 @@ export function LandingPageClient({
 
         {/* Live Iframe Sandbox Preview Area */}
         <div className="p-4 sm:p-6 bg-[#F5F6F8] min-h-[750px] flex items-center justify-center overflow-x-auto relative">
-          {isPickerActive && (
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 px-3.5 py-1.5 rounded-full bg-[#111827] text-white text-xs font-medium shadow-xl flex items-center gap-2 border border-gray-700 animate-bounce">
-              <span className="w-2 h-2 rounded-full bg-indigo-400 animate-ping" />
-              <span>Click any button in preview to add to Triggers</span>
+          {!isPublicView && !workspace ? (
+            <div className="w-full h-[700px] flex flex-col items-center justify-center bg-white rounded-2xl border border-[#E5E7EB] shadow-2xs space-y-3">
+              <div className="w-8 h-8 rounded-full border-3 border-indigo-600 border-t-transparent animate-spin" />
+              <p className="text-xs font-semibold text-[#6B7280]">
+                Loading your private landing page design from Supabase...
+              </p>
             </div>
-          )}
+          ) : (
+            <>
+              {isPickerActive && (
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 px-3.5 py-1.5 rounded-full bg-[#111827] text-white text-xs font-medium shadow-xl flex items-center gap-2 border border-gray-700 animate-bounce">
+                  <span className="w-2 h-2 rounded-full bg-indigo-400 animate-ping" />
+                  <span>Click any button in preview to add to Triggers</span>
+                </div>
+              )}
 
-          {viewport === 'desktop' && (
-            <div className="w-full shadow-sm rounded-xl overflow-hidden bg-white border border-[#E5E7EB]">
-              <iframe
-                key={iframeKey}
-                srcDoc={processedHtmlCode}
-                title="Live Landing Page Preview Desktop"
-                className="w-full h-[750px] border-0 block"
-                sandbox="allow-scripts allow-forms"
-              />
-            </div>
-          )}
+              {viewport === 'desktop' && (
+                <div className="w-full shadow-sm rounded-xl overflow-hidden bg-white border border-[#E5E7EB]">
+                  <iframe
+                    key={iframeKey}
+                    srcDoc={processedHtmlCode}
+                    title="Live Landing Page Preview Desktop"
+                    className="w-full h-[750px] border-0 block"
+                    sandbox="allow-scripts allow-forms"
+                  />
+                </div>
+              )}
 
           {viewport === 'tablet' && (
             <div className="w-[768px] max-w-[768px] h-[750px] shrink-0 shadow-2xl rounded-[32px] overflow-hidden bg-[#0F172A] p-3 border-[6px] border-[#1E293B] my-4 relative flex flex-col">
@@ -774,6 +840,8 @@ export function LandingPageClient({
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-32 h-1 bg-black/50 rounded-full z-20 pointer-events-none" />
             </div>
           )}
+          </>
+          )}
         </div>
       </div>
 
@@ -808,6 +876,24 @@ export function LandingPageClient({
         isOpen={isTemplateModalOpen}
         onClose={() => setIsTemplateModalOpen(false)}
         onSelectTemplate={handleApplyTemplate}
+      />
+
+      <ShareLandingModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        subdomain={subdomain}
+        customDomain={customDomain}
+        htmlCode={htmlCode}
+        triggerButtons={triggerButtons}
+        popupTheme={popupTheme}
+        surveyQuestions={surveyQuestions}
+      />
+
+      <ImportSharedDesignModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        initialShareCode={importShareCode}
+        onApplyToWorkspace={handleApplyImportedDesign}
       />
     </MainLayout>
   );

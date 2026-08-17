@@ -74,7 +74,7 @@ export function isMeetingPassed(meetingDate?: string, meetingTime?: string): boo
 }
 
 export default function MeetingsCalendarPage() {
-  const { user } = useAuth();
+  const { user, workspace } = useAuth();
   const { openClientDrawer } = useClientDrawer();
 
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -90,12 +90,26 @@ export default function MeetingsCalendarPage() {
   const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   const fetchLeads = async () => {
+    if (!user) {
+      setLeads([]);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('leads')
         .select('*')
         .order('created_at', { ascending: false });
+
+      if (workspace?.id) {
+        query = query.or(`user_id.eq.${user.id},funnel_id.eq.${workspace.id}`);
+      } else {
+        query = query.eq('user_id', user.id);
+      }
+
+      const { data, error } = await query;
 
       if (!error && data) {
         setLeads(data);
@@ -111,7 +125,9 @@ export default function MeetingsCalendarPage() {
   };
 
   useEffect(() => {
-    fetchLeads();
+    if (user) {
+      fetchLeads();
+    }
 
     const savedMeet = typeof window !== 'undefined' ? localStorage.getItem('workspace_google_meet_url') : null;
     const savedPin = typeof window !== 'undefined' ? localStorage.getItem('workspace_delete_pin') : null;
@@ -138,7 +154,7 @@ export default function MeetingsCalendarPage() {
         console.error('Error loading workspace settings:', err);
       }
     })();
-  }, []);
+  }, [user, workspace]);
 
   const handleSaveMeetSettings = async (e: React.FormEvent) => {
     e.preventDefault();

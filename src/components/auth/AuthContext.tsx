@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { User, Session } from '@supabase/supabase-js';
 import { usePathname, useRouter } from 'next/navigation';
+import { DEFAULT_LANDING_HTML } from '@/lib/defaultLandingHtml';
 
 export interface PopupThemeConfig {
   primaryColor?: string;
@@ -64,7 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(currentSession?.user || null);
 
         if (currentSession?.user) {
-          await fetchUserWorkspace(currentSession.user.id);
+          await fetchUserWorkspace(currentSession.user.id, currentSession.user);
         }
       } catch (err) {
         console.error('Error fetching auth session:', err);
@@ -81,7 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(newSession?.user || null);
 
       if (newSession?.user) {
-        await fetchUserWorkspace(newSession.user.id);
+        await fetchUserWorkspace(newSession.user.id, newSession.user);
       } else {
         setWorkspace(null);
       }
@@ -94,7 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Fetch single workspace record for logged in user
-  const fetchUserWorkspace = async (userId: string) => {
+  const fetchUserWorkspace = async (userId: string, userObj?: User) => {
     try {
       const { data, error } = await supabase
         .from('funnel_workspaces')
@@ -108,6 +109,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('Error fetching workspace:', error);
       } else if (data) {
         setWorkspace(data);
+      } else {
+        // Automatically create a private isolated workspace for new user
+        const emailPrefix = userObj?.email?.split('@')[0] || `user${Math.floor(1000 + Math.random() * 9000)}`;
+        const cleanSub = emailPrefix.toLowerCase().replace(/[^a-z0-9-]/g, '');
+
+        const { data: createdWs, error: createError } = await supabase
+          .from('funnel_workspaces')
+          .insert({
+            user_id: userId,
+            subdomain: cleanSub || `user${Math.floor(1000 + Math.random() * 9000)}`,
+            custom_domain: `${cleanSub || 'user'}.firstoption.cloud`,
+            landing_html: DEFAULT_LANDING_HTML,
+            trigger_buttons: ['Claim Free Strategy Session', 'Get Started Free'],
+            popup_theme: { primaryColor: '#8146F0', themeMode: 'dark' },
+            survey_questions: [
+              {
+                id: 'q1',
+                label: 'Select Your Primary Industry',
+                options: ['Service Business', 'E-commerce', 'Consulting / Agency', 'Doctor / Clinic'],
+                allowMultiple: false,
+              },
+            ],
+          })
+          .select()
+          .single();
+
+        if (!createError && createdWs) {
+          setWorkspace(createdWs);
+        }
       }
     } catch (err) {
       console.error('Error fetching user workspace:', err);
@@ -122,54 +152,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const payload: Partial<UserWorkspace> = {
-        user_id: user.id,
-        subdomain: config.subdomain || workspace?.subdomain || 'client1',
-        custom_domain: config.custom_domain || workspace?.custom_domain || 'firstoption.cloud',
-        landing_html: config.landing_html !== undefined ? config.landing_html : workspace?.landing_html || '<h1>My Funnel</h1>',
-        survey_questions: config.survey_questions !== undefined ? config.survey_questions : workspace?.survey_questions || [],
-        trigger_buttons: config.trigger_buttons !== undefined ? config.trigger_buttons : workspace?.trigger_buttons || [],
-        popup_theme: config.popup_theme !== undefined ? config.popup_theme : workspace?.popup_theme || {},
+      const updatePayload: any = {
         updated_at: new Date().toISOString(),
       };
 
-      // Perform upsert on unique user_id
-      const { data, error } = await supabase
+      if (config.landing_html !== undefined) updatePayload.landing_html = config.landing_html;
+      if (config.trigger_buttons !== undefined) updatePayload.trigger_buttons = config.trigger_buttons;
+      if (config.popup_theme !== undefined) updatePayload.popup_theme = config.popup_theme;
+      if (config.survey_questions !== undefined) updatePayload.survey_questions = config.survey_questions;
+      if (config.subdomain !== undefined) updatePayload.subdomain = config.subdomain;
+      if (config.custom_domain !== undefined) updatePayload.custom_domain = config.custom_domain;
+
+      // 1. Update existing workspace row for this user_id
+      const { data: updated, error: updateError } = await supabase
         .from('funnel_workspaces')
-        .upsert(payload, { onConflict: 'user_id' })
+        .update(updatePayload)
+        .eq('user_id', user.id)
+        .select()
+        .maybeSingle();
+
+      if (updateError) {
+        console.error('Supabase Update Error:', updateError);
+        throw updateError;
+      }
+
+      if (updated) {
+        setWorkspace(updated);
+        return true;
+      }
+
+      // 2. If row does not exist yet for this user_id, insert a new record
+      const defaultSub = (user.email?.split('@')[0] || `user${Math.floor(1000 + Math.random() * 9000)}`)
+        .toLowerCase()
+        .replace(/[^a-z0-9-]/g, '');
+
+      const insertPayload = {
+        user_id: user.id,
+        subdomain: config.subdomain || defaultSub,
+        custom_domain: config.custom_domain || `${config.subdomain || defaultSub}.firstoption.cloud`,
+        landing_html: config.landing_html !== undefined ? config.landing_html : DEFAULT_LANDING_HTML,
+        trigger_buttons: config.trigger_buttons !== undefined ? config.trigger_buttons : ['Claim Free Strategy Session'],
+        popup_theme: config.popup_theme !== undefined ? config.popup_theme : { primaryColor: '#8146F0', themeMode: 'dark' },
+        survey_questions: config.survey_questions !== undefined ? config.survey_questions : [],
+        updated_at: new Date().toISOString(),
+      };
+
+      const { data: inserted, error: insertError } = await supabase
+        .from('funnel_workspaces')
+        .insert(insertPayload)
         .select()
         .single();
 
-      if (error) {
-        console.error('Supabase Upsert Error:', error);
-        // Fallback: Check if record exists
-        const { data: existing } = await supabase
-          .from('funnel_workspaces')
-          .select('id')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        if (existing) {
-          const { data: updated, error: updateError } = await supabase
-            .from('funnel_workspaces')
-            .update(payload)
-            .eq('user_id', user.id)
-            .select()
-            .single();
-          if (updateError) throw updateError;
-          if (updated) setWorkspace(updated);
-        } else {
-          const { data: inserted, error: insertError } = await supabase
-            .from('funnel_workspaces')
-            .insert(payload)
-            .select()
-            .single();
-          if (insertError) throw insertError;
-          if (inserted) setWorkspace(inserted);
-        }
-      } else if (data) {
-        setWorkspace(data);
-      }
+      if (insertError) throw insertError;
+      if (inserted) setWorkspace(inserted);
 
       return true;
     } catch (err: any) {

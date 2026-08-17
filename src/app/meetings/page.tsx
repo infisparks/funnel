@@ -23,7 +23,7 @@ import Link from 'next/link';
 import { isMeetingPassed } from '../calendar/page';
 
 export default function ScheduledMeetingsPage() {
-  const { user } = useAuth();
+  const { user, workspace } = useAuth();
   const { openClientDrawer } = useClientDrawer();
 
   const [leads, setLeads] = useState<any[]>([]);
@@ -31,12 +31,26 @@ export default function ScheduledMeetingsPage() {
   const [googleMeetUrl, setGoogleMeetUrl] = useState('https://meet.google.com/qbi-erbq-moy');
 
   const fetchMeetings = async () => {
+    if (!user) {
+      setLeads([]);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('leads')
         .select('*')
         .order('created_at', { ascending: false });
+
+      if (workspace?.id) {
+        query = query.or(`user_id.eq.${user.id},funnel_id.eq.${workspace.id}`);
+      } else {
+        query = query.eq('user_id', user.id);
+      }
+
+      const { data, error } = await query;
 
       if (!error && data) {
         // Filter leads with meeting_date or meeting_booked
@@ -53,7 +67,9 @@ export default function ScheduledMeetingsPage() {
   };
 
   useEffect(() => {
-    fetchMeetings();
+    if (user) {
+      fetchMeetings();
+    }
 
     (async () => {
       try {
@@ -70,7 +86,7 @@ export default function ScheduledMeetingsPage() {
         console.error('Error loading workspace google meet:', err);
       }
     })();
-  }, []);
+  }, [user, workspace]);
 
   return (
     <MainLayout>

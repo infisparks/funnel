@@ -51,23 +51,23 @@ export function LeadsTable() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
   const fetchUserLeadsOnly = async () => {
+    if (!user) {
+      setLeads([]);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     try {
-      // MASTER TABLE IN SUPABASE: 'leads'
-      // FILTER RULE (STRICT ISOLATION): Only fetch leads where user_id matches logged-in user OR funnel_id matches workspace.id!
       let query = supabase
         .from('leads')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (user?.id) {
-        if (workspace?.id) {
-          query = query.or(`user_id.eq.${user.id},funnel_id.eq.${workspace.id}`);
-        } else {
-          query = query.eq('user_id', user.id);
-        }
-      } else if (workspace?.id) {
-        query = query.eq('funnel_id', workspace.id);
+      if (workspace?.id) {
+        query = query.or(`user_id.eq.${user.id},funnel_id.eq.${workspace.id}`);
+      } else {
+        query = query.eq('user_id', user.id);
       }
 
       const { data, error } = await query;
@@ -75,41 +75,20 @@ export function LeadsTable() {
       if (!error && data) {
         setLeads(data as LeadRecord[]);
       } else {
-        // Fallback demo isolated leads for testing if Supabase table is empty
-        setLeads([
-          {
-            id: 'lead_1',
-            created_at: new Date().toISOString(),
-            name: 'Sarah Connor',
-            email: 'sarah@designagency.io',
-            phone: '+91 9876543210',
-            step_progress: 'meeting_booked',
-            meeting_date: '2026-08-11',
-            meeting_time: '02:00 PM',
-            survey_responses: { q1: 'Service Business' },
-            user_id: user?.id || 'demo_user',
-          },
-          {
-            id: 'lead_2',
-            created_at: new Date(Date.now() - 86400000).toISOString(),
-            name: 'Vikram Mehta',
-            email: 'vikram@mehtaenterprises.com',
-            phone: '+91 9123456789',
-            step_progress: 'step1_contact',
-            survey_responses: { q1: 'Manufacturer / B2B' },
-            user_id: user?.id || 'demo_user',
-          },
-        ]);
+        setLeads([]);
       }
     } catch (err) {
       console.error('Error fetching isolated leads:', err);
+      setLeads([]);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchUserLeadsOnly();
+    if (user) {
+      fetchUserLeadsOnly();
+    }
   }, [user, workspace]);
 
   // Client-side Filter Rules

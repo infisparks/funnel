@@ -45,9 +45,11 @@ import {
   HelpCircle,
   RotateCcw,
   FileText,
+  Share2,
 } from 'lucide-react';
 import { PopupThemeConfig, SurveyQuestion, SuccessButton } from '@/components/funnel/ThreePopupFunnelModal';
 import { LandingTemplateModal } from '@/components/landing/LandingTemplateModal';
+import { ShareLandingModal } from '@/components/landing/ShareLandingModal';
 import { LandingTemplate } from '@/lib/landingTemplates';
 import { supabase } from '@/lib/supabaseClient';
 
@@ -229,6 +231,7 @@ export default function CustomizeStudioPage() {
   const [jsonCopied, setJsonCopied] = useState(false);
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [appliedToast, setAppliedToast] = useState('');
 
   const handleApplyTemplate = async (template: LandingTemplate) => {
@@ -477,6 +480,16 @@ export default function CustomizeStudioPage() {
               className="text-xs font-bold bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 border-indigo-200"
             >
               🎨 Browse Templates
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsShareModalOpen(true)}
+              leftIcon={<Share2 className="w-3.5 h-3.5 text-indigo-600" />}
+              className="text-xs font-semibold bg-indigo-50/50 hover:bg-indigo-100/80 text-indigo-700 border-indigo-200"
+            >
+              Share Page
             </Button>
 
             <Button
@@ -1782,6 +1795,17 @@ export default function CustomizeStudioPage() {
         isOpen={isTemplateModalOpen}
         onClose={() => setIsTemplateModalOpen(false)}
         onSelectTemplate={handleApplyTemplate}
+      />
+
+      <ShareLandingModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        subdomain={workspace?.subdomain || ''}
+        customDomain={workspace?.custom_domain || 'firstoption.cloud'}
+        htmlCode={workspace?.landing_html || ''}
+        triggerButtons={workspace?.trigger_buttons || []}
+        popupTheme={theme}
+        surveyQuestions={surveyQuestions}
       />
     </MainLayout>
   );

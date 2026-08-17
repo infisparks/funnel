@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button, Card, Badge, SectionHeader } from '@/components/ui';
 import { useClientDrawer } from '@/components/client/ClientDrawerContext';
+import { useAuth } from '@/components/auth/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import {
   Plus,
@@ -38,6 +39,7 @@ const DEFAULT_STAGES: Stage[] = [
 ];
 
 export default function PipelinePage() {
+  const { user, workspace } = useAuth();
   const { openClientDrawer } = useClientDrawer();
 
   const [stages, setStages] = useState<Stage[]>(DEFAULT_STAGES);
@@ -58,13 +60,23 @@ export default function PipelinePage() {
 
   // Load Workspace Stages & Real Supabase Leads
   const fetchData = async () => {
+    if (!user) {
+      setLeads([]);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     try {
       // 1. Fetch Workspace Pipeline Stages
+      if (workspace?.id) {
+        setWorkspaceId(workspace.id);
+      }
+
       const { data: wsData } = await supabase
         .from('funnel_workspaces')
         .select('id, pipeline_stages')
-        .limit(1)
+        .eq('user_id', user.id)
         .maybeSingle();
 
       if (wsData?.id) setWorkspaceId(wsData.id);
@@ -75,12 +87,20 @@ export default function PipelinePage() {
         setStages(DEFAULT_STAGES);
       }
 
-      // 2. Fetch Real Leads
-      const { data: leadRows } = await supabase
+      // 2. Fetch Real Leads for this user
+      let query = supabase
         .from('leads')
         .select('*')
         .order('created_at', { ascending: false });
 
+      if (wsData?.id || workspace?.id) {
+        const activeWsId = wsData?.id || workspace?.id;
+        query = query.or(`user_id.eq.${user.id},funnel_id.eq.${activeWsId}`);
+      } else {
+        query = query.eq('user_id', user.id);
+      }
+
+      const { data: leadRows } = await query;
       setLeads(leadRows || []);
     } catch (err) {
       console.error('Error fetching pipeline data:', err);
@@ -90,8 +110,10 @@ export default function PipelinePage() {
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (user) {
+      fetchData();
+    }
+  }, [user, workspace]);
 
   // Save Pipeline Stages to Supabase Workspace
   const saveStagesToWorkspace = async (updatedStages: Stage[]) => {

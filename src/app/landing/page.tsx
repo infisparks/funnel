@@ -1,4 +1,4 @@
-import React, { Suspense } from 'react';
+import React from 'react';
 import { headers } from 'next/headers';
 import { LandingPageClient } from './LandingPageClient';
 import { DEFAULT_LANDING_HTML } from '@/lib/defaultLandingHtml';
@@ -12,28 +12,26 @@ interface SearchParamsProps {
   isPublic?: string;
 }
 
-// Server Component: Performs rapid edge-cached server-side fetch from Supabase
-async function fetchSupabaseWorkspaceOnServer(subdomain?: string, domain?: string) {
+// Server Component: Performs rapid fetch for PUBLIC published landing page view only
+async function fetchPublicSubdomainWorkspace(subdomain?: string, domain?: string) {
   try {
-    let targetSub = subdomain || domain || '';
+    let targetSub = (subdomain || domain || '').toLowerCase().trim();
     if (targetSub.endsWith('.firstoption.cloud')) {
       targetSub = targetSub.replace('.firstoption.cloud', '');
     }
 
-    let url = `${SUPABASE_URL}/rest/v1/funnel_workspaces?select=*`;
-
-    if (targetSub) {
-      url += `&or=(subdomain.eq.${encodeURIComponent(targetSub)},custom_domain.ilike.%${encodeURIComponent(targetSub)}%)`;
-    } else {
-      url += `&order=updated_at.desc&limit=1`;
+    if (!targetSub) {
+      return null;
     }
+
+    const url = `${SUPABASE_URL}/rest/v1/funnel_workspaces?select=*&or=(subdomain.eq.${encodeURIComponent(targetSub)},custom_domain.ilike.%${encodeURIComponent(targetSub)}%)&limit=1`;
 
     const res = await fetch(url, {
       headers: {
         apikey: SUPABASE_ANON_KEY,
         Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
       },
-      next: { revalidate: 15 }, // Rapid 15s edge cache - lightning fast 0ms loads
+      next: { revalidate: 10 }, // 10s edge cache for public visitors
     });
 
     if (res.ok) {
@@ -42,24 +40,8 @@ async function fetchSupabaseWorkspaceOnServer(subdomain?: string, domain?: strin
         return data[0];
       }
     }
-
-    // Fallback: Fetch latest workspace row if specific subdomain query had no match
-    const fallbackRes = await fetch(`${SUPABASE_URL}/rest/v1/funnel_workspaces?select=*&order=updated_at.desc&limit=1`, {
-      headers: {
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      },
-      next: { revalidate: 15 },
-    });
-
-    if (fallbackRes.ok) {
-      const fallbackData = await fallbackRes.json();
-      if (Array.isArray(fallbackData) && fallbackData.length > 0) {
-        return fallbackData[0];
-      }
-    }
   } catch (err) {
-    console.error('[Server Fetch Error] Failed to fetch workspace on server:', err);
+    console.error('[Public Server Fetch Error] Failed to fetch public workspace:', err);
   }
   return null;
 }
@@ -91,15 +73,28 @@ export default async function LandingPage({
     !!resolvedParams.domain ||
     isSubdomainHost;
 
-  // Perform zero-delay server-side fetch from Supabase
-  const serverWorkspace = await fetchSupabaseWorkspaceOnServer(subdomainName, resolvedParams.domain);
-  const initialHtml = serverWorkspace?.landing_html || DEFAULT_LANDING_HTML;
+  // If in CRM Admin mode, do NOT fetch random public workspace from server.
+  // The client will securely load only the authenticated user's workspace via AuthContext.
+  if (!isPublicView) {
+    return (
+      <LandingPageClient
+        initialHtmlCode=""
+        initialWorkspace={null}
+        isPublicView={false}
+        subdomainName=""
+      />
+    );
+  }
+
+  // PUBLIC VISITOR MODE: Fetch the specific published workspace by subdomain/domain
+  const publicWorkspace = await fetchPublicSubdomainWorkspace(subdomainName, resolvedParams.domain);
+  const initialHtml = publicWorkspace?.landing_html || DEFAULT_LANDING_HTML;
 
   return (
     <LandingPageClient
       initialHtmlCode={initialHtml}
-      initialWorkspace={serverWorkspace}
-      isPublicView={isPublicView}
+      initialWorkspace={publicWorkspace}
+      isPublicView={true}
       subdomainName={subdomainName}
     />
   );
