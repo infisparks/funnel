@@ -409,6 +409,7 @@ function buildInteractiveLandingHtml(workspace) {
             optGrid.querySelectorAll('.infi-slot-btn').forEach(b => b.classList.remove('selected'));
             btn.classList.add('selected');
             leadData.survey_responses[q.label || q.id] = opt;
+            submitLead('survey_completed');
           };
           optGrid.appendChild(btn);
         });
@@ -454,20 +455,20 @@ function buildInteractiveLandingHtml(workspace) {
       document.getElementById('infi-step-1').style.display = 'none';
       document.getElementById('infi-step-2').style.display = 'block';
       renderSurvey();
-      submitLead('step1_contact');
+      await submitLead('step1_contact');
     };
 
-    window.handleInfiStep2 = function() {
+    window.handleInfiStep2 = async function() {
       document.getElementById('infi-step-2').style.display = 'none';
       document.getElementById('infi-step-3').style.display = 'block';
-      submitLead('survey_completed');
+      await submitLead('survey_completed');
     };
 
-    window.handleInfiStep3 = function() {
+    window.handleInfiStep3 = async function() {
       leadData.meeting_date = document.getElementById('infi_meeting_date').value;
       document.getElementById('infi-step-3').style.display = 'none';
       document.getElementById('infi-step-4').style.display = 'block';
-      submitLead('meeting_booked');
+      await submitLead('meeting_booked');
     };
 
     // Auto-intercept clicks matching triggers

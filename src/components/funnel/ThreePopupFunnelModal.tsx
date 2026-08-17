@@ -455,48 +455,32 @@ export function ThreePopupFunnelModal({
 
       console.log('[Supabase Client-Side Upload] Submitting Step 1 contact payload to database:', step1Payload);
 
+      const clientGeneratedId = activeLeadId || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : null);
+
       // 2. Perform Direct Client-Side Supabase Upload FIRST
       if (activeLeadId) {
         const { data, error } = await supabase
           .from('leads')
           .update(step1Payload)
           .eq('id', activeLeadId)
-          .select()
+          .select('id')
           .maybeSingle();
 
-        if (error) {
-          console.error('[Supabase Error] Primary update failed, executing fallback update:', error);
-          const { data: fbData } = await supabase
-            .from('leads')
-            .update({ name, email, phone: cleanPhone, step_progress: 'step1_contact' })
-            .eq('id', activeLeadId)
-            .select()
-            .maybeSingle();
-          if (fbData?.id) activeLeadId = fbData.id;
-        } else if (data?.id) {
+        if (data?.id) {
           activeLeadId = data.id;
         }
       } else {
+        const insertPayload = clientGeneratedId ? { id: clientGeneratedId, ...step1Payload } : step1Payload;
         const { data, error } = await supabase
           .from('leads')
-          .insert(step1Payload)
-          .select()
+          .insert(insertPayload)
+          .select('id')
           .maybeSingle();
 
-        if (error) {
-          console.error('[Supabase Error] Primary insert failed, executing fallback insert:', error);
-          const { data: fbData } = await supabase
-            .from('leads')
-            .insert({ name, email, phone: cleanPhone, step_progress: 'step1_contact' })
-            .select()
-            .maybeSingle();
-          if (fbData?.id) {
-            activeLeadId = fbData.id;
-            setExistingLeadId(fbData.id);
-          }
-        } else if (data?.id) {
+        if (data?.id) {
           activeLeadId = data.id;
-          setExistingLeadId(data.id);
+        } else if (clientGeneratedId) {
+          activeLeadId = clientGeneratedId;
         }
       }
 
