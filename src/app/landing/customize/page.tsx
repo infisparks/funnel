@@ -236,20 +236,15 @@ export default function CustomizeStudioPage() {
 
   const handleApplyTemplate = async (template: LandingTemplate) => {
     try {
-      if (workspace?.id) {
-        await supabase
-          .from('funnel_workspaces')
-          .update({
-            landing_html: template.html,
-            trigger_buttons: template.triggerButtons,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', workspace.id);
-      }
+      await saveWorkspaceConfig({
+        landing_html: template.html,
+        trigger_buttons: template.triggerButtons,
+      });
       setAppliedToast(`🎉 Applied "${template.name}" template successfully!`);
       setTimeout(() => setAppliedToast(''), 4000);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error applying template:', err);
+      alert(`Error applying template: ${err.message}`);
     }
   };
 
