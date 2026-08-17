@@ -14,7 +14,7 @@ COPY package.json ./
 RUN npm install --omit=dev --no-audit --no-fund
 
 # Copy server code and configs
-COPY server.js whatappmanage.js ./
+COPY *.js ./
 COPY .env* ./
 
 # Expose backend port
