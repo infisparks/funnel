@@ -31,7 +31,7 @@ async function fetchPublicSubdomainWorkspace(subdomain?: string, domain?: string
         apikey: SUPABASE_ANON_KEY,
         Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
       },
-      next: { revalidate: 10 }, // 10s edge cache for public visitors
+      cache: 'no-store',
     });
 
     if (res.ok) {
