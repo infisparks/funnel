@@ -3,8 +3,7 @@ import { headers } from 'next/headers';
 import { LandingPageClient } from './LandingPageClient';
 import { DEFAULT_LANDING_HTML } from '@/lib/defaultLandingHtml';
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://seeaubtexmusuccgdvkk.supabase.co';
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...';
+import { supabase } from '@/lib/supabaseClient';
 
 interface SearchParamsProps {
   subdomain?: string;
@@ -24,24 +23,22 @@ async function fetchPublicSubdomainWorkspace(subdomain?: string, domain?: string
       return null;
     }
 
-    const url = `${SUPABASE_URL}/rest/v1/funnel_workspaces?select=*&or=(subdomain.eq.${encodeURIComponent(targetSub)},custom_domain.ilike.%${encodeURIComponent(targetSub)}%)&limit=1`;
+    const { data, error } = await supabase
+      .from('funnel_workspaces')
+      .select('*')
+      .or(`subdomain.eq.${targetSub},custom_domain.ilike.%${targetSub}%`)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-    const res = await fetch(url, {
-      headers: {
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      },
-      cache: 'no-store',
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        return data[0];
-      }
+    if (!error && data) {
+      return data;
+    }
+    if (error) {
+      console.error('[Public Server Fetch Error]:', error);
     }
   } catch (err) {
-    console.error('[Public Server Fetch Error] Failed to fetch public workspace:', err);
+    console.error('[Public Server Fetch Exception]:', err);
   }
   return null;
 }
