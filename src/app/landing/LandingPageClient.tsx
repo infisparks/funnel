@@ -863,8 +863,8 @@ export function LandingPageClient({
       <ThreePopupFunnelModal
         isOpen={isPopupFunnelOpen}
         onClose={() => setIsPopupFunnelOpen(false)}
-        funnelId={workspace?.id}
-        userId={user?.id}
+        funnelId={workspace?.id || initialWorkspace?.id}
+        userId={user?.id || initialWorkspace?.user_id}
         surveyQuestions={surveyQuestions}
         popupTheme={popupTheme}
         onComplete={(lead) => {

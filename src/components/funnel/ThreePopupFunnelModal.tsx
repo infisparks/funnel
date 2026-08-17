@@ -249,10 +249,14 @@ export function ThreePopupFunnelModal({
           const cleanPhone = phone.trim();
           let targetLeadId = existingLeadId;
           if (!targetLeadId && cleanPhone) {
-            const { data: found } = await supabase
+            let phoneQuery = supabase
               .from('leads')
               .select('id')
-              .eq('phone', cleanPhone)
+              .eq('phone', cleanPhone);
+            if (funnelId) phoneQuery = phoneQuery.eq('funnel_id', funnelId);
+            else if (userId) phoneQuery = phoneQuery.eq('user_id', userId);
+
+            const { data: found } = await phoneQuery
               .order('created_at', { ascending: false })
               .limit(1)
               .maybeSingle();
@@ -288,32 +292,31 @@ export function ThreePopupFunnelModal({
       const emailToSave = updatedEmail !== undefined ? updatedEmail : email;
       const phoneToSave = updatedPhone !== undefined ? updatedPhone : phone;
 
-      const existingSession = localStorage.getItem('lead_funnel_session');
-      const parsed = existingSession ? JSON.parse(existingSession) : {};
-
-      const newSession = {
-        ...parsed,
-        name: nameToSave,
-        email: emailToSave,
-        phone: phoneToSave,
-        leadId: existingLeadId || parsed.leadId,
-      };
-
-      localStorage.setItem('lead_funnel_session', JSON.stringify(newSession));
-      localStorage.setItem('lead_contact_info', JSON.stringify({ name: nameToSave, email: emailToSave, phone: phoneToSave }));
+      const storageKey = `lead_contact_info_${funnelId || 'default'}`;
+      localStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          name: nameToSave,
+          email: emailToSave,
+          phone: phoneToSave,
+          leadId: existingLeadId,
+          lastUpdated: new Date().toISOString(),
+        })
+      );
     } catch (err) {}
   };
 
-  // Inspect browser localStorage & URL search params when modal is opened
+  // Reset form when modal opens or load isolated saved session
   useEffect(() => {
     if (isOpen) {
       let initialStep: 1 | 2 | 3 | 4 = 1;
       let hasSavedDetails = false;
       let hasSavedSurvey = false;
 
-      // 1. Check browser localStorage for saved lead contact info and survey answers
       try {
-        const savedSession = localStorage.getItem('lead_funnel_session') || localStorage.getItem('lead_contact_info');
+        const storageKey = `lead_funnel_session_${funnelId || 'default'}`;
+        const contactKey = `lead_contact_info_${funnelId || 'default'}`;
+        const savedSession = localStorage.getItem(storageKey) || localStorage.getItem(contactKey);
         if (savedSession) {
           const parsed = JSON.parse(savedSession);
           if (parsed.name || parsed.email || parsed.phone) {
@@ -363,7 +366,7 @@ export function ThreePopupFunnelModal({
       setStep(initialStep);
       updateUrlStep(initialStep);
     }
-  }, [isOpen, surveyQuestions]);
+  }, [isOpen, surveyQuestions, funnelId]);
 
   if (!isOpen) return null;
 
@@ -372,8 +375,9 @@ export function ThreePopupFunnelModal({
       const answersToSave = updatedAnswers || surveyAnswers;
       const isFinished = isSurveyFinished ?? (Object.keys(answersToSave).length >= surveyQuestions.length);
       const activeLeadId = customLeadId || existingLeadId;
+      const storageKey = `lead_funnel_session_${funnelId || 'default'}`;
       localStorage.setItem(
-        'lead_funnel_session',
+        storageKey,
         JSON.stringify({
           name,
           email,
@@ -398,13 +402,17 @@ export function ThreePopupFunnelModal({
     const cleanPhone = phone.trim();
 
     try {
-      // 1. Phone Deduplication Check via client SDK
+      // 1. Phone Deduplication Check strictly within THIS funnel
       if (!activeLeadId && cleanPhone) {
         try {
-          const { data: phoneMatch } = await supabase
+          let phoneQuery = supabase
             .from('leads')
             .select('id')
-            .eq('phone', cleanPhone)
+            .eq('phone', cleanPhone);
+          if (funnelId) phoneQuery = phoneQuery.eq('funnel_id', funnelId);
+          else if (userId) phoneQuery = phoneQuery.eq('user_id', userId);
+
+          const { data: phoneMatch } = await phoneQuery
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle();
@@ -578,10 +586,14 @@ export function ThreePopupFunnelModal({
       const cleanPhone = phone.trim();
 
       if (!targetId && cleanPhone) {
-        const { data: found } = await supabase
+        let phoneQuery = supabase
           .from('leads')
           .select('id')
-          .eq('phone', cleanPhone)
+          .eq('phone', cleanPhone);
+        if (funnelId) phoneQuery = phoneQuery.eq('funnel_id', funnelId);
+        else if (userId) phoneQuery = phoneQuery.eq('user_id', userId);
+
+        const { data: found } = await phoneQuery
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();

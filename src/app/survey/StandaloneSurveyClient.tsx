@@ -35,7 +35,9 @@ export function StandaloneSurveyClient({ workspace }: StandaloneSurveyClientProp
   // Check browser localStorage on mount
   React.useEffect(() => {
     try {
-      const savedSession = localStorage.getItem('lead_funnel_session') || localStorage.getItem('lead_contact_info');
+      const storageKey = `lead_funnel_session_${workspace?.id || 'default'}`;
+      const contactKey = `lead_contact_info_${workspace?.id || 'default'}`;
+      const savedSession = localStorage.getItem(storageKey) || localStorage.getItem(contactKey);
       if (savedSession) {
         const parsed = JSON.parse(savedSession);
         if (parsed.name || parsed.email || parsed.phone) {
@@ -50,11 +52,13 @@ export function StandaloneSurveyClient({ workspace }: StandaloneSurveyClientProp
         }
       }
     } catch (err) {}
-  }, []);
+  }, [workspace]);
 
   const resetStandaloneSession = () => {
-    localStorage.removeItem('lead_funnel_session');
-    localStorage.removeItem('lead_contact_info');
+    const storageKey = `lead_funnel_session_${workspace?.id || 'default'}`;
+    const contactKey = `lead_contact_info_${workspace?.id || 'default'}`;
+    localStorage.removeItem(storageKey);
+    localStorage.removeItem(contactKey);
     setName('');
     setEmail('');
     setPhone('');
@@ -77,10 +81,14 @@ export function StandaloneSurveyClient({ workspace }: StandaloneSurveyClientProp
         let activeLeadId = savedLeadId;
 
         if (!activeLeadId && cleanPhone) {
-          const { data: found } = await supabase
+          let phoneQuery = supabase
             .from('leads')
             .select('id')
-            .eq('phone', cleanPhone)
+            .eq('phone', cleanPhone);
+          if (workspace?.id) phoneQuery = phoneQuery.eq('funnel_id', workspace.id);
+          else if (workspace?.user_id) phoneQuery = phoneQuery.eq('user_id', workspace.user_id);
+
+          const { data: found } = await phoneQuery
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle();
@@ -99,6 +107,7 @@ export function StandaloneSurveyClient({ workspace }: StandaloneSurveyClientProp
           survey_responses: updated,
         };
         if (workspace?.id) payload.funnel_id = workspace.id;
+        if (workspace?.user_id) payload.user_id = workspace.user_id;
 
         if (activeLeadId) {
           await supabase.from('leads').update(payload).eq('id', activeLeadId);
@@ -125,10 +134,14 @@ export function StandaloneSurveyClient({ workspace }: StandaloneSurveyClientProp
 
     try {
       if (!activeLeadId && cleanPhone) {
-        const { data: found } = await supabase
+        let phoneQuery = supabase
           .from('leads')
           .select('id')
-          .eq('phone', cleanPhone)
+          .eq('phone', cleanPhone);
+        if (workspace?.id) phoneQuery = phoneQuery.eq('funnel_id', workspace.id);
+        else if (workspace?.user_id) phoneQuery = phoneQuery.eq('user_id', workspace.user_id);
+
+        const { data: found } = await phoneQuery
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
@@ -146,6 +159,7 @@ export function StandaloneSurveyClient({ workspace }: StandaloneSurveyClientProp
         survey_responses: answers,
       };
       if (workspace?.id) leadPayload.funnel_id = workspace.id;
+      if (workspace?.user_id) leadPayload.user_id = workspace.user_id;
 
       if (activeLeadId) {
         await supabase.from('leads').update(leadPayload).eq('id', activeLeadId);

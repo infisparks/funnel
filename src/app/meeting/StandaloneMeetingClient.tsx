@@ -48,10 +48,14 @@ export function StandaloneMeetingClient({ workspace }: StandaloneMeetingClientPr
       const cleanPhone = (phone || '').trim();
 
       if (cleanPhone) {
-        const { data: found } = await supabase
+        let phoneQuery = supabase
           .from('leads')
           .select('id')
-          .eq('phone', cleanPhone)
+          .eq('phone', cleanPhone);
+        if (workspace?.id) phoneQuery = phoneQuery.eq('funnel_id', workspace.id);
+        else if (workspace?.user_id) phoneQuery = phoneQuery.eq('user_id', workspace.user_id);
+
+        const { data: found } = await phoneQuery
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
