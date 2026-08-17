@@ -13,6 +13,7 @@ const { createClient } = require('@supabase/supabase-js');
 const fs = require('fs');
 const path = require('path');
 const whatsappManager = require('./whatappmanage');
+const landingManager = require('./landingpage');
 
 
 // Load environment variables from server/.env or root .env.local
@@ -178,11 +179,18 @@ const server = http.createServer(async (req, res) => {
   };
 
   try {
+    // 0. Handle Landing Page, Domain Resolution & Lead Capture via landingpage.js
+    const handledLanding = await landingManager.handleLandingRequest(req, res, supabase, readJsonBody, sendJson);
+    if (handledLanding) {
+      return;
+    }
+
     // 1. Healthcheck
     if (pathname === '/health' || pathname === '/') {
       return sendJson(200, {
         status: 'online',
         service: 'GCP Cloud Tasks & WhatsApp Automation Service',
+        landingService: 'Active',
         gcpConnected: !!cloudTasksClient,
         queue: GCP_QUEUE_NAME,
         location: GCP_LOCATION,
