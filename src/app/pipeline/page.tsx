@@ -102,11 +102,50 @@ export default function PipelinePage() {
 
       const { data: leadRows } = await query;
       setLeads(leadRows || []);
+
+      // Auto-heal and sync any leads that have booked meetings into meeting_booked stage
+      if (leadRows && leadRows.length > 0) {
+        const needsHealing = leadRows.filter(
+          (l) => (l.meeting_date || l.meeting_time) && l.step_progress === 'survey_completed'
+        );
+        if (needsHealing.length > 0) {
+          (async () => {
+            try {
+              const idsToUpdate = needsHealing.map((l) => l.id);
+              await supabase.from('leads').update({ step_progress: 'meeting_booked' }).in('id', idsToUpdate);
+            } catch (e) {}
+          })();
+        }
+      }
     } catch (err) {
       console.error('Error fetching pipeline data:', err);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Helper to determine the true active stage for a lead
+  const getLeadStage = (lead: any): string => {
+    // 1. Explicit downstream/custom stages
+    if (lead.step_progress && !['step1_contact', 'survey_completed', 'meeting_booked', 'Not Qualified', 'Qualified'].includes(lead.step_progress)) {
+      return lead.step_progress;
+    }
+
+    // 2. Meeting booked
+    if (lead.step_progress === 'meeting_booked' || Boolean(lead.meeting_date || lead.meeting_time)) {
+      return 'meeting_booked';
+    }
+
+    // 3. Survey qualified
+    if (
+      lead.step_progress === 'survey_completed' ||
+      (lead.survey_responses && Object.keys(lead.survey_responses).length > 0)
+    ) {
+      return 'survey_completed';
+    }
+
+    // 4. Contact captured
+    return 'step1_contact';
   };
 
   useEffect(() => {
@@ -234,15 +273,8 @@ export default function PipelinePage() {
         {activeStages.map((col) => {
           // Filter real leads belonging to this column stage
           const colLeads = leads.filter((lead) => {
-            if (col.id === 'step1_contact') {
-              return (
-                !lead.step_progress ||
-                lead.step_progress === 'step1_contact' ||
-                lead.step_progress === 'Not Qualified' ||
-                lead.step_progress === 'Qualified'
-              );
-            }
-            return lead.step_progress === col.id;
+            const effectiveStage = getLeadStage(lead);
+            return effectiveStage === col.id;
           });
 
           // Calculate column total deal value

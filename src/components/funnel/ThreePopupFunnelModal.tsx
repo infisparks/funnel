@@ -23,6 +23,7 @@ import {
   UserPlus,
   Plus,
   Video,
+  ChevronDown,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import {
@@ -31,6 +32,11 @@ import {
   getUpcomingDates,
   getTodayIso,
 } from '@/lib/dateUtils';
+import {
+  COUNTRY_CODES,
+  splitPhoneAndCountryCode,
+  formatFullPhone,
+} from '@/lib/phoneUtils';
 
 const InstagramIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -191,8 +197,12 @@ export function ThreePopupFunnelModal({
 
   // Popup 1 State: Contact Info
   const [name, setName] = useState('');
+  const [countryCode, setCountryCode] = useState('+91');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+
+  // Helper to format full phone with country code
+  const getFullPhone = (code = countryCode, num = phone) => formatFullPhone(code, num);
 
   // Popup 2 State: Survey Responses
   const [surveyAnswers, setSurveyAnswers] = useState<Record<string, any>>({});
@@ -243,15 +253,17 @@ export function ThreePopupFunnelModal({
     }
 
     // Auto-sync lead state to Supabase on close if name and contact info present
-    if (name && (phone || email)) {
+    const cleanPhone = getFullPhone();
+    if (name && (cleanPhone || email)) {
       (async () => {
         try {
-          const cleanPhone = phone.trim();
           let targetLeadId = existingLeadId;
-          if (!targetLeadId && cleanPhone) {
+          let existingLeadData: any = null;
+
+          if (cleanPhone) {
             let phoneQuery = supabase
               .from('leads')
-              .select('id')
+              .select('id, step_progress, meeting_date, meeting_time')
               .eq('phone', cleanPhone);
             if (funnelId) phoneQuery = phoneQuery.eq('funnel_id', funnelId);
             else if (userId) phoneQuery = phoneQuery.eq('user_id', userId);
@@ -260,16 +272,35 @@ export function ThreePopupFunnelModal({
               .order('created_at', { ascending: false })
               .limit(1)
               .maybeSingle();
-            if (found?.id) targetLeadId = found.id;
+            if (found?.id) {
+              targetLeadId = found.id;
+              existingLeadData = found;
+            }
+          }
+
+          // Preserve meeting_booked stage and never downgrade
+          let finalStage = 'step1_contact';
+          if (
+            step === 4 ||
+            existingLeadData?.step_progress === 'meeting_booked' ||
+            Boolean(existingLeadData?.meeting_date || existingLeadData?.meeting_time)
+          ) {
+            finalStage = 'meeting_booked';
+          } else if (Object.keys(surveyAnswers).length > 0 || existingLeadData?.step_progress === 'survey_completed') {
+            finalStage = 'survey_completed';
           }
 
           const payload: any = {
             name,
             email,
             phone: cleanPhone,
-            step_progress: Object.keys(surveyAnswers).length > 0 ? 'survey_completed' : 'step1_contact',
+            step_progress: finalStage,
             survey_responses: Object.keys(surveyAnswers).length > 0 ? surveyAnswers : null,
           };
+          if (step === 4 && selectedIsoDate && meetingTime) {
+            payload.meeting_date = selectedIsoDate;
+            payload.meeting_time = meetingTime;
+          }
           if (funnelId) payload.funnel_id = funnelId;
           if (userId) payload.user_id = userId;
 
@@ -286,11 +317,18 @@ export function ThreePopupFunnelModal({
   };
 
   // Helper to instantly persist contact info to localStorage as user types
-  const saveContactInfoToStorage = (updatedName?: string, updatedEmail?: string, updatedPhone?: string) => {
+  const saveContactInfoToStorage = (
+    updatedName?: string,
+    updatedEmail?: string,
+    updatedPhone?: string,
+    updatedCode?: string
+  ) => {
     try {
       const nameToSave = updatedName !== undefined ? updatedName : name;
       const emailToSave = updatedEmail !== undefined ? updatedEmail : email;
+      const codeToSave = updatedCode !== undefined ? updatedCode : countryCode;
       const phoneToSave = updatedPhone !== undefined ? updatedPhone : phone;
+      const fullPhone = formatFullPhone(codeToSave, phoneToSave);
 
       const storageKey = `lead_contact_info_${funnelId || 'default'}`;
       localStorage.setItem(
@@ -298,7 +336,9 @@ export function ThreePopupFunnelModal({
         JSON.stringify({
           name: nameToSave,
           email: emailToSave,
-          phone: phoneToSave,
+          phone: fullPhone,
+          countryCode: codeToSave,
+          localPhone: phoneToSave,
           leadId: existingLeadId,
           lastUpdated: new Date().toISOString(),
         })
@@ -319,13 +359,21 @@ export function ThreePopupFunnelModal({
         const savedSession = localStorage.getItem(storageKey) || localStorage.getItem(contactKey);
         if (savedSession) {
           const parsed = JSON.parse(savedSession);
-          if (parsed.name || parsed.email || parsed.phone) {
+          if (parsed.name || parsed.email || parsed.phone || parsed.localPhone) {
             setName(parsed.name || '');
             setEmail(parsed.email || '');
-            setPhone(parsed.phone || '');
+
+            const rawSavedPhone = parsed.phone || parsed.localPhone || '';
+            const { countryCode: parsedCode, localPhone: parsedLocal } = splitPhoneAndCountryCode(
+              rawSavedPhone,
+              parsed.countryCode || '+91'
+            );
+            setCountryCode(parsedCode);
+            setPhone(parsed.localPhone || parsedLocal);
+
             if (parsed.leadId) setExistingLeadId(parsed.leadId);
 
-            if (parsed.name && (parsed.email || parsed.phone)) {
+            if (parsed.name && (parsed.email || rawSavedPhone)) {
               hasSavedDetails = true;
             }
           }
@@ -370,18 +418,26 @@ export function ThreePopupFunnelModal({
 
   if (!isOpen) return null;
 
-  const saveSessionToLocalStorage = (updatedAnswers?: Record<string, any>, isSurveyFinished?: boolean, customLeadId?: string) => {
+  const saveSessionToLocalStorage = (
+    updatedAnswers?: Record<string, any>,
+    isSurveyFinished?: boolean,
+    customLeadId?: string,
+    customFullPhone?: string
+  ) => {
     try {
       const answersToSave = updatedAnswers || surveyAnswers;
       const isFinished = isSurveyFinished ?? (Object.keys(answersToSave).length >= surveyQuestions.length);
       const activeLeadId = customLeadId || existingLeadId;
+      const fullPhone = customFullPhone || getFullPhone();
       const storageKey = `lead_funnel_session_${funnelId || 'default'}`;
       localStorage.setItem(
         storageKey,
         JSON.stringify({
           name,
           email,
-          phone,
+          phone: fullPhone,
+          countryCode,
+          localPhone: phone,
           leadId: activeLeadId,
           surveyAnswers: answersToSave,
           hasCompletedSurvey: isFinished,
@@ -422,14 +478,14 @@ export function ThreePopupFunnelModal({
 
   const handleStep1Submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !phone || !email) {
-      alert('Please fill out Name, Phone, and Email');
+    const cleanPhone = getFullPhone();
+    if (!name || !cleanPhone || !email) {
+      alert('Please fill out Name, WhatsApp Phone Number, and Email');
       return;
     }
 
     setIsSubmitting(true);
     let activeLeadId = existingLeadId;
-    const cleanPhone = phone.trim();
 
     try {
       // 1. Phone Deduplication Check strictly within THIS funnel
@@ -492,7 +548,7 @@ export function ThreePopupFunnelModal({
       console.error('[Supabase Exception] Exception during client-side Step 1 upload:', err);
     } finally {
       setIsSubmitting(false);
-      saveSessionToLocalStorage(surveyAnswers, false, activeLeadId || undefined);
+      saveSessionToLocalStorage(surveyAnswers, false, activeLeadId || undefined, cleanPhone);
       if (onStep1Complete) {
         onStep1Complete({
           funnel_id: funnelId || null,
@@ -512,20 +568,23 @@ export function ThreePopupFunnelModal({
   const saveSurveyResponsesToSupabase = async (responses: Record<string, any>) => {
     try {
       let targetId = existingLeadId;
-      const cleanPhone = phone.trim();
-      if (!targetId && cleanPhone) {
-        const matched = await lookupLeadByPhone(cleanPhone);
-        if (matched?.id) {
-          targetId = matched.id;
-          setExistingLeadId(matched.id);
+      let matchedLead: any = null;
+      const cleanPhone = getFullPhone();
+      if (cleanPhone) {
+        matchedLead = await lookupLeadByPhone(cleanPhone);
+        if (matchedLead?.id) {
+          targetId = matchedLead.id;
+          setExistingLeadId(matchedLead.id);
         }
       }
+
+      const isAlreadyMeeting = step === 4 || matchedLead?.step_progress === 'meeting_booked' || Boolean(matchedLead?.meeting_date || matchedLead?.meeting_time);
 
       const payload: any = {
         name: name || 'Lead',
         email: email || '',
         phone: cleanPhone,
-        step_progress: 'survey_completed',
+        step_progress: isAlreadyMeeting ? 'meeting_booked' : 'survey_completed',
         survey_responses: responses,
       };
       if (funnelId) payload.funnel_id = funnelId;
@@ -569,12 +628,13 @@ export function ThreePopupFunnelModal({
     setIsSubmitting(true);
 
     const activeMeetUrl = (typeof window !== 'undefined' && localStorage.getItem('workspace_google_meet_url')) || popupTheme?.googleMeetUrl || 'https://meet.google.com/qbi-erbq-moy';
+    const cleanPhone = getFullPhone();
 
     const finalLeadPayload = {
       funnel_id: funnelId || null,
       user_id: userId || null,
       name,
-      phone: phone.trim(),
+      phone: cleanPhone,
       email,
       step_progress: 'meeting_booked',
       survey_responses: surveyAnswers,
@@ -585,7 +645,6 @@ export function ThreePopupFunnelModal({
 
     try {
       let targetId = existingLeadId;
-      const cleanPhone = phone.trim();
 
       if (!targetId && cleanPhone) {
         const matched = await lookupLeadByPhone(cleanPhone);
@@ -607,17 +666,20 @@ export function ThreePopupFunnelModal({
       console.error('Error inserting/updating lead in Supabase:', err);
     } finally {
       setIsSubmitting(false);
-      saveSessionToLocalStorage(surveyAnswers, true);
+      saveSessionToLocalStorage(surveyAnswers, true, undefined, cleanPhone);
       if (onComplete) onComplete(finalLeadPayload);
       changeStep(4);
     }
   };
 
   const resetLeadSession = () => {
+    localStorage.removeItem(`lead_funnel_session_${funnelId || 'default'}`);
+    localStorage.removeItem(`lead_contact_info_${funnelId || 'default'}`);
     localStorage.removeItem('lead_funnel_session');
     localStorage.removeItem('lead_contact_info');
     setName('');
     setEmail('');
+    setCountryCode('+91');
     setPhone('');
     setSurveyAnswers({});
     setExistingLeadId(null);
@@ -877,23 +939,63 @@ export function ThreePopupFunnelModal({
                 <label className={`block text-xs font-bold uppercase tracking-wider mb-1 ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
                   {phoneLabel}
                 </label>
-                <div className="relative">
-                  <Phone className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="tel"
-                    required
-                    value={phone}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setPhone(val);
-                      saveContactInfoToStorage(undefined, undefined, val);
-                    }}
-                    onBlur={() => saveContactInfoToStorage()}
-                    placeholder={phonePlaceholder}
-                    className={`w-full pl-10 pr-3.5 py-2.5 rounded-xl border text-xs font-semibold focus:outline-none ${
-                      isLightMode ? 'bg-[#F8FAFC] border-gray-300 text-gray-900 placeholder-gray-400' : 'bg-[#131B2A] border-gray-800 text-white placeholder-gray-500'
-                    }`}
-                  />
+                <div className="flex items-center gap-1.5">
+                  {/* COUNTRY CODE SELECTOR (DEFAULT +91 INDIA) */}
+                  <div className="relative shrink-0 w-[110px] sm:w-[125px]">
+                    <select
+                      value={countryCode}
+                      onChange={(e) => {
+                        const newCode = e.target.value;
+                        setCountryCode(newCode);
+                        saveContactInfoToStorage(undefined, undefined, phone, newCode);
+                      }}
+                      className={`w-full appearance-none pl-2.5 pr-6 py-2.5 rounded-xl border text-xs font-bold focus:outline-none cursor-pointer ${
+                        isLightMode
+                          ? 'bg-[#F8FAFC] border-gray-300 text-gray-900 focus:border-indigo-500'
+                          : 'bg-[#131B2A] border-gray-800 text-white focus:border-amber-500'
+                      }`}
+                    >
+                      {COUNTRY_CODES.map((c) => (
+                        <option
+                          key={`${c.country}-${c.code}`}
+                          value={c.code}
+                          className={isLightMode ? 'bg-white text-gray-900' : 'bg-[#0B0F17] text-white'}
+                        >
+                          {c.flag} {c.code}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </div>
+                  </div>
+
+                  {/* PHONE NUMBER INPUT */}
+                  <div className="relative flex-1">
+                    <Phone className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="tel"
+                      required
+                      value={phone}
+                      onChange={(e) => {
+                        let val = e.target.value;
+                        if (val.startsWith('+')) {
+                          const parsed = splitPhoneAndCountryCode(val, countryCode);
+                          setCountryCode(parsed.countryCode);
+                          val = parsed.localPhone;
+                        }
+                        setPhone(val);
+                        saveContactInfoToStorage(undefined, undefined, val, countryCode);
+                      }}
+                      onBlur={() => saveContactInfoToStorage()}
+                      placeholder={phonePlaceholder.replace(/^\+91\s*/, '') || '9876543210'}
+                      className={`w-full pl-9 pr-3.5 py-2.5 rounded-xl border text-xs font-semibold focus:outline-none ${
+                        isLightMode
+                          ? 'bg-[#F8FAFC] border-gray-300 text-gray-900 placeholder-gray-400 focus:border-indigo-500'
+                          : 'bg-[#131B2A] border-gray-800 text-white placeholder-gray-500 focus:border-amber-500'
+                      }`}
+                    />
+                  </div>
                 </div>
               </div>
 

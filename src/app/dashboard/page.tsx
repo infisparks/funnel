@@ -65,8 +65,21 @@ export default function ExecutiveCrmDashboard() {
 
       const { data, error } = await query;
 
-      if (!error) {
+      if (!error && data) {
         setLeadsData(data || []);
+
+        // Auto-heal any leads in DB with booked meetings
+        const needsHealing = data.filter(
+          (l) => (l.meeting_date || l.meeting_time) && l.step_progress === 'survey_completed'
+        );
+        if (needsHealing.length > 0) {
+          (async () => {
+            try {
+              const ids = needsHealing.map((l) => l.id);
+              await supabase.from('leads').update({ step_progress: 'meeting_booked' }).in('id', ids);
+            } catch (e) {}
+          })();
+        }
       } else {
         console.error('Supabase leads query error:', error);
         setLeadsData([]);
@@ -85,11 +98,21 @@ export default function ExecutiveCrmDashboard() {
     }
   }, [user, workspace]);
 
+  const isMeetingLead = (lead: any) => {
+    return lead.step_progress === 'meeting_booked' || Boolean(lead.meeting_date || lead.meeting_time);
+  };
+  const isSurveyLead = (lead: any) => {
+    return Boolean(lead.survey_responses && Object.keys(lead.survey_responses).length > 0) || lead.step_progress === 'survey_completed';
+  };
+
   const filteredLeads = leadsData.filter((lead) => {
-    if (activeTab === 'meetings' && lead.step_progress !== 'meeting_booked') return false;
-    if (statusFilter === 'Survey Done' && (!lead.survey_responses || Object.keys(lead.survey_responses).length === 0)) return false;
-    if (statusFilter === 'Meeting Booked' && lead.step_progress !== 'meeting_booked') return false;
-    if (statusFilter === 'Pending Survey' && (lead.survey_responses && Object.keys(lead.survey_responses).length > 0)) return false;
+    const isBooked = isMeetingLead(lead);
+    const hasSurvey = isSurveyLead(lead);
+
+    if (activeTab === 'meetings' && !isBooked) return false;
+    if (statusFilter === 'Survey Done' && !hasSurvey) return false;
+    if (statusFilter === 'Meeting Booked' && !isBooked) return false;
+    if (statusFilter === 'Pending Survey' && hasSurvey) return false;
 
     if (
       searchQuery &&
@@ -103,8 +126,8 @@ export default function ExecutiveCrmDashboard() {
   });
 
   const totalLeadsCount = leadsData.length;
-  const meetingsCount = leadsData.filter((l) => l.step_progress === 'meeting_booked').length;
-  const surveyDoneCount = leadsData.filter((l) => l.survey_responses && Object.keys(l.survey_responses).length > 0).length;
+  const meetingsCount = leadsData.filter(isMeetingLead).length;
+  const surveyDoneCount = leadsData.filter(isSurveyLead).length;
   const partialLeadsCount = totalLeadsCount - surveyDoneCount;
   const conversionRate = totalLeadsCount > 0 ? Math.round((meetingsCount / totalLeadsCount) * 100) : 64;
 

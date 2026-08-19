@@ -155,7 +155,12 @@ export function ClientDrawer() {
 
   useEffect(() => {
     if (selectedClient) {
-      setPipelineStage(selectedClient.step_progress || 'step1_contact');
+      const progressStr = selectedClient.step_progress || '';
+      const initialStage: string = (selectedClient.meeting_date || selectedClient.meeting_time || progressStr === 'meeting_booked')
+        ? (['meeting_missed', 'closed_won'].includes(progressStr) ? progressStr : 'meeting_booked')
+        : (progressStr || (selectedClient.survey_responses && Object.keys(selectedClient.survey_responses).length > 0 ? 'survey_completed' : 'step1_contact'));
+
+      setPipelineStage(initialStage || 'step1_contact');
       setDealValue(selectedClient.deal_value || '');
       setStaffNotes(Array.isArray(selectedClient.staff_notes) ? selectedClient.staff_notes : []);
       setStaffNotesHistory(Array.isArray(selectedClient.staff_notes) ? selectedClient.staff_notes : []);

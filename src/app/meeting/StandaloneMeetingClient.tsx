@@ -3,8 +3,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
-import { Calendar, Clock, CheckCircle2, User, Phone, Mail } from 'lucide-react';
+import { Calendar, Clock, CheckCircle2, User, Phone, Mail, ChevronDown } from 'lucide-react';
 import { isTimeSlotDisabled, getFirstAvailableSlot, getTodayIso } from '@/lib/dateUtils';
+import { COUNTRY_CODES, splitPhoneAndCountryCode, formatFullPhone } from '@/lib/phoneUtils';
 
 interface StandaloneMeetingClientProps {
   workspace: any;
@@ -28,6 +29,7 @@ export function StandaloneMeetingClient({ workspace }: StandaloneMeetingClientPr
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [countryCode, setCountryCode] = useState('+91');
   const [phone, setPhone] = useState('');
   const [meetingDate, setMeetingDate] = useState(initialDate);
   const [meetingTime, setMeetingTime] = useState(() => {
@@ -45,6 +47,11 @@ export function StandaloneMeetingClient({ workspace }: StandaloneMeetingClientPr
 
   const handleBookMeeting = async (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanPhone = formatFullPhone(countryCode, phone);
+    if (!cleanPhone) {
+      alert('Please enter a valid phone number.');
+      return;
+    }
     if (!meetingTime || isTimeSlotDisabled(meetingTime, meetingDate, 60)) {
       alert('Please select an available upcoming time slot.');
       return;
@@ -62,14 +69,13 @@ export function StandaloneMeetingClient({ workspace }: StandaloneMeetingClientPr
       user_id: workspace?.user_id || null,
       name: name || 'Public Visitor',
       email: email || 'visitor@lead.com',
-      phone: phone || '+91 9876543210',
+      phone: cleanPhone,
       step_progress: 'meeting_booked',
       survey_responses: surveyAnswers,
       meeting_date: meetingDate,
       meeting_time: meetingTime,
     };
 
-    const cleanPhone = (phone || '').trim();
     const digits = cleanPhone.replace(/\D/g, '');
     const last10 = digits.length >= 10 ? digits.slice(-10) : digits;
 
@@ -178,14 +184,43 @@ export function StandaloneMeetingClient({ workspace }: StandaloneMeetingClientPr
                   <label className="block text-xs font-bold uppercase tracking-wider text-gray-300 mb-1">
                     WhatsApp Phone *
                   </label>
-                  <input
-                    type="tel"
-                    required
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+91 9876543210"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-800 bg-[#0B0F17] text-xs font-semibold text-white"
-                  />
+                  <div className="flex items-center gap-1.5">
+                    <div className="relative shrink-0 w-[105px]">
+                      <select
+                        value={countryCode}
+                        onChange={(e) => setCountryCode(e.target.value)}
+                        className="w-full appearance-none pl-2.5 pr-6 py-2.5 rounded-xl border border-gray-800 bg-[#0B0F17] text-xs font-bold text-white focus:outline-none focus:border-amber-500 cursor-pointer"
+                      >
+                        {COUNTRY_CODES.map((c) => (
+                          <option key={`${c.country}-${c.code}`} value={c.code} className="bg-[#0B0F17] text-white">
+                            {c.flag} {c.code}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      </div>
+                    </div>
+                    <div className="relative flex-1">
+                      <Phone className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="tel"
+                        required
+                        value={phone}
+                        onChange={(e) => {
+                          let val = e.target.value;
+                          if (val.startsWith('+')) {
+                            const parsed = splitPhoneAndCountryCode(val, countryCode);
+                            setCountryCode(parsed.countryCode);
+                            val = parsed.localPhone;
+                          }
+                          setPhone(val);
+                        }}
+                        placeholder="98765 43210"
+                        className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-800 bg-[#0B0F17] text-xs font-semibold text-white focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
