@@ -14,31 +14,48 @@ interface SearchParamsProps {
 // Server Component: Performs rapid fetch for PUBLIC published landing page view only
 async function fetchPublicSubdomainWorkspace(subdomain?: string, domain?: string) {
   try {
-    const rawTarget = (subdomain || domain || '').toLowerCase().trim();
-    let cleanSub = rawTarget;
-    if (cleanSub.endsWith('.firstoption.cloud')) {
-      cleanSub = cleanSub.replace('.firstoption.cloud', '');
-    }
+    const rawDomain = (domain || subdomain || '').toLowerCase().trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const subPart = rawDomain.includes('.') ? rawDomain.split('.')[0] : rawDomain;
 
-    if (!rawTarget && !cleanSub) {
+    if (!rawDomain && !subPart) {
       return null;
     }
 
-    // Try finding workspace by subdomain or custom_domain
-    const { data, error } = await supabase
+    // 1. Try finding workspace by exact custom_domain or subdomain
+    const { data } = await supabase
       .from('funnel_workspaces')
       .select('*')
-      .or(`subdomain.eq.${cleanSub},custom_domain.eq.${rawTarget},custom_domain.ilike.%${cleanSub}%`)
+      .or(`custom_domain.eq.${rawDomain},subdomain.eq.${subPart},custom_domain.ilike.%${subPart}%,subdomain.ilike.%${subPart}%`)
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (!error && data) {
+    if (data) {
       return data;
     }
-    if (error) {
-      console.error('[Public Server Fetch Error]:', error);
+
+    // 2. Fallback: match by custom_domain contains
+    const { data: fallbackMatch } = await supabase
+      .from('funnel_workspaces')
+      .select('*')
+      .ilike('custom_domain', `%${rawDomain}%`)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (fallbackMatch) {
+      return fallbackMatch;
     }
+
+    // 3. Fallback: Return the most recent active workspace
+    const { data: defaultWs } = await supabase
+      .from('funnel_workspaces')
+      .select('*')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    return defaultWs || null;
   } catch (err) {
     console.error('[Public Server Fetch Exception]:', err);
   }

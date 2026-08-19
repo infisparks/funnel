@@ -259,15 +259,17 @@ export function LandingPageClient({
 
   const handleSaveDomain = async (newSubdomain: string, newDomain?: string) => {
     const formattedSub = newSubdomain.toLowerCase().trim().replace(/[^a-z0-9-]/g, '');
-    const cleanDomain = newDomain?.trim() || customDomain || 'firstoption.cloud';
-    setSubdomain(formattedSub);
+    const cleanDomain = newDomain?.toLowerCase().trim().replace(/^https?:\/\//, '').replace(/\/$/, '') || (formattedSub ? `${formattedSub}.firstoption.cloud` : 'firstoption.cloud');
+    const finalSub = formattedSub || (cleanDomain.includes('.') ? cleanDomain.split('.')[0] : 'client');
+
+    setSubdomain(finalSub);
     setCustomDomain(cleanDomain);
-    localStorage.setItem('landing_custom_subdomain', formattedSub);
+    localStorage.setItem('landing_custom_subdomain', finalSub);
     localStorage.setItem('landing_custom_domain', cleanDomain);
     setIsSavingSupabase(true);
     const ok = await saveWorkspaceConfig({
       landing_html: htmlCode,
-      subdomain: formattedSub,
+      subdomain: finalSub,
       custom_domain: cleanDomain,
       trigger_buttons: triggerButtons,
       popup_theme: popupTheme,
@@ -275,7 +277,7 @@ export function LandingPageClient({
     });
     setIsSavingSupabase(false);
     if (ok) {
-      showToast(`Domain saved: https://${formattedSub}.firstoption.cloud 🌐`);
+      showToast(`Domain linked: https://${cleanDomain} 🚀`);
     }
   };
 
