@@ -25,6 +25,12 @@ import {
   Video,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
+import {
+  isTimeSlotDisabled,
+  getFirstAvailableSlot,
+  getUpcomingDates,
+  getTodayIso,
+} from '@/lib/dateUtils';
 
 const InstagramIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -96,32 +102,6 @@ interface ThreePopupFunnelModalProps {
   onComplete?: (leadData: any) => void;
 }
 
-// Generate next 7 days for horizontal slider
-function getUpcomingDates() {
-  const dates = [];
-  const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  
-  const today = new Date();
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-
-    const year = d.getFullYear();
-    const monthStr = String(d.getMonth() + 1).padStart(2, '0');
-    const dayStr = String(d.getDate()).padStart(2, '0');
-    const isoDate = `${year}-${monthStr}-${dayStr}`;
-
-    dates.push({
-      isoDate,
-      dayName: i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : daysOfWeek[d.getDay()],
-      dayNum: d.getDate(),
-      monthName: months[d.getMonth()],
-    });
-  }
-  return dates;
-}
-
 export function ThreePopupFunnelModal({
   isOpen,
   onClose,
@@ -168,9 +148,11 @@ export function ThreePopupFunnelModal({
   const step3BtnText = popupTheme.step3ButtonText || 'CONFIRM & LOCK BOOKING 📅';
   const dateLabel = popupTheme.dateLabel || 'Select Preferred Meeting Date *';
   const timeSlotLabel = popupTheme.timeSlotLabel || 'Select Strategy Call Time Slot *';
-  const availableTimeSlots = (popupTheme.meetingSlots && popupTheme.meetingSlots.length > 0)
-    ? popupTheme.meetingSlots
-    : ['09:00 AM', '11:00 AM', '02:00 PM', '04:30 PM', '06:00 PM'];
+  const availableTimeSlots = useMemo(() => {
+    return popupTheme.meetingSlots && popupTheme.meetingSlots.length > 0
+      ? popupTheme.meetingSlots
+      : ['09:00 AM', '11:00 AM', '02:00 PM', '04:30 PM', '06:00 PM'];
+  }, [popupTheme.meetingSlots]);
 
   // Step 4 Copy & Buttons & Custom Color (Default: primaryColor)
   const step4Title = popupTheme.step4Title || 'Booking Confirmed! 🎉';
@@ -193,6 +175,14 @@ export function ThreePopupFunnelModal({
 
   const upcomingDates = useMemo(() => getUpcomingDates(), []);
 
+  // Compute best default date: today if it has available slots, else tomorrow
+  const initialDate = useMemo(() => {
+    const todayIso = upcomingDates[0]?.isoDate || getTodayIso();
+    const hasTodaySlots = getFirstAvailableSlot(availableTimeSlots, todayIso, 60);
+    if (hasTodaySlots) return todayIso;
+    return upcomingDates[1]?.isoDate || todayIso;
+  }, [upcomingDates, availableTimeSlots]);
+
   // Active popup step: 1 (Contact), 2 (Survey), 3 (Meeting), 4 (Completed Confirmation)
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -208,8 +198,18 @@ export function ThreePopupFunnelModal({
   const [surveyAnswers, setSurveyAnswers] = useState<Record<string, any>>({});
 
   // Popup 3 State: Date & Time Slot
-  const [selectedIsoDate, setSelectedIsoDate] = useState(upcomingDates[0]?.isoDate || '2026-08-10');
-  const [meetingTime, setMeetingTime] = useState(availableTimeSlots[0] || '02:00 PM');
+  const [selectedIsoDate, setSelectedIsoDate] = useState(initialDate);
+  const [meetingTime, setMeetingTime] = useState<string>(() => {
+    return getFirstAvailableSlot(availableTimeSlots, initialDate, 60) || availableTimeSlots[0] || '02:00 PM';
+  });
+
+  // Auto-update selected slot if current meetingTime is disabled for the chosen date
+  useEffect(() => {
+    if (isTimeSlotDisabled(meetingTime, selectedIsoDate, 60)) {
+      const validSlot = getFirstAvailableSlot(availableTimeSlots, selectedIsoDate, 60);
+      setMeetingTime(validSlot || '');
+    }
+  }, [selectedIsoDate, availableTimeSlots]);
 
   // Helper to update URL search parameter cleanly without page refresh
   const updateUrlStep = (targetStep: 1 | 2 | 3 | 4) => {
@@ -1027,11 +1027,18 @@ export function ThreePopupFunnelModal({
                 <div className="flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-none">
                   {upcomingDates.map((item) => {
                     const isSelected = selectedIsoDate === item.isoDate;
+                    const hasSlots = Boolean(getFirstAvailableSlot(availableTimeSlots, item.isoDate, 60));
                     return (
                       <button
                         type="button"
                         key={item.isoDate}
-                        onClick={() => setSelectedIsoDate(item.isoDate)}
+                        onClick={() => {
+                          setSelectedIsoDate(item.isoDate);
+                          if (!meetingTime || isTimeSlotDisabled(meetingTime, item.isoDate, 60)) {
+                            const firstValid = getFirstAvailableSlot(availableTimeSlots, item.isoDate, 60);
+                            setMeetingTime(firstValid || '');
+                          }
+                        }}
                         className={`flex flex-col items-center justify-center min-w-[62px] py-2 px-1.5 rounded-2xl border text-center transition-all cursor-pointer shrink-0 ${
                           isSelected
                             ? 'border-amber-400 bg-amber-500/20 text-white shadow-md font-extrabold'
@@ -1054,37 +1061,62 @@ export function ThreePopupFunnelModal({
 
               {/* TIME SLOTS: 3 PER ROW GRID (NEXT & REST ADJUST NEATLY) */}
               <div>
-                <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
-                  {timeSlotLabel}
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className={`block text-xs font-bold uppercase tracking-wider ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
+                    {timeSlotLabel}
+                  </label>
+                  <span className="text-[10px] text-gray-400 font-mono">
+                    1-hr buffer applied
+                  </span>
+                </div>
+
                 <div className="grid grid-cols-3 gap-2">
                   {availableTimeSlots.map((slot) => {
-                    const isSelected = meetingTime === slot;
+                    const isDisabled = isTimeSlotDisabled(slot, selectedIsoDate, 60);
+                    const isSelected = meetingTime === slot && !isDisabled;
                     return (
                       <button
                         type="button"
                         key={slot}
-                        onClick={() => setMeetingTime(slot)}
-                        className={`p-2.5 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1 border transition-all cursor-pointer truncate ${
-                          isSelected
-                            ? 'border-emerald-500 bg-emerald-500/20 text-emerald-400 shadow-md font-extrabold'
+                        disabled={isDisabled}
+                        onClick={() => {
+                          if (!isDisabled) setMeetingTime(slot);
+                        }}
+                        title={isDisabled ? 'Time passed or within 1-hour notice' : slot}
+                        className={`p-2.5 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1 border transition-all truncate select-none ${
+                          isDisabled
+                            ? 'opacity-40 cursor-not-allowed bg-gray-100 dark:bg-white/5 border-dashed border-gray-300 dark:border-gray-800 text-gray-400 dark:text-gray-600 line-through'
+                            : isSelected
+                            ? 'border-emerald-500 bg-emerald-500/20 text-emerald-400 shadow-md font-extrabold cursor-pointer'
                             : isLightMode
-                            ? 'border-gray-200 bg-[#F8FAFC] text-gray-800 hover:bg-gray-100'
-                            : 'border-gray-800 bg-[#131B2A] text-gray-300 hover:border-gray-700'
+                            ? 'border-gray-200 bg-[#F8FAFC] text-gray-800 hover:bg-gray-100 cursor-pointer'
+                            : 'border-gray-800 bg-[#131B2A] text-gray-300 hover:border-gray-700 cursor-pointer'
                         }`}
                       >
-                        <Clock className="w-3 h-3 shrink-0" style={{ color: primaryColor }} />
+                        <Clock className={`w-3 h-3 shrink-0 ${isDisabled ? 'text-gray-400 dark:text-gray-600' : ''}`} style={!isDisabled ? { color: primaryColor } : undefined} />
                         <span className="truncate">{slot}</span>
                       </button>
                     );
                   })}
                 </div>
+
+                {/* Notice if no slots available for today */}
+                {!getFirstAvailableSlot(availableTimeSlots, selectedIsoDate, 60) && (
+                  <div className="p-2.5 mt-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-500 dark:text-amber-400 text-xs font-semibold flex items-center gap-2">
+                    <Clock className="w-4 h-4 shrink-0" />
+                    <span>All slots for this date have passed or are within 1 hour. Please choose tomorrow or another date.</span>
+                  </div>
+                )}
               </div>
 
               <button
                 type="submit"
-                disabled={isSubmitting}
-                className="w-full py-3.5 px-4 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer mt-2"
+                disabled={isSubmitting || !meetingTime || isTimeSlotDisabled(meetingTime, selectedIsoDate, 60)}
+                className={`w-full py-3.5 px-4 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all mt-2 ${
+                  !meetingTime || isTimeSlotDisabled(meetingTime, selectedIsoDate, 60)
+                    ? 'opacity-50 cursor-not-allowed'
+                    : 'cursor-pointer'
+                }`}
                 style={getButtonStyle()}
               >
                 <Calendar className="w-4 h-4" />

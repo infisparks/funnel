@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { Calendar, Clock, CheckCircle2, User, Phone, Mail } from 'lucide-react';
+import { isTimeSlotDisabled, getFirstAvailableSlot, getTodayIso } from '@/lib/dateUtils';
 
 interface StandaloneMeetingClientProps {
   workspace: any;
@@ -13,16 +14,41 @@ export function StandaloneMeetingClient({ workspace }: StandaloneMeetingClientPr
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  const availableSlots = useMemo(() => {
+    return workspace?.custom_theme?.meetingSlots && workspace.custom_theme.meetingSlots.length > 0
+      ? workspace.custom_theme.meetingSlots
+      : ['09:00 AM', '11:00 AM', '02:00 PM', '04:00 PM', '06:00 PM'];
+  }, [workspace]);
+
+  const todayIso = useMemo(() => getTodayIso(), []);
+  const initialDate = useMemo(() => {
+    const hasToday = getFirstAvailableSlot(availableSlots, todayIso, 60);
+    return hasToday ? todayIso : todayIso;
+  }, [availableSlots, todayIso]);
+
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [meetingDate, setMeetingDate] = useState('2026-08-10');
-  const [meetingTime, setMeetingTime] = useState('02:00 PM');
+  const [meetingDate, setMeetingDate] = useState(initialDate);
+  const [meetingTime, setMeetingTime] = useState(() => {
+    return getFirstAvailableSlot(availableSlots, initialDate, 60) || availableSlots[0] || '02:00 PM';
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isBooked, setIsBooked] = useState(false);
 
+  useEffect(() => {
+    if (isTimeSlotDisabled(meetingTime, meetingDate, 60)) {
+      const valid = getFirstAvailableSlot(availableSlots, meetingDate, 60);
+      setMeetingTime(valid || '');
+    }
+  }, [meetingDate, availableSlots]);
+
   const handleBookMeeting = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!meetingTime || isTimeSlotDisabled(meetingTime, meetingDate, 60)) {
+      alert('Please select an available upcoming time slot.');
+      return;
+    }
     setIsSubmitting(true);
 
     let surveyAnswers = {};
@@ -170,6 +196,7 @@ export function StandaloneMeetingClient({ workspace }: StandaloneMeetingClientPr
                 <input
                   type="date"
                   required
+                  min={todayIso}
                   value={meetingDate}
                   onChange={(e) => setMeetingDate(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-gray-800 bg-[#0B0F17] text-xs font-bold text-white"
@@ -177,35 +204,59 @@ export function StandaloneMeetingClient({ workspace }: StandaloneMeetingClientPr
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-300 mb-1.5">
-                  Available Time Slots *
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {['09:00 AM', '11:00 AM', '02:00 PM', '04:00 PM'].map((slot) => {
-                    const isSelected = meetingTime === slot;
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-300">
+                    Available Time Slots *
+                  </label>
+                  <span className="text-[10px] text-gray-500 font-mono">
+                    1-hr buffer applied
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {availableSlots.map((slot: string) => {
+                    const isDisabled = isTimeSlotDisabled(slot, meetingDate, 60);
+                    const isSelected = meetingTime === slot && !isDisabled;
                     return (
                       <button
                         type="button"
                         key={slot}
-                        onClick={() => setMeetingTime(slot)}
-                        className={`p-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border transition-all cursor-pointer ${
-                          isSelected
-                            ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300 shadow-sm'
-                            : 'border-gray-800 bg-[#0B0F17] text-gray-300 hover:border-gray-700'
+                        disabled={isDisabled}
+                        onClick={() => {
+                          if (!isDisabled) setMeetingTime(slot);
+                        }}
+                        title={isDisabled ? 'Time passed or within 1-hour notice' : slot}
+                        className={`p-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all truncate select-none ${
+                          isDisabled
+                            ? 'opacity-40 cursor-not-allowed bg-[#0B0F17]/50 border-dashed border-gray-800 text-gray-600 line-through'
+                            : isSelected
+                            ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300 shadow-sm font-extrabold cursor-pointer'
+                            : 'border-gray-800 bg-[#0B0F17] text-gray-300 hover:border-gray-700 cursor-pointer'
                         }`}
                       >
-                        <Clock className="w-3.5 h-3.5 text-amber-400" />
-                        <span>{slot}</span>
+                        <Clock className={`w-3.5 h-3.5 shrink-0 ${isDisabled ? 'text-gray-600' : 'text-amber-400'}`} />
+                        <span className="truncate">{slot}</span>
                       </button>
                     );
                   })}
                 </div>
+
+                {!getFirstAvailableSlot(availableSlots, meetingDate, 60) && (
+                  <div className="p-2.5 mt-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-semibold flex items-center gap-2">
+                    <Clock className="w-4 h-4 shrink-0" />
+                    <span>All slots for this date have passed or are within 1 hour notice. Please choose another date.</span>
+                  </div>
+                )}
               </div>
 
               <button
                 type="submit"
-                disabled={isSubmitting}
-                className="w-full py-4 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 text-black font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 transition-all cursor-pointer mt-2"
+                disabled={isSubmitting || !meetingTime || isTimeSlotDisabled(meetingTime, meetingDate, 60)}
+                className={`w-full py-4 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 text-black font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 transition-all mt-2 ${
+                  !meetingTime || isTimeSlotDisabled(meetingTime, meetingDate, 60)
+                    ? 'opacity-50 cursor-not-allowed'
+                    : 'cursor-pointer'
+                }`}
               >
                 <Calendar className="w-4 h-4" />
                 <span>{isSubmitting ? 'Securing Slot...' : 'CONFIRM & LOCK MEETING 📅'}</span>
