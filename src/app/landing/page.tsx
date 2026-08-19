@@ -14,19 +14,21 @@ interface SearchParamsProps {
 // Server Component: Performs rapid fetch for PUBLIC published landing page view only
 async function fetchPublicSubdomainWorkspace(subdomain?: string, domain?: string) {
   try {
-    let targetSub = (subdomain || domain || '').toLowerCase().trim();
-    if (targetSub.endsWith('.firstoption.cloud')) {
-      targetSub = targetSub.replace('.firstoption.cloud', '');
+    const rawTarget = (subdomain || domain || '').toLowerCase().trim();
+    let cleanSub = rawTarget;
+    if (cleanSub.endsWith('.firstoption.cloud')) {
+      cleanSub = cleanSub.replace('.firstoption.cloud', '');
     }
 
-    if (!targetSub) {
+    if (!rawTarget && !cleanSub) {
       return null;
     }
 
+    // Try finding workspace by subdomain or custom_domain
     const { data, error } = await supabase
       .from('funnel_workspaces')
       .select('*')
-      .or(`subdomain.eq.${targetSub},custom_domain.ilike.%${targetSub}%`)
+      .or(`subdomain.eq.${cleanSub},custom_domain.eq.${rawTarget},custom_domain.ilike.%${cleanSub}%`)
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle();
