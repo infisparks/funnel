@@ -32,6 +32,9 @@ export interface UserWorkspace {
   survey_questions?: any[];
   trigger_buttons?: string[];
   popup_theme?: PopupThemeConfig;
+  whatsapp_config?: any;
+  pipeline_stages?: any[];
+  google_meet_url?: string;
   created_at?: string;
   updated_at?: string;
 }
