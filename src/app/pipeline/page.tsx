@@ -90,12 +90,23 @@ export default function PipelinePage() {
     if (!el) return;
 
     const onWheel = (e: WheelEvent) => {
-      // If deltaY is dominant and no shiftKey, scroll horizontally
+      const target = e.target as HTMLElement;
+      const innerScrollable = target.closest('.col-leads-container') as HTMLElement | null;
+
+      // If hovering over an inner column with cards, let vertical wheel scroll up and down naturally
+      if (innerScrollable) {
+        const canScrollUp = innerScrollable.scrollTop > 0 && e.deltaY < 0;
+        const canScrollDown =
+          innerScrollable.scrollTop < innerScrollable.scrollHeight - innerScrollable.clientHeight &&
+          e.deltaY > 0;
+        if (canScrollUp || canScrollDown) {
+          return; // Allow natural up/down scrolling
+        }
+      }
+
+      // If hovering over empty board background or column header, scroll board horizontally
       if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && !e.shiftKey) {
-        // Only scroll board horizontally if the inner column isn't scrolling
-        const target = e.target as HTMLElement;
-        const innerScrollable = target.closest('.col-leads-container');
-        if (!innerScrollable || (innerScrollable.scrollHeight <= innerScrollable.clientHeight)) {
+        if (!innerScrollable) {
           e.preventDefault();
           el.scrollLeft += e.deltaY;
           checkScrollability();

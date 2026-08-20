@@ -28,7 +28,7 @@ export interface WhatsappConfig {
 export const DEFAULT_WHATSAPP_CONFIG: WhatsappConfig = {
   evolution_api_url: 'https://evo.infispark.in',
   evolution_apikey: 'vR39h6avY69g7kAU3YQbS6V6XEvudson',
-  instance_name: 'instance',
+  instance_name: '',
   step1: {
     enabled: true,
     msg_type: 'text',
