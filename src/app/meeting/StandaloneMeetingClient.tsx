@@ -32,18 +32,62 @@ export function StandaloneMeetingClient({ workspace }: StandaloneMeetingClientPr
   const [countryCode, setCountryCode] = useState('+91');
   const [phone, setPhone] = useState('');
   const [meetingDate, setMeetingDate] = useState(initialDate);
-  const [meetingTime, setMeetingTime] = useState(() => {
+  const [bookedSlots, setBookedSlots] = useState<string[]>([]);
+  const [isLoadingBookedSlots, setIsLoadingBookedSlots] = useState<boolean>(false);
+
+  const SERVER_URL = (process.env.NEXT_PUBLIC_SERVER_URL || 'https://funnel.infiplus.in').replace(/\/$/, '');
+
+  const isSlotBooked = (slot: string) => {
+    if (!slot) return false;
+    const normalized = slot.trim().toLowerCase();
+    return bookedSlots.some((b) => (b || '').trim().toLowerCase() === normalized);
+  };
+
+  const isSlotUnavailable = (slot: string, date: string) => {
+    return isTimeSlotDisabled(slot, date, 60) || isSlotBooked(slot);
+  };
+
+  const [meetingTime, setMeetingTime] = useState<string>(() => {
     return getFirstAvailableSlot(availableSlots, initialDate, 60) || availableSlots[0] || '02:00 PM';
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isBooked, setIsBooked] = useState(false);
 
+  const fetchBookedSlots = async (targetDate: string) => {
+    if (!targetDate) return;
+    setIsLoadingBookedSlots(true);
+    try {
+      const params = new URLSearchParams({
+        date: targetDate,
+      });
+      if (workspace?.id) params.set('funnel_id', workspace.id);
+      if (workspace?.user_id) params.set('user_id', workspace.user_id);
+      if (workspace?.subdomain) params.set('subdomain', workspace.subdomain);
+
+      const res = await fetch(`${SERVER_URL}/api/meetings/booked-slots?${params.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.bookedSlots)) {
+          setBookedSlots(data.bookedSlots);
+        }
+      }
+    } catch (err) {
+      console.warn('[StandaloneMeetingClient] Error loading booked slots:', err);
+    } finally {
+      setIsLoadingBookedSlots(false);
+    }
+  };
+
   useEffect(() => {
-    if (isTimeSlotDisabled(meetingTime, meetingDate, 60)) {
-      const valid = getFirstAvailableSlot(availableSlots, meetingDate, 60);
+    fetchBookedSlots(meetingDate);
+  }, [meetingDate, workspace]);
+
+  useEffect(() => {
+    if (isSlotUnavailable(meetingTime, meetingDate)) {
+      const valid = availableSlots.find((s: string) => !isSlotUnavailable(s, meetingDate));
       setMeetingTime(valid || '');
     }
-  }, [meetingDate, availableSlots]);
+  }, [meetingDate, availableSlots, bookedSlots]);
 
   const handleBookMeeting = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,8 +96,9 @@ export function StandaloneMeetingClient({ workspace }: StandaloneMeetingClientPr
       alert('Please enter a valid phone number.');
       return;
     }
-    if (!meetingTime || isTimeSlotDisabled(meetingTime, meetingDate, 60)) {
-      alert('Please select an available upcoming time slot.');
+    if (!meetingTime || isSlotUnavailable(meetingTime, meetingDate)) {
+      alert('This time slot is already booked in this CRM. Please select an available upcoming time slot.');
+      await fetchBookedSlots(meetingDate);
       return;
     }
     setIsSubmitting(true);
@@ -76,42 +121,61 @@ export function StandaloneMeetingClient({ workspace }: StandaloneMeetingClientPr
       meeting_time: meetingTime,
     };
 
-    const digits = cleanPhone.replace(/\D/g, '');
-    const last10 = digits.length >= 10 ? digits.slice(-10) : digits;
-
     try {
-      let targetId = null;
+      // 1. Submit to Backend Server to strictly lock slot and prevent race condition
+      try {
+        const serverRes = await fetch(`${SERVER_URL}/api/landing/lead`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(leadPayload),
+        });
+        const serverData = await serverRes.json();
+        if (!serverRes.ok || serverData.success === false) {
+          alert(serverData.error || `The time slot "${meetingTime}" on ${meetingDate} is already booked in this CRM. Please choose another time slot.`);
+          await fetchBookedSlots(meetingDate);
+          setIsSubmitting(false);
+          return;
+        }
+      } catch (serverErr) {
+        console.warn('[StandaloneMeetingClient] Backend server fallback:', serverErr);
+        // Supabase Fallback
+        const digits = cleanPhone.replace(/\D/g, '');
+        const last10 = digits.length >= 10 ? digits.slice(-10) : digits;
+        let targetId = null;
 
-      if (last10) {
-        let query = supabase
-          .from('leads')
-          .select('id')
-          .or(`phone.ilike.%${last10}%,phone.eq.${cleanPhone},phone.eq.${digits}`);
+        if (last10) {
+          let query = supabase
+            .from('leads')
+            .select('id')
+            .or(`phone.ilike.%${last10}%,phone.eq.${cleanPhone},phone.eq.${digits}`);
 
-        if (workspace?.id) {
-          query = query.eq('funnel_id', workspace.id);
-        } else if (workspace?.user_id) {
-          query = query.eq('user_id', workspace.user_id);
+          if (workspace?.id) {
+            query = query.eq('funnel_id', workspace.id);
+          } else if (workspace?.user_id) {
+            query = query.eq('user_id', workspace.user_id);
+          }
+
+          const { data: found } = await query
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (found?.id) targetId = found.id;
         }
 
-        const { data: found } = await query
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (found?.id) targetId = found.id;
+        if (targetId) {
+          await supabase.from('leads').update(leadPayload).eq('id', targetId);
+        } else {
+          await supabase.from('leads').insert(leadPayload);
+        }
       }
 
-      if (targetId) {
-        await supabase.from('leads').update(leadPayload).eq('id', targetId);
-      } else {
-        await supabase.from('leads').insert(leadPayload);
-      }
-    } catch (err) {
+      setIsBooked(true);
+    } catch (err: any) {
       console.error('Error inserting/updating lead from /meeting:', err);
+      alert('An error occurred while booking. Please try again.');
     } finally {
       setIsSubmitting(false);
-      setIsBooked(true);
     }
   };
 
@@ -250,7 +314,9 @@ export function StandaloneMeetingClient({ workspace }: StandaloneMeetingClientPr
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {availableSlots.map((slot: string) => {
-                    const isDisabled = isTimeSlotDisabled(slot, meetingDate, 60);
+                    const isBooked = isSlotBooked(slot);
+                    const isPast = isTimeSlotDisabled(slot, meetingDate, 60);
+                    const isDisabled = isPast || isBooked;
                     const isSelected = meetingTime === slot && !isDisabled;
                     return (
                       <button
@@ -260,9 +326,17 @@ export function StandaloneMeetingClient({ workspace }: StandaloneMeetingClientPr
                         onClick={() => {
                           if (!isDisabled) setMeetingTime(slot);
                         }}
-                        title={isDisabled ? 'Time passed or within 1-hour notice' : slot}
+                        title={
+                          isBooked
+                            ? 'Already booked in this CRM'
+                            : isPast
+                            ? 'Time passed or within 1-hour notice'
+                            : slot
+                        }
                         className={`p-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all truncate select-none ${
-                          isDisabled
+                          isBooked
+                            ? 'opacity-45 cursor-not-allowed bg-red-500/10 border-red-900/40 text-red-400/80 line-through'
+                            : isPast
                             ? 'opacity-40 cursor-not-allowed bg-[#0B0F17]/50 border-dashed border-gray-800 text-gray-600 line-through'
                             : isSelected
                             ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300 shadow-sm font-extrabold cursor-pointer'
@@ -271,24 +345,29 @@ export function StandaloneMeetingClient({ workspace }: StandaloneMeetingClientPr
                       >
                         <Clock className={`w-3.5 h-3.5 shrink-0 ${isDisabled ? 'text-gray-600' : 'text-amber-400'}`} />
                         <span className="truncate">{slot}</span>
+                        {isBooked && (
+                          <span className="text-[8px] uppercase tracking-wider font-extrabold px-1 py-0.2 rounded bg-red-500/20 text-red-400 ml-0.5">
+                            Booked
+                          </span>
+                        )}
                       </button>
                     );
                   })}
                 </div>
 
-                {!getFirstAvailableSlot(availableSlots, meetingDate, 60) && (
+                {availableSlots.every((s: string) => isSlotUnavailable(s, meetingDate)) && (
                   <div className="p-2.5 mt-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-semibold flex items-center gap-2">
                     <Clock className="w-4 h-4 shrink-0" />
-                    <span>All slots for this date have passed or are within 1 hour notice. Please choose another date.</span>
+                    <span>All slots for this date are booked or have passed. Please choose another date.</span>
                   </div>
                 )}
               </div>
 
               <button
                 type="submit"
-                disabled={isSubmitting || !meetingTime || isTimeSlotDisabled(meetingTime, meetingDate, 60)}
+                disabled={isSubmitting || !meetingTime || isSlotUnavailable(meetingTime, meetingDate)}
                 className={`w-full py-4 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 text-black font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 transition-all mt-2 ${
-                  !meetingTime || isTimeSlotDisabled(meetingTime, meetingDate, 60)
+                  !meetingTime || isSlotUnavailable(meetingTime, meetingDate)
                     ? 'opacity-50 cursor-not-allowed'
                     : 'cursor-pointer'
                 }`}

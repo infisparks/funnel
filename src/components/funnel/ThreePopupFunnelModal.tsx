@@ -199,17 +199,65 @@ export function ThreePopupFunnelModal({
 
   // Popup 3 State: Date & Time Slot
   const [selectedIsoDate, setSelectedIsoDate] = useState(initialDate);
+  const [bookedSlots, setBookedSlots] = useState<string[]>([]);
+  const [isLoadingBookedSlots, setIsLoadingBookedSlots] = useState<boolean>(false);
+
+  const SERVER_URL = (process.env.NEXT_PUBLIC_SERVER_URL || 'https://funnel.infiplus.in').replace(/\/$/, '');
+
+  // Helper to check if a specific time slot is already booked in this CRM
+  const isSlotBooked = (slot: string) => {
+    if (!slot) return false;
+    const normalized = slot.trim().toLowerCase();
+    return bookedSlots.some((b) => (b || '').trim().toLowerCase() === normalized);
+  };
+
+  // Helper to check if a slot is disabled (time passed OR already booked)
+  const isSlotUnavailable = (slot: string, date: string) => {
+    return isTimeSlotDisabled(slot, date, 60) || isSlotBooked(slot);
+  };
+
   const [meetingTime, setMeetingTime] = useState<string>(() => {
     return getFirstAvailableSlot(availableTimeSlots, initialDate, 60) || availableTimeSlots[0] || '02:00 PM';
   });
 
-  // Auto-update selected slot if current meetingTime is disabled for the chosen date
+  // Fetch already booked slots for this CRM workspace and date
+  const fetchBookedSlots = async (targetDate: string) => {
+    if (!targetDate) return;
+    setIsLoadingBookedSlots(true);
+    try {
+      const params = new URLSearchParams({
+        date: targetDate,
+      });
+      if (funnelId) params.set('funnel_id', funnelId);
+      if (userId) params.set('user_id', userId);
+
+      const res = await fetch(`${SERVER_URL}/api/meetings/booked-slots?${params.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.bookedSlots)) {
+          setBookedSlots(data.bookedSlots);
+        }
+      }
+    } catch (err) {
+      console.warn('[ThreePopupFunnelModal] Error loading booked slots:', err);
+    } finally {
+      setIsLoadingBookedSlots(false);
+    }
+  };
+
   useEffect(() => {
-    if (isTimeSlotDisabled(meetingTime, selectedIsoDate, 60)) {
-      const validSlot = getFirstAvailableSlot(availableTimeSlots, selectedIsoDate, 60);
+    if (step === 3 || isOpen) {
+      fetchBookedSlots(selectedIsoDate);
+    }
+  }, [selectedIsoDate, step, funnelId, userId, isOpen]);
+
+  // Auto-update selected slot if current meetingTime is disabled or already booked for the chosen date
+  useEffect(() => {
+    if (isSlotUnavailable(meetingTime, selectedIsoDate)) {
+      const validSlot = availableTimeSlots.find((s) => !isSlotUnavailable(s, selectedIsoDate));
       setMeetingTime(validSlot || '');
     }
-  }, [selectedIsoDate, availableTimeSlots]);
+  }, [selectedIsoDate, availableTimeSlots, bookedSlots]);
 
   // Helper to update URL search parameter cleanly without page refresh
   const updateUrlStep = (targetStep: 1 | 2 | 3 | 4) => {
@@ -653,6 +701,12 @@ export function ThreePopupFunnelModal({
 
   const handleStep3Submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!meetingTime || isSlotUnavailable(meetingTime, selectedIsoDate)) {
+      alert('This time slot is no longer available. Please select an available upcoming time slot.');
+      await fetchBookedSlots(selectedIsoDate);
+      return;
+    }
+
     setIsSubmitting(true);
 
     const activeMeetUrl = (typeof window !== 'undefined' && localStorage.getItem('workspace_google_meet_url')) || popupTheme?.googleMeetUrl || 'https://meet.google.com/qbi-erbq-moy';
@@ -669,28 +723,49 @@ export function ThreePopupFunnelModal({
       meeting_date: selectedIsoDate,
       meeting_time: meetingTime,
       google_meet_url: activeMeetUrl,
+      lead_id: existingLeadId || undefined,
     };
 
     try {
-      let targetId = existingLeadId;
+      // 1. Send to Backend Server First to strictly validate against double-booking
+      try {
+        const serverRes = await fetch(`${SERVER_URL}/api/landing/lead`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(finalLeadPayload),
+        });
+        const serverData = await serverRes.json();
+        if (!serverRes.ok || serverData.success === false) {
+          alert(serverData.error || `The time slot "${meetingTime}" on ${selectedIsoDate} is already booked in this CRM. Please choose another time slot.`);
+          await fetchBookedSlots(selectedIsoDate);
+          setIsSubmitting(false);
+          return;
+        }
+        if (serverData.lead_id) {
+          setExistingLeadId(serverData.lead_id);
+        }
+      } catch (serverErr) {
+        console.warn('[Server Booking Fallback] Direct Supabase fallback:', serverErr);
+        // Fallback to Supabase
+        let targetId = existingLeadId;
+        if (!targetId && cleanPhone) {
+          const matched = await lookupLeadByPhone(cleanPhone);
+          if (matched?.id) {
+            targetId = matched.id;
+            setExistingLeadId(matched.id);
+          }
+        }
 
-      if (!targetId && cleanPhone) {
-        const matched = await lookupLeadByPhone(cleanPhone);
-        if (matched?.id) {
-          targetId = matched.id;
-          setExistingLeadId(matched.id);
+        if (targetId) {
+          await supabase.from('leads').update(finalLeadPayload).eq('id', targetId);
+        } else {
+          const { data: inserted } = await supabase.from('leads').insert(finalLeadPayload).select('id').maybeSingle();
+          if (inserted?.id) {
+            setExistingLeadId(inserted.id);
+          }
         }
       }
-
-      if (targetId) {
-        await supabase.from('leads').update(finalLeadPayload).eq('id', targetId);
-      } else {
-        const { data: inserted } = await supabase.from('leads').insert(finalLeadPayload).select('id').maybeSingle();
-        if (inserted?.id) {
-          setExistingLeadId(inserted.id);
-        }
-      }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error inserting/updating lead in Supabase:', err);
     } finally {
       setIsSubmitting(false);
@@ -1221,7 +1296,9 @@ export function ThreePopupFunnelModal({
 
                 <div className="grid grid-cols-3 gap-2">
                   {availableTimeSlots.map((slot) => {
-                    const isDisabled = isTimeSlotDisabled(slot, selectedIsoDate, 60);
+                    const isBooked = isSlotBooked(slot);
+                    const isPast = isTimeSlotDisabled(slot, selectedIsoDate, 60);
+                    const isDisabled = isPast || isBooked;
                     const isSelected = meetingTime === slot && !isDisabled;
                     return (
                       <button
@@ -1231,9 +1308,17 @@ export function ThreePopupFunnelModal({
                         onClick={() => {
                           if (!isDisabled) setMeetingTime(slot);
                         }}
-                        title={isDisabled ? 'Time passed or within 1-hour notice' : slot}
+                        title={
+                          isBooked
+                            ? 'Already booked in this CRM'
+                            : isPast
+                            ? 'Time passed or within 1-hour notice'
+                            : slot
+                        }
                         className={`p-2.5 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1 border transition-all truncate select-none ${
-                          isDisabled
+                          isBooked
+                            ? 'opacity-45 cursor-not-allowed bg-red-500/5 dark:bg-red-500/10 border-red-300 dark:border-red-900/40 text-red-500/80 dark:text-red-400/70 line-through'
+                            : isPast
                             ? 'opacity-40 cursor-not-allowed bg-gray-100 dark:bg-white/5 border-dashed border-gray-300 dark:border-gray-800 text-gray-400 dark:text-gray-600 line-through'
                             : isSelected
                             ? 'border-emerald-500 bg-emerald-500/20 text-emerald-400 shadow-md font-extrabold cursor-pointer'
@@ -1244,25 +1329,30 @@ export function ThreePopupFunnelModal({
                       >
                         <Clock className={`w-3 h-3 shrink-0 ${isDisabled ? 'text-gray-400 dark:text-gray-600' : ''}`} style={!isDisabled ? { color: primaryColor } : undefined} />
                         <span className="truncate">{slot}</span>
+                        {isBooked && (
+                          <span className="text-[8px] uppercase tracking-wider font-extrabold px-1 py-0.2 rounded bg-red-500/20 text-red-400 ml-0.5">
+                            Booked
+                          </span>
+                        )}
                       </button>
                     );
                   })}
                 </div>
 
-                {/* Notice if no slots available for today */}
-                {!getFirstAvailableSlot(availableTimeSlots, selectedIsoDate, 60) && (
+                {/* Notice if no slots available for selected date */}
+                {availableTimeSlots.every((s) => isSlotUnavailable(s, selectedIsoDate)) && (
                   <div className="p-2.5 mt-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-500 dark:text-amber-400 text-xs font-semibold flex items-center gap-2">
                     <Clock className="w-4 h-4 shrink-0" />
-                    <span>All slots for this date have passed or are within 1 hour. Please choose tomorrow or another date.</span>
+                    <span>All slots for this date are booked or have passed. Please choose another upcoming date.</span>
                   </div>
                 )}
               </div>
 
               <button
                 type="submit"
-                disabled={isSubmitting || !meetingTime || isTimeSlotDisabled(meetingTime, selectedIsoDate, 60)}
+                disabled={isSubmitting || !meetingTime || isSlotUnavailable(meetingTime, selectedIsoDate)}
                 className={`w-full py-3.5 px-4 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all mt-2 ${
-                  !meetingTime || isTimeSlotDisabled(meetingTime, selectedIsoDate, 60)
+                  !meetingTime || isSlotUnavailable(meetingTime, selectedIsoDate)
                     ? 'opacity-50 cursor-not-allowed'
                     : 'cursor-pointer'
                 }`}
