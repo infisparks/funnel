@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, Button, Badge } from '@/components/ui';
+import { useAuth } from '@/components/auth/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import {
   DEFAULT_WHATSAPP_CONFIG,
@@ -40,11 +41,14 @@ const SERVER_URL = (process.env.NEXT_PUBLIC_SERVER_URL || 'https://funnel.infipl
 
 
 export default function WhatsappAutomationPage() {
+  const { user, workspace } = useAuth();
   const [config, setConfig] = useState<WhatsappConfig>(DEFAULT_WHATSAPP_CONFIG);
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const [isSavingInstance, setIsSavingInstance] = useState(false);
+  const [instanceSaveMsg, setInstanceSaveMsg] = useState('');
 
   // Test Dispatch state
   const [testPhone, setTestPhone] = useState('919958399157');
@@ -103,15 +107,38 @@ export default function WhatsappAutomationPage() {
     (async () => {
       setIsLoading(true);
       try {
-        const { data: ws } = await supabase
-          .from('funnel_workspaces')
-          .select('id, whatsapp_config')
-          .limit(1)
-          .maybeSingle();
+        let wsData = null;
+        if (workspace?.id) {
+          setWorkspaceId(workspace.id);
+          wsData = workspace;
+        } else if (user?.id) {
+          const { data: ws } = await supabase
+            .from('funnel_workspaces')
+            .select('id, whatsapp_config')
+            .eq('user_id', user.id)
+            .maybeSingle();
+          if (ws) {
+            wsData = ws;
+            setWorkspaceId(ws.id);
+          }
+        } else {
+          const { data: ws } = await supabase
+            .from('funnel_workspaces')
+            .select('id, whatsapp_config')
+            .limit(1)
+            .maybeSingle();
+          if (ws) {
+            wsData = ws;
+            setWorkspaceId(ws.id);
+          }
+        }
 
-        if (ws?.id) setWorkspaceId(ws.id);
-        if (ws?.whatsapp_config) {
-          setConfig({ ...DEFAULT_WHATSAPP_CONFIG, ...ws.whatsapp_config });
+        if (wsData?.whatsapp_config) {
+          setConfig({
+            ...DEFAULT_WHATSAPP_CONFIG,
+            ...wsData.whatsapp_config,
+            instance_name: wsData.whatsapp_config.instance_name || '',
+          });
         }
       } catch (err) {
         console.error('Error loading WhatsApp config:', err);
@@ -121,7 +148,57 @@ export default function WhatsappAutomationPage() {
     })();
 
     fetchGcpQueue();
-  }, []);
+  }, [user, workspace]);
+
+  // Save only WhatsApp Instance Name
+  const handleSaveInstance = async () => {
+    setIsSavingInstance(true);
+    setInstanceSaveMsg('');
+    try {
+      const updatedConfig = { ...config, instance_name: config.instance_name?.trim() || '' };
+      let targetWsId = workspaceId || workspace?.id;
+
+      if (targetWsId) {
+        await supabase
+          .from('funnel_workspaces')
+          .update({ whatsapp_config: updatedConfig })
+          .eq('id', targetWsId);
+      } else if (user?.id) {
+        const { data: ws } = await supabase
+          .from('funnel_workspaces')
+          .update({ whatsapp_config: updatedConfig })
+          .eq('user_id', user.id)
+          .select('id')
+          .maybeSingle();
+        if (ws?.id) setWorkspaceId(ws.id);
+      } else {
+        const { data: ws } = await supabase
+          .from('funnel_workspaces')
+          .select('id')
+          .limit(1)
+          .maybeSingle();
+        if (ws?.id) {
+          setWorkspaceId(ws.id);
+          await supabase
+            .from('funnel_workspaces')
+            .update({ whatsapp_config: updatedConfig })
+            .eq('id', ws.id);
+        }
+      }
+
+      setInstanceSaveMsg(
+        updatedConfig.instance_name
+          ? `WhatsApp instance "${updatedConfig.instance_name}" saved successfully! 🚀`
+          : 'WhatsApp instance cleared and saved.'
+      );
+      setTimeout(() => setInstanceSaveMsg(''), 4000);
+    } catch (err: any) {
+      console.error('Error saving instance:', err);
+      setInstanceSaveMsg(`Error: ${err.message || 'Failed to save instance'}`);
+    } finally {
+      setIsSavingInstance(false);
+    }
+  };
 
   // Save config to Supabase
   const handleSaveConfig = async () => {
@@ -507,22 +584,50 @@ export default function WhatsappAutomationPage() {
             </div>
           </div>
 
-          <div className="max-w-md space-y-2">
+          <div className="space-y-3 max-w-xl">
             <label className="block text-xs font-bold uppercase text-gray-700">
               Your WhatsApp Instance Name <span className="text-red-500">*</span>
             </label>
-            <div className="relative">
+
+            {/* Input + Save Instance Button */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
               <input
                 type="text"
-                value={config.instance_name}
+                value={config.instance_name || ''}
                 onChange={(e) => setConfig({ ...config, instance_name: e.target.value })}
-                placeholder="e.g. mudassir"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all"
+                placeholder="Enter your WhatsApp instance name (e.g. agency_main, sales_bot)"
+                className="flex-1 px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all shadow-2xs"
               />
+
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleSaveInstance}
+                isLoading={isSavingInstance}
+                leftIcon={<Save className="w-3.5 h-3.5" />}
+                className="text-xs font-bold shrink-0"
+              >
+                Save Instance
+              </Button>
             </div>
-            <p className="text-[11px] text-gray-500 flex items-center gap-1">
+
+            {/* Instance Save Success / Error Toast Message */}
+            {instanceSaveMsg && (
+              <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2 animate-in fade-in duration-150">
+                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{instanceSaveMsg}</span>
+              </div>
+            )}
+
+            <p className="text-[11px] text-gray-500 flex items-center gap-1.5 pt-0.5">
               <span>All messages will be dispatched through your assigned instance:</span>
-              <strong className="text-indigo-600 font-mono">{config.instance_name || '(not set)'}</strong>
+              {config.instance_name ? (
+                <span className="font-mono font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md">
+                  {config.instance_name}
+                </span>
+              ) : (
+                <span className="text-gray-400 italic font-medium">(Not configured - enter instance name above)</span>
+              )}
             </p>
           </div>
         </Card>
