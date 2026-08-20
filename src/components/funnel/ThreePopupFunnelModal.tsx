@@ -549,6 +549,17 @@ export function ThreePopupFunnelModal({
           leadId: activeLeadId,
         });
       }
+
+      // Dispatch Step 1 WhatsApp message
+      dispatchWhatsappTrigger('step1', {
+        name,
+        email,
+        phone: cleanPhone,
+        funnel_id: funnelId || undefined,
+        user_id: userId || undefined,
+        workspace_id: funnelId || undefined,
+      }).catch((e) => console.warn('[WhatsApp Trigger Step 1 error]:', e));
+
       changeStep(2);
       setCurrentQuestionIndex(0);
     }
@@ -600,6 +611,16 @@ export function ThreePopupFunnelModal({
     if (currentQuestionIndex < surveyQuestions.length - 1) {
       setCurrentQuestionIndex((prev) => prev + 1);
     } else {
+      // Dispatch Step 2 WhatsApp message upon survey completion
+      dispatchWhatsappTrigger('step2', {
+        name,
+        email,
+        phone: getFullPhone(),
+        funnel_id: funnelId || undefined,
+        user_id: userId || undefined,
+        workspace_id: funnelId || undefined,
+      }).catch((e) => console.warn('[WhatsApp Trigger Step 2 error]:', e));
+
       changeStep(3);
     }
   };
@@ -656,6 +677,20 @@ export function ThreePopupFunnelModal({
     } finally {
       setIsSubmitting(false);
       saveSessionToLocalStorage(surveyAnswers, true, undefined, cleanPhone);
+
+      // Dispatch Step 3 Meeting Booked WhatsApp message
+      dispatchWhatsappTrigger('step3', {
+        name,
+        email,
+        phone: cleanPhone,
+        meeting_date: selectedIsoDate,
+        meeting_time: meetingTime,
+        google_meet_url: activeMeetUrl,
+        funnel_id: funnelId || undefined,
+        user_id: userId || undefined,
+        workspace_id: funnelId || undefined,
+      }).catch((e) => console.warn('[WhatsApp Trigger Step 3 error]:', e));
+
       if (onComplete) onComplete(finalLeadPayload);
       changeStep(4);
     }

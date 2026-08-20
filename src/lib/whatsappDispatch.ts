@@ -7,6 +7,10 @@ export interface WhatsappLeadData {
   meeting_date?: string;
   meeting_time?: string;
   google_meet_url?: string;
+  workspace_id?: string;
+  funnel_id?: string;
+  user_id?: string;
+  instance_name?: string;
 }
 
 export interface WhatsappStageConfig {
@@ -112,11 +116,19 @@ export async function dispatchWhatsappTrigger(
 
     // Fetch workspace whatsapp_config if not passed explicitly
     if (!customConfig) {
-      const { data: ws } = await supabase
-        .from('funnel_workspaces')
-        .select('whatsapp_config, google_meet_url')
-        .limit(1)
-        .maybeSingle();
+      let query = supabase.from('funnel_workspaces').select('id, user_id, whatsapp_config, google_meet_url');
+      if (lead.funnel_id || lead.workspace_id) {
+        query = query.or(`id.eq.${lead.funnel_id || lead.workspace_id},user_id.eq.${lead.funnel_id || lead.workspace_id}`);
+      } else if (lead.user_id) {
+        query = query.eq('user_id', lead.user_id);
+      } else {
+        query = query
+          .not('whatsapp_config->>instance_name', 'is', null)
+          .neq('whatsapp_config->>instance_name', '')
+          .order('updated_at', { ascending: false });
+      }
+
+      const { data: ws } = await query.limit(1).maybeSingle();
 
       if (ws?.whatsapp_config) {
         config = { ...DEFAULT_WHATSAPP_CONFIG, ...ws.whatsapp_config };
@@ -132,10 +144,15 @@ export async function dispatchWhatsappTrigger(
       return { success: true };
     }
 
+    const instance = config.instance_name || lead.instance_name;
+    if (!instance) {
+      console.warn(`[WhatsApp Dispatch] No WhatsApp instance configured for this workspace.`);
+      return { success: false, error: 'No WhatsApp sender instance configured' };
+    }
+
     const formattedNumber = formatWhatsappNumber(lead.phone);
     const parsedMessage = parseWhatsappTemplate(stepConfig.message, lead);
     const baseUrl = config.evolution_api_url.replace(/\/$/, '');
-    const instance = config.instance_name || 'instance';
 
     if (stepConfig.msg_type === 'text' || !stepConfig.media_url) {
       // Send Text Message

@@ -61,14 +61,17 @@ async function getUserWhatsappConfig(userIdOrWorkspaceId, supabase) {
       }
     }
 
-    // Default workspace fallback
+    // Default workspace fallback: pick workspace with non-empty instance_name
     const { data: defaultWs } = await supabase
       .from('funnel_workspaces')
       .select('id, user_id, whatsapp_config, google_meet_url')
+      .not('whatsapp_config->>instance_name', 'is', null)
+      .neq('whatsapp_config->>instance_name', '')
+      .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (defaultWs && defaultWs.whatsapp_config) {
+    if (defaultWs && defaultWs.whatsapp_config && defaultWs.whatsapp_config.instance_name) {
       return {
         ...defaultWs.whatsapp_config,
         google_meet_url: defaultWs.google_meet_url || defaultWs.whatsapp_config.google_meet_url,

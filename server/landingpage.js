@@ -9,6 +9,8 @@
  * 5. Automatic WhatsApp Automation Dispatch on Lead Step Progress
  */
 
+const whatsappManager = require('./whatappmanage');
+
 const DEFAULT_LANDING_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -590,6 +592,29 @@ async function captureLead(body, supabase) {
       .maybeSingle();
     if (error) throw error;
     savedRecord = data;
+  }
+
+  // Trigger automated WhatsApp message according to step progress
+  if (savedRecord && cleanPhone) {
+    const stepKeyMap = {
+      step1_contact: 'step1',
+      survey_completed: 'step2',
+      meeting_booked: 'step3',
+    };
+    const stepKey = stepKeyMap[step_progress] || 'step1';
+    whatsappManager
+      .handleStepTrigger(
+        stepKey,
+        {
+          ...savedRecord,
+          phone: cleanPhone,
+          workspace_id: resolvedFunnelId,
+          user_id: resolvedUserId,
+        },
+        null,
+        supabase
+      )
+      .catch((e) => console.warn('[LandingPage Lead WhatsApp Trigger Error]:', e.message));
   }
 
   return savedRecord;
