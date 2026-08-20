@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { dispatchWhatsappTrigger } from '@/lib/whatsappDispatch';
 import {
@@ -183,6 +183,7 @@ export function ThreePopupFunnelModal({
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [existingLeadId, setExistingLeadId] = useState<string | null>(null);
+  const dispatchedStepsRef = useRef<Set<string>>(new Set());
 
   // Popup 1 State: Contact Info
   const [name, setName] = useState('');
@@ -305,6 +306,15 @@ export function ThreePopupFunnelModal({
     onClose();
   };
 
+  // Helper to get strictly isolated storage scope per landing page / funnel
+  const getStorageScopeId = () => {
+    if (funnelId) return funnelId;
+    if (typeof window !== 'undefined') {
+      return (window.location.host + window.location.pathname).replace(/[^a-zA-Z0-9_-]/g, '_');
+    }
+    return 'default_scope';
+  };
+
   // Helper to instantly persist contact info to localStorage as user types
   const saveContactInfoToStorage = (
     updatedName?: string,
@@ -319,7 +329,7 @@ export function ThreePopupFunnelModal({
       const phoneToSave = updatedPhone !== undefined ? updatedPhone : phone;
       const fullPhone = formatFullPhone(codeToSave, phoneToSave);
 
-      const storageKey = `lead_contact_info_${funnelId || 'default'}`;
+      const storageKey = `lead_contact_info_${getStorageScopeId()}`;
       localStorage.setItem(
         storageKey,
         JSON.stringify({
@@ -343,8 +353,9 @@ export function ThreePopupFunnelModal({
       let hasSavedSurvey = false;
 
       try {
-        const storageKey = `lead_funnel_session_${funnelId || 'default'}`;
-        const contactKey = `lead_contact_info_${funnelId || 'default'}`;
+        const scopeId = getStorageScopeId();
+        const storageKey = `lead_funnel_session_${scopeId}`;
+        const contactKey = `lead_contact_info_${scopeId}`;
         const savedSession = localStorage.getItem(storageKey) || localStorage.getItem(contactKey);
         if (savedSession) {
           const parsed = JSON.parse(savedSession);
@@ -418,7 +429,7 @@ export function ThreePopupFunnelModal({
       const isFinished = isSurveyFinished ?? (Object.keys(answersToSave).length >= surveyQuestions.length);
       const activeLeadId = customLeadId || existingLeadId;
       const fullPhone = customFullPhone || getFullPhone();
-      const storageKey = `lead_funnel_session_${funnelId || 'default'}`;
+      const storageKey = `lead_funnel_session_${getStorageScopeId()}`;
       localStorage.setItem(
         storageKey,
         JSON.stringify({
@@ -447,10 +458,11 @@ export function ThreePopupFunnelModal({
         .select('id, name, email, phone, step_progress, survey_responses, meeting_date, meeting_time')
         .or(`phone.ilike.%${last10}%,phone.eq.${rawPhone.trim()},phone.eq.${digits}`);
 
+      // STRICT Funnel Isolation: A lead must belong to this specific funnel/landing page!
       if (funnelId) {
         query = query.eq('funnel_id', funnelId);
-      } else if (userId) {
-        query = query.eq('user_id', userId);
+      } else {
+        return null;
       }
 
       const { data } = await query
@@ -550,15 +562,18 @@ export function ThreePopupFunnelModal({
         });
       }
 
-      // Dispatch Step 1 WhatsApp message
-      dispatchWhatsappTrigger('step1', {
-        name,
-        email,
-        phone: cleanPhone,
-        funnel_id: funnelId || undefined,
-        user_id: userId || undefined,
-        workspace_id: funnelId || undefined,
-      }).catch((e) => console.warn('[WhatsApp Trigger Step 1 error]:', e));
+      // Dispatch Step 1 WhatsApp message once per session
+      if (!dispatchedStepsRef.current.has('step1')) {
+        dispatchedStepsRef.current.add('step1');
+        dispatchWhatsappTrigger('step1', {
+          name,
+          email,
+          phone: cleanPhone,
+          funnel_id: funnelId || undefined,
+          user_id: userId || undefined,
+          workspace_id: funnelId || undefined,
+        }).catch((e) => console.warn('[WhatsApp Trigger Step 1 error]:', e));
+      }
 
       changeStep(2);
       setCurrentQuestionIndex(0);
@@ -611,15 +626,18 @@ export function ThreePopupFunnelModal({
     if (currentQuestionIndex < surveyQuestions.length - 1) {
       setCurrentQuestionIndex((prev) => prev + 1);
     } else {
-      // Dispatch Step 2 WhatsApp message upon survey completion
-      dispatchWhatsappTrigger('step2', {
-        name,
-        email,
-        phone: getFullPhone(),
-        funnel_id: funnelId || undefined,
-        user_id: userId || undefined,
-        workspace_id: funnelId || undefined,
-      }).catch((e) => console.warn('[WhatsApp Trigger Step 2 error]:', e));
+      // Dispatch Step 2 WhatsApp message upon survey completion once per session
+      if (!dispatchedStepsRef.current.has('step2')) {
+        dispatchedStepsRef.current.add('step2');
+        dispatchWhatsappTrigger('step2', {
+          name,
+          email,
+          phone: getFullPhone(),
+          funnel_id: funnelId || undefined,
+          user_id: userId || undefined,
+          workspace_id: funnelId || undefined,
+        }).catch((e) => console.warn('[WhatsApp Trigger Step 2 error]:', e));
+      }
 
       changeStep(3);
     }
@@ -678,18 +696,21 @@ export function ThreePopupFunnelModal({
       setIsSubmitting(false);
       saveSessionToLocalStorage(surveyAnswers, true, undefined, cleanPhone);
 
-      // Dispatch Step 3 Meeting Booked WhatsApp message
-      dispatchWhatsappTrigger('step3', {
-        name,
-        email,
-        phone: cleanPhone,
-        meeting_date: selectedIsoDate,
-        meeting_time: meetingTime,
-        google_meet_url: activeMeetUrl,
-        funnel_id: funnelId || undefined,
-        user_id: userId || undefined,
-        workspace_id: funnelId || undefined,
-      }).catch((e) => console.warn('[WhatsApp Trigger Step 3 error]:', e));
+      // Dispatch Step 3 Meeting Booked WhatsApp message once per session
+      if (!dispatchedStepsRef.current.has('step3')) {
+        dispatchedStepsRef.current.add('step3');
+        dispatchWhatsappTrigger('step3', {
+          name,
+          email,
+          phone: cleanPhone,
+          meeting_date: selectedIsoDate,
+          meeting_time: meetingTime,
+          google_meet_url: activeMeetUrl,
+          funnel_id: funnelId || undefined,
+          user_id: userId || undefined,
+          workspace_id: funnelId || undefined,
+        }).catch((e) => console.warn('[WhatsApp Trigger Step 3 error]:', e));
+      }
 
       if (onComplete) onComplete(finalLeadPayload);
       changeStep(4);
@@ -697,8 +718,10 @@ export function ThreePopupFunnelModal({
   };
 
   const resetLeadSession = () => {
-    localStorage.removeItem(`lead_funnel_session_${funnelId || 'default'}`);
-    localStorage.removeItem(`lead_contact_info_${funnelId || 'default'}`);
+    dispatchedStepsRef.current.clear();
+    const scopeId = getStorageScopeId();
+    localStorage.removeItem(`lead_funnel_session_${scopeId}`);
+    localStorage.removeItem(`lead_contact_info_${scopeId}`);
     localStorage.removeItem('lead_funnel_session');
     localStorage.removeItem('lead_contact_info');
     setName('');

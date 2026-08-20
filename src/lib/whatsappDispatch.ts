@@ -78,6 +78,21 @@ export function parseWhatsappTemplate(template: string, lead: WhatsappLeadData, 
 
 const SERVER_URL = (process.env.NEXT_PUBLIC_SERVER_URL || 'https://funnel.infiplus.in').replace(/\/$/, '');
 
+// Client-side deduplication cache
+const clientDispatchCooldown = new Map<string, number>();
+
+function isClientDuplicate(stepKey: string, phone: string): boolean {
+  const clean = formatWhatsappNumber(phone);
+  if (!clean) return false;
+  const key = `${stepKey}_${clean}`;
+  const now = Date.now();
+  const last = clientDispatchCooldown.get(key);
+  if (last && now - last < 20000) {
+    return true;
+  }
+  clientDispatchCooldown.set(key, now);
+  return false;
+}
 
 /**
  * Dispatch automatic WhatsApp trigger for a specific funnel step
@@ -89,6 +104,12 @@ export async function dispatchWhatsappTrigger(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     if (!lead.phone) return { success: false, error: 'No phone number provided' };
+
+    // Prevent duplicate dispatches within 20s window
+    if (isClientDuplicate(stepKey, lead.phone)) {
+      console.log(`[WhatsApp Dispatch] Skipping duplicate dispatch for ${stepKey} to ${lead.phone}`);
+      return { success: true };
+    }
 
     // 1. Try Server-Side Dispatch via server.js / whatappmanage.js
     try {
@@ -116,25 +137,34 @@ export async function dispatchWhatsappTrigger(
 
     // Fetch workspace whatsapp_config if not passed explicitly
     if (!customConfig) {
-      let query = supabase.from('funnel_workspaces').select('id, user_id, whatsapp_config, google_meet_url');
-      if (lead.funnel_id || lead.workspace_id) {
-        query = query.or(`id.eq.${lead.funnel_id || lead.workspace_id},user_id.eq.${lead.funnel_id || lead.workspace_id}`);
-      } else if (lead.user_id) {
-        query = query.eq('user_id', lead.user_id);
-      } else {
-        query = query
-          .not('whatsapp_config->>instance_name', 'is', null)
-          .neq('whatsapp_config->>instance_name', '')
-          .order('updated_at', { ascending: false });
+      const targetWsId = lead.funnel_id || lead.workspace_id;
+      let wsData: any = null;
+
+      if (targetWsId) {
+        const { data: wsById } = await supabase
+          .from('funnel_workspaces')
+          .select('id, user_id, whatsapp_config, google_meet_url')
+          .eq('id', targetWsId)
+          .maybeSingle();
+        wsData = wsById;
       }
 
-      const { data: ws } = await query.limit(1).maybeSingle();
-
-      if (ws?.whatsapp_config) {
-        config = { ...DEFAULT_WHATSAPP_CONFIG, ...ws.whatsapp_config };
+      if (!wsData && lead.user_id) {
+        const { data: wsByUser } = await supabase
+          .from('funnel_workspaces')
+          .select('id, user_id, whatsapp_config, google_meet_url')
+          .eq('user_id', lead.user_id)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        wsData = wsByUser;
       }
-      if (ws?.google_meet_url && !lead.google_meet_url) {
-        lead.google_meet_url = ws.google_meet_url;
+
+      if (wsData?.whatsapp_config) {
+        config = { ...DEFAULT_WHATSAPP_CONFIG, ...wsData.whatsapp_config };
+      }
+      if (wsData?.google_meet_url && !lead.google_meet_url) {
+        lead.google_meet_url = wsData.google_meet_url;
       }
     }
 

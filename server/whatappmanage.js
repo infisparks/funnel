@@ -46,17 +46,33 @@ async function getUserWhatsappConfig(userIdOrWorkspaceId, supabase) {
   if (!supabase) return null;
   try {
     if (userIdOrWorkspaceId && userIdOrWorkspaceId !== 'default_user' && userIdOrWorkspaceId !== 'lead_drawer') {
-      const { data } = await supabase
+      // 1. Try EXACT Workspace ID match FIRST
+      const { data: wsById } = await supabase
         .from('funnel_workspaces')
         .select('id, user_id, whatsapp_config, google_meet_url')
-        .or(`id.eq.${userIdOrWorkspaceId},user_id.eq.${userIdOrWorkspaceId}`)
+        .eq('id', userIdOrWorkspaceId)
+        .maybeSingle();
+
+      if (wsById && wsById.whatsapp_config && wsById.whatsapp_config.instance_name) {
+        return {
+          ...wsById.whatsapp_config,
+          google_meet_url: wsById.google_meet_url || wsById.whatsapp_config.google_meet_url,
+        };
+      }
+
+      // 2. Try User ID match if not matching workspace ID
+      const { data: wsByUser } = await supabase
+        .from('funnel_workspaces')
+        .select('id, user_id, whatsapp_config, google_meet_url')
+        .eq('user_id', userIdOrWorkspaceId)
+        .order('updated_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      if (data && data.whatsapp_config && data.whatsapp_config.instance_name) {
+      if (wsByUser && wsByUser.whatsapp_config && wsByUser.whatsapp_config.instance_name) {
         return {
-          ...data.whatsapp_config,
-          google_meet_url: data.google_meet_url || data.whatsapp_config.google_meet_url,
+          ...wsByUser.whatsapp_config,
+          google_meet_url: wsByUser.google_meet_url || wsByUser.whatsapp_config.google_meet_url,
         };
       }
     }
@@ -303,15 +319,48 @@ async function logWhatsappToDatabase(params, supabase) {
   }
 }
 
+// In-memory deduplication cache: key -> timestamp (expires after 25s)
+const dispatchCooldownMap = new Map();
+
+function isDuplicateDispatch(stepKey, phone) {
+  const clean = formatWhatsappNumber(phone);
+  if (!clean) return false;
+  const key = `${stepKey}_${clean}`;
+  const now = Date.now();
+  const lastTime = dispatchCooldownMap.get(key);
+  if (lastTime && now - lastTime < 25000) {
+    return true; // Duplicate trigger within 25 seconds
+  }
+  dispatchCooldownMap.set(key, now);
+
+  // Periodic memory cleanup
+  if (dispatchCooldownMap.size > 1000) {
+    for (const [k, t] of dispatchCooldownMap.entries()) {
+      if (now - t > 60000) dispatchCooldownMap.delete(k);
+    }
+  }
+  return false;
+}
+
 /**
  * Handle Step Trigger (Step 1 Contact, Step 2 Survey, Step 3 Meeting)
  */
 async function handleStepTrigger(stepKey, leadData, customConfig, supabase) {
+  if (!leadData || !leadData.phone) {
+    return { success: false, error: 'Recipient phone number is required.' };
+  }
+
+  // Prevent duplicate double sending
+  if (isDuplicateDispatch(stepKey, leadData.phone)) {
+    console.log(`[whatappmanage.js] Deduplicated duplicate trigger for step "${stepKey}" to ${leadData.phone}`);
+    return { success: true, deduplicated: true };
+  }
+
   let config = customConfig;
 
   // If no custom config passed, fetch user's workspace config dynamically from Supabase
   if (!config && supabase) {
-    const userCfg = await getUserWhatsappConfig(leadData.workspace_id || leadData.user_id, supabase);
+    const userCfg = await getUserWhatsappConfig(leadData.workspace_id || leadData.funnel_id || leadData.user_id, supabase);
     if (userCfg) {
       config = userCfg;
     }
