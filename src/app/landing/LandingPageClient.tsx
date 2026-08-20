@@ -187,17 +187,24 @@ export function LandingPageClient({
     }
   }, [searchParams]);
 
+  const displayDomain =
+    customDomain && customDomain !== 'firstoption.cloud'
+      ? customDomain
+      : subdomain
+      ? (subdomain.includes('.') ? subdomain : `${subdomain}.firstoption.cloud`)
+      : 'firstoption.cloud';
+
   const showToast = (message: string) => {
     setSupabaseToastMsg(message);
     setTimeout(() => setSupabaseToastMsg(''), 4000);
   };
 
   const handleCopyLiveUrl = () => {
-    const url = `https://${subdomain}.firstoption.cloud`;
+    const url = `https://${displayDomain}`;
     navigator.clipboard.writeText(url);
     setIsCopiedDomain(true);
     setTimeout(() => setIsCopiedDomain(false), 2000);
-    showToast('Copied live subdomain URL to clipboard! 📋');
+    showToast(`Copied live URL (https://${displayDomain}) to clipboard! 📋`);
   };
 
   const handleAddTriggerButton = async (exactText: string) => {
@@ -258,9 +265,8 @@ export function LandingPageClient({
   };
 
   const handleSaveDomain = async (newSubdomain: string, newDomain?: string) => {
-    const formattedSub = newSubdomain.toLowerCase().trim().replace(/[^a-z0-9-]/g, '');
-    const cleanDomain = newDomain?.toLowerCase().trim().replace(/^https?:\/\//, '').replace(/\/$/, '') || (formattedSub ? `${formattedSub}.firstoption.cloud` : 'firstoption.cloud');
-    const finalSub = formattedSub || (cleanDomain.includes('.') ? cleanDomain.split('.')[0] : 'client');
+    const cleanDomain = newDomain?.toLowerCase().trim().replace(/^https?:\/\//, '').replace(/\/$/, '') || (newSubdomain ? `${newSubdomain}.firstoption.cloud` : 'firstoption.cloud');
+    const finalSub = (cleanDomain.includes('.') ? cleanDomain.split('.')[0] : newSubdomain || 'client').toLowerCase().replace(/[^a-z0-9-]/g, '');
 
     setSubdomain(finalSub);
     setCustomDomain(cleanDomain);
@@ -277,7 +283,7 @@ export function LandingPageClient({
     });
     setIsSavingSupabase(false);
     if (ok) {
-      showToast(`Domain linked: https://${cleanDomain} 🚀`);
+      showToast(`Domain assigned: https://${cleanDomain} 🚀`);
     }
   };
 
@@ -515,7 +521,7 @@ export function LandingPageClient({
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#F5F6F8] border border-[#E5E7EB] text-xs">
             <Globe className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
             <span className="text-[#6B7280]">https://</span>
-            <span className="font-semibold text-[#111827]">{subdomain}.firstoption.cloud</span>
+            <span className="font-semibold text-[#111827]">{displayDomain}</span>
             <button
               onClick={handleCopyLiveUrl}
               className="ml-1 text-gray-400 hover:text-gray-700 transition-colors p-0.5 rounded cursor-pointer"
@@ -524,7 +530,7 @@ export function LandingPageClient({
               {isCopiedDomain ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
             </button>
             <a
-              href={`https://${subdomain}.firstoption.cloud`}
+              href={`https://${displayDomain}`}
               target="_blank"
               rel="noreferrer"
               className="text-gray-400 hover:text-indigo-600 transition-colors p-0.5 rounded"
@@ -544,9 +550,10 @@ export function LandingPageClient({
 
           <button
             onClick={() => setIsDomainModalOpen(true)}
-            className="text-xs font-medium text-indigo-600 hover:text-indigo-700 hover:underline cursor-pointer"
+            className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 hover:underline cursor-pointer flex items-center gap-1"
           >
-            Domain Settings
+            <Globe className="w-3.5 h-3.5" />
+            <span>Assign Domain</span>
           </button>
         </div>
 
@@ -705,7 +712,7 @@ export function LandingPageClient({
             <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-white border border-[#E5E7EB] text-xs text-[#6B7280] max-w-xs w-full truncate">
               <Lock className="w-3 h-3 text-emerald-600 shrink-0" />
               <span className="text-[#6B7280]/60">https://</span>
-              <span className="font-medium text-[#111827] truncate">{subdomain}.firstoption.cloud</span>
+              <span className="font-medium text-[#111827] truncate">{displayDomain}</span>
             </div>
 
             <button
