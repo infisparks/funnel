@@ -43,8 +43,8 @@ export const DEFAULT_WHATSAPP_CONFIG: WhatsappConfig = {
   },
   step3: {
     enabled: true,
-    msg_type: 'video',
-    media_url: 'https://avtshare01.rz.tu-ilmenau.de/avt-vqdb-uhd-1/test_1/segments/bigbuck_bunny_8bit_15000kbps_1080p_60.0fps_h264.mp4',
+    msg_type: 'text',
+    media_url: '',
     message: '🎥 Hello {{name}}! Your strategy session is booked. Join Google Meet link here: {{meeting_url}}',
   },
 };

@@ -701,12 +701,17 @@ export default function WhatsappAutomationPage() {
                 <label className="block text-xs font-bold text-gray-700 mb-1">Message Format</label>
                 <select
                   value={config.step1.msg_type || 'text'}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const newType = e.target.value as any;
                     setConfig({
                       ...config,
-                      step1: { ...config.step1, msg_type: e.target.value as any },
-                    })
-                  }
+                      step1: {
+                        ...config.step1,
+                        msg_type: newType,
+                        media_url: newType === 'text' ? '' : config.step1.media_url,
+                      },
+                    });
+                  }}
                   className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-900 focus:outline-none"
                 >
                   <option value="text">Text Message Only</option>
@@ -797,12 +802,17 @@ export default function WhatsappAutomationPage() {
                 <label className="block text-xs font-bold text-gray-700 mb-1">Message Format</label>
                 <select
                   value={config.step2.msg_type || 'text'}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const newType = e.target.value as any;
                     setConfig({
                       ...config,
-                      step2: { ...config.step2, msg_type: e.target.value as any },
-                    })
-                  }
+                      step2: {
+                        ...config.step2,
+                        msg_type: newType,
+                        media_url: newType === 'text' ? '' : config.step2.media_url,
+                      },
+                    });
+                  }}
                   className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-900 focus:outline-none"
                 >
                   <option value="text">Text Message Only</option>
@@ -893,12 +903,17 @@ export default function WhatsappAutomationPage() {
                 <label className="block text-xs font-bold text-gray-700 mb-1">Message Format</label>
                 <select
                   value={config.step3.msg_type || 'text'}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const newType = e.target.value as any;
                     setConfig({
                       ...config,
-                      step3: { ...config.step3, msg_type: e.target.value as any },
-                    })
-                  }
+                      step3: {
+                        ...config.step3,
+                        msg_type: newType,
+                        media_url: newType === 'text' ? '' : config.step3.media_url,
+                      },
+                    });
+                  }}
                   className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-900 focus:outline-none"
                 >
                   <option value="text">Text Message Only</option>

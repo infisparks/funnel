@@ -167,7 +167,7 @@ async function sendWhatsappMessage(params, supabase) {
   const baseUrl = apiUrl.replace(/\/$/, '');
 
   // 1. Text message
-  if (!mediaUrl) {
+  if (mediaType === 'text' || !mediaUrl) {
     const endpoint = `${baseUrl}/message/sendText/${encodeURIComponent(instanceName)}`;
     const result = await postJson(
       endpoint,
@@ -325,8 +325,8 @@ async function handleStepTrigger(stepKey, leadData, customConfig, supabase) {
     leadData
   );
 
-  const mediaUrl = stepConfig ? stepConfig.media_url : null;
-  const mediaType = stepConfig ? stepConfig.msg_type : 'text';
+  const mediaType = (stepConfig && stepConfig.msg_type) || 'text';
+  const mediaUrl = (stepConfig && mediaType !== 'text') ? stepConfig.media_url : null;
   const instanceName = (config && config.instance_name) || (leadData && leadData.instance_name);
   const apiUrl = (config && config.evolution_api_url) || process.env.EVOLUTION_API_URL;
   const apiKey = (config && config.evolution_apikey) || process.env.EVOLUTION_APIKEY;
