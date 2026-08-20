@@ -385,7 +385,7 @@ const server = http.createServer(async (req, res) => {
       if (cloudTasksClient && queuePath) {
         try {
           const userCfg = await whatsappManager.getUserWhatsappConfig(userId, supabase);
-          const resolvedInstance = userCfg?.instance_name || 'mudassir';
+          const resolvedInstance = userCfg?.instance_name || '';
 
           const payload = {
             userId,
