@@ -272,18 +272,10 @@ function buildInteractiveLandingHtml(workspace) {
     text-align: center;
     transition: all 0.15s;
   }
-  .infi-slot-btn.selected, .infi-slot-btn:not(.booked):hover {
+  .infi-slot-btn.selected, .infi-slot-btn:hover {
     border-color: ${popupTheme?.primaryColor || '#8146F0'};
     background: ${popupTheme?.primaryColor ? popupTheme.primaryColor + '25' : 'rgba(129, 70, 240, 0.2)'};
     color: #FFF;
-  }
-  .infi-slot-btn.booked {
-    background: rgba(255, 255, 255, 0.03) !important;
-    color: #64748B !important;
-    border-color: rgba(255, 255, 255, 0.08) !important;
-    cursor: not-allowed !important;
-    text-decoration: line-through !important;
-    opacity: 0.45 !important;
   }
 </style>
 
@@ -338,11 +330,11 @@ function buildInteractiveLandingHtml(workspace) {
       <label class="infi-label" style="margin-top: 8px; display: block;">Select Time Slot</label>
       <div id="infi-slots-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 8px 0 20px 0;">
         ${(popupTheme?.meetingSlots || ['10:00 AM', '11:30 AM', '02:00 PM', '04:30 PM', '06:00 PM'])
-          .map((slot, idx) => `<button type="button" data-slot="${slot}" class="infi-slot-btn ${idx === 0 ? 'selected' : ''}" onclick="selectInfiSlot(this, '${slot}')">${slot}</button>`)
+          .map((slot, idx) => `<button type="button" class="infi-slot-btn ${idx === 0 ? 'selected' : ''}" onclick="selectInfiSlot(this, '${slot}')">${slot}</button>`)
           .join('')}
       </div>
 
-      <button type="submit" id="infi_step3_btn" class="infi-btn-primary" onclick="handleInfiStep3()">
+      <button type="button" class="infi-btn-primary" onclick="handleInfiStep3()">
         <span>${popupTheme?.step3ButtonText || 'CONFIRM & LOCK BOOKING 📅'}</span>
       </button>
     </div>
@@ -430,63 +422,10 @@ function buildInteractiveLandingHtml(workspace) {
     }
 
     window.selectInfiSlot = function(btn, slot) {
-      if (btn.classList.contains('booked') || btn.disabled) {
-        return;
-      }
       document.querySelectorAll('#infi-slots-grid .infi-slot-btn').forEach(b => b.classList.remove('selected'));
       btn.classList.add('selected');
       leadData.meeting_time = slot;
     };
-
-    async function refreshBookedSlots() {
-      const dateInput = document.getElementById('infi_meeting_date');
-      if (!dateInput) return;
-      const selectedDate = dateInput.value;
-      if (!selectedDate) return;
-
-      try {
-        const queryParams = new URLSearchParams({
-          date: selectedDate,
-          funnel_id: workspaceId || '',
-          user_id: userId || '',
-        });
-        const res = await fetch('/api/meetings/booked-slots?' + queryParams.toString());
-        if (res.ok) {
-          const data = await res.json();
-          const booked = (data.bookedSlots || []).map(function(s) { return (s || '').toLowerCase().trim(); });
-          
-          const buttons = document.querySelectorAll('#infi-slots-grid .infi-slot-btn');
-          buttons.forEach(function(btn) {
-            const rawSlot = btn.getAttribute('data-slot') || btn.innerText || '';
-            const slotNormalized = rawSlot.toLowerCase().trim();
-            if (booked.indexOf(slotNormalized) !== -1) {
-              btn.classList.add('booked');
-              btn.disabled = true;
-              btn.title = 'Slot already booked in this CRM';
-              btn.innerHTML = rawSlot + ' <span style="font-size: 9px; opacity: 0.8; display: block;">(Booked)</span>';
-              if (btn.classList.contains('selected')) {
-                btn.classList.remove('selected');
-                leadData.meeting_time = '';
-              }
-            } else {
-              btn.classList.remove('booked');
-              btn.disabled = false;
-              btn.title = 'Available';
-              btn.innerText = rawSlot;
-            }
-          });
-
-          // If current selected time is booked or empty, auto-select first available
-          const availableBtn = document.querySelector('#infi-slots-grid .infi-slot-btn:not(.booked)');
-          if (availableBtn && (!leadData.meeting_time || booked.indexOf((leadData.meeting_time || '').toLowerCase().trim()) !== -1)) {
-            availableBtn.classList.add('selected');
-            leadData.meeting_time = availableBtn.getAttribute('data-slot') || availableBtn.innerText;
-          }
-        }
-      } catch (e) {
-        console.warn('[InfiFunnel] Error refreshing booked slots:', e);
-      }
-    }
 
     async function submitLead(stepProgress) {
       try {
@@ -504,10 +443,8 @@ function buildInteractiveLandingHtml(workspace) {
         if (data && data.lead_id) {
           activeLeadId = data.lead_id;
         }
-        return data;
       } catch (e) {
         console.warn('Lead submit background sync:', e);
-        return null;
       }
     }
 
@@ -526,66 +463,15 @@ function buildInteractiveLandingHtml(workspace) {
     window.handleInfiStep2 = async function() {
       document.getElementById('infi-step-2').style.display = 'none';
       document.getElementById('infi-step-3').style.display = 'block';
-      await refreshBookedSlots();
       await submitLead('survey_completed');
     };
 
     window.handleInfiStep3 = async function() {
-      const dateInput = document.getElementById('infi_meeting_date');
-      leadData.meeting_date = dateInput ? dateInput.value : '';
-      if (!leadData.meeting_time) {
-        alert('Please select an available time slot.');
-        return;
-      }
-
-      const step3Btn = document.getElementById('infi_step3_btn');
-      if (step3Btn) {
-        step3Btn.disabled = true;
-        step3Btn.innerText = 'Locking Slot...';
-      }
-
-      try {
-        const res = await fetch('/api/landing/lead', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ...leadData,
-            step_progress: 'meeting_booked',
-            lead_id: activeLeadId
-          })
-        });
-        const data = await res.json();
-        if (!res.ok || data.success === false) {
-          alert(data.error || 'This time slot is already booked in this CRM. Please choose another slot.');
-          await refreshBookedSlots();
-          if (step3Btn) {
-            step3Btn.disabled = false;
-            step3Btn.innerText = 'CONFIRM & LOCK BOOKING 📅';
-          }
-          return;
-        }
-
-        if (data && data.lead_id) {
-          activeLeadId = data.lead_id;
-        }
-        document.getElementById('infi-step-3').style.display = 'none';
-        document.getElementById('infi-step-4').style.display = 'block';
-      } catch (e) {
-        alert('Failed to lock booking. Please try again.');
-        if (step3Btn) {
-          step3Btn.disabled = false;
-          step3Btn.innerText = 'CONFIRM & LOCK BOOKING 📅';
-        }
-      }
+      leadData.meeting_date = document.getElementById('infi_meeting_date').value;
+      document.getElementById('infi-step-3').style.display = 'none';
+      document.getElementById('infi-step-4').style.display = 'block';
+      await submitLead('meeting_booked');
     };
-
-    // Listen for date change to refresh booked slots
-    document.addEventListener('DOMContentLoaded', function() {
-      const dateInput = document.getElementById('infi_meeting_date');
-      if (dateInput) {
-        dateInput.addEventListener('change', refreshBookedSlots);
-      }
-    });
 
     // Auto-intercept clicks matching triggers
     document.addEventListener('click', function(e) {
@@ -774,75 +660,6 @@ async function handleLandingRequest(req, res, supabase, readJsonBody, sendJson) 
     const targetSub = extractSubdomain(host, url.searchParams.get('subdomain'), url.searchParams.get('domain'));
     const ws = await resolveWorkspace(targetSub, supabase);
     return sendJson(200, { success: true, workspace: ws });
-  }
-
-  // 1.5 GET /api/meetings/booked-slots, /api/landing/booked-slots, /api/booked-slots - Fetch already booked slots for a CRM workspace & date
-  if (
-    req.method === 'GET' &&
-    (pathname === '/api/meetings/booked-slots' ||
-      pathname === '/api/landing/booked-slots' ||
-      pathname === '/api/booked-slots')
-  ) {
-    try {
-      const funnelId = url.searchParams.get('funnel_id') || url.searchParams.get('workspace_id');
-      const userId = url.searchParams.get('user_id');
-      const date = url.searchParams.get('date');
-      const targetSub = extractSubdomain(host, url.searchParams.get('subdomain'), url.searchParams.get('domain'));
-
-      if (!date) {
-        return sendJson(400, { success: false, error: 'date query parameter is required (YYYY-MM-DD)' });
-      }
-
-      const cleanDate = date.includes('T') ? date.split('T')[0] : date.trim();
-      let resolvedFunnelId = funnelId;
-      let resolvedUserId = userId;
-
-      if (!resolvedFunnelId && !resolvedUserId && targetSub) {
-        const ws = await resolveWorkspace(targetSub, supabase);
-        if (ws) {
-          resolvedFunnelId = ws.id;
-          resolvedUserId = ws.user_id;
-        }
-      }
-
-      let query = supabase
-        .from('leads')
-        .select('meeting_time')
-        .eq('meeting_date', cleanDate)
-        .not('meeting_time', 'is', null)
-        .neq('meeting_time', '');
-
-      if (resolvedFunnelId) {
-        query = query.eq('funnel_id', resolvedFunnelId);
-      } else if (resolvedUserId) {
-        query = query.eq('user_id', resolvedUserId);
-      }
-
-      const { data, error } = await query;
-      if (error) {
-        console.error('[Booked Slots DB Error]:', error);
-        return sendJson(500, { success: false, error: error.message });
-      }
-
-      const bookedSlots = Array.from(
-        new Set(
-          (data || [])
-            .map((r) => (r.meeting_time || '').trim())
-            .filter(Boolean)
-        )
-      );
-
-      return sendJson(200, {
-        success: true,
-        date: cleanDate,
-        funnel_id: resolvedFunnelId || null,
-        user_id: resolvedUserId || null,
-        bookedSlots,
-      });
-    } catch (err) {
-      console.error('[Booked Slots Handler Error]:', err);
-      return sendJson(500, { success: false, error: err.message });
-    }
   }
 
   // 2. POST /api/landing/lead - Capture Lead
