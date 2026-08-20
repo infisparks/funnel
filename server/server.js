@@ -49,12 +49,8 @@ const GCP_PROJECT_ID = process.env.GCP_PROJECT_ID || 'firstoption-8da25';
 const GCP_LOCATION = process.env.GCP_LOCATION || 'asia-south1';
 const GCP_QUEUE_NAME = process.env.GCP_QUEUE_NAME || 'whatsapp-automation-queue';
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://seeaubtexmusuccgdvkk.supabase.co';
-const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const WEBHOOK_URL = process.env.WEBHOOK_HANDLER_URL || 'https://funnel.infiplus.in/api/whatsapp/execute-task';
-
-
-
-
 
 const MONTHLY_MAX_LIMIT = 10000;
 
@@ -95,7 +91,9 @@ if (gcpCreds) {
   }
 }
 
-// Initialize Supabase Client
+// Initialize Supabase Privileged Client with Service Role Key
+const isServiceRole = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+console.log(`[Supabase Init] Initializing Supabase client. Mode: ${isServiceRole ? 'SERVICE_ROLE (Privileged)' : 'ANON'}`);
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });

@@ -81,16 +81,21 @@ export function ShareLandingModal({
   const fetchUsersAndHistory = async () => {
     setIsLoadingUsers(true);
     try {
-      // 1. Fetch registered users
-      const { data: usersData } = await supabase
-        .from('registered_users')
-        .select('*');
+      // 1. Fetch active workspace subdomains for sharing
+      const { data: workspacesData } = await supabase
+        .from('funnel_workspaces')
+        .select('id, user_id, subdomain');
 
-      if (usersData) {
-        // Filter out current user's own email
-        const otherUsers = usersData.filter(
-          (u) => u.email && u.email.toLowerCase() !== (user?.email || '').toLowerCase()
-        );
+      if (workspacesData) {
+        // Map workspaces as selectable targets (excluding own workspace)
+        const otherUsers = workspacesData
+          .filter((w) => w.user_id && w.user_id !== user?.id && w.subdomain)
+          .map((w) => ({
+            user_id: w.user_id,
+            email: `${w.subdomain}@firstoption.cloud`,
+            name: `${w.subdomain.toUpperCase()} Workspace`,
+            subdomain: w.subdomain,
+          }));
         setRegisteredUsers(otherUsers);
       }
 
