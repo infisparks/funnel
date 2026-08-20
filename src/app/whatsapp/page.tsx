@@ -382,16 +382,20 @@ export default function WhatsappAutomationPage() {
               onClick={handleSaveConfig}
               isLoading={isSaving}
               leftIcon={<Save className="w-3.5 h-3.5" />}
+              className="shadow-sm"
             >
-              Save Settings
+              Save WhatsApp Configuration
             </Button>
           </div>
         </div>
 
+        {/* Viewport Floating Toast Banner for instant save feedback */}
         {saveStatus && (
-          <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2 animate-in fade-in duration-150">
-            <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>{saveStatus}</span>
+          <div className="fixed top-5 right-5 z-50 animate-in fade-in slide-in-from-top-3 duration-200">
+            <div className="px-4 py-2.5 rounded-2xl bg-[#111827] text-white text-xs font-bold shadow-2xl flex items-center gap-2.5 border border-gray-700">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>{saveStatus}</span>
+            </div>
           </div>
         )}
 
@@ -633,8 +637,37 @@ export default function WhatsappAutomationPage() {
         </Card>
 
         {/* 3 Step Funnel Trigger Configurations */}
-        <div className="space-y-6">
-          {/* Step 1: Lead Details Captured */}
+        <div className="space-y-4 pt-2">
+          {/* Section Header with Save Button */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-extrabold text-base sm:text-lg text-[#111827]">
+                  Automated Funnel Trigger Messages
+                </h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                  Instant Dispatch
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Customize automated WhatsApp copy, media, and variables for Steps 1, 2, and 3.
+              </p>
+            </div>
+
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleSaveConfig}
+              isLoading={isSaving}
+              leftIcon={<Save className="w-3.5 h-3.5" />}
+              className="text-xs font-bold shrink-0 shadow-sm"
+            >
+              Save WhatsApp Configuration
+            </Button>
+          </div>
+
+          <div className="space-y-6">
+            {/* Step 1: Lead Details Captured */}
           <Card className="p-6 bg-white border border-[#E5E7EB] shadow-2xs space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-gray-100">
               <div className="flex items-center gap-2">
@@ -928,7 +961,36 @@ export default function WhatsappAutomationPage() {
               />
             </div>
           </Card>
+
+          {/* Bottom Save Bar for easy 1-click saving right after editing */}
+          <div className="p-4 rounded-2xl bg-white border border-indigo-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold shrink-0">
+                <Sparkles className="w-4 h-4 text-indigo-600" />
+              </div>
+              <div>
+                <h4 className="font-bold text-xs sm:text-sm text-[#111827]">
+                  Ready to deploy your WhatsApp message changes?
+                </h4>
+                <p className="text-[11px] text-gray-500">
+                  Saves your custom message templates, media attachments, and trigger rules to Supabase.
+                </p>
+              </div>
+            </div>
+
+            <Button
+              variant="primary"
+              size="md"
+              onClick={handleSaveConfig}
+              isLoading={isSaving}
+              leftIcon={<Save className="w-4 h-4" />}
+              className="text-xs font-bold shadow-md shrink-0"
+            >
+              Save WhatsApp Configuration 🚀
+            </Button>
+          </div>
         </div>
+      </div>
 
         {/* Live Dispatch & GCP Schedule Tester */}
         <Card className="p-6 bg-white border border-[#E5E7EB] shadow-2xs space-y-4">
