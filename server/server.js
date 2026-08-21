@@ -572,7 +572,7 @@ const server = http.createServer(async (req, res) => {
           return sendJson(200, result);
         } catch (err) {
           console.error('[WhatsApp Send Step Error]:', err.message);
-          return sendJson(500, { success: false, error: err.message });
+          return sendJson(200, { success: false, error: err.message });
         }
       }
 
