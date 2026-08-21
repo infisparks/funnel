@@ -550,28 +550,27 @@ export function ThreePopupFunnelModal({
 
       console.log('[Supabase Client-Side Upload] Submitting Step 1 contact payload to database:', step1Payload);
 
-      const clientGeneratedId = activeLeadId || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : null);
+      // 1. Direct Supabase insert / update (Public RLS policy allows insert & select)
+      try {
+        if (activeLeadId) {
+          const { data } = await supabase.from('leads').update(step1Payload).eq('id', activeLeadId).select('id').maybeSingle();
+          if (data?.id) activeLeadId = data.id;
+        } else {
+          const { data } = await supabase.from('leads').insert(step1Payload).select('id').maybeSingle();
+          if (data?.id) activeLeadId = data.id;
+        }
+      } catch (clientDbErr) {
+        console.warn('Direct Supabase insert note:', clientDbErr);
+      }
 
-      // Ingest through Backend Server (server.js) as primary authoritative source
+      // 2. Authoritative Backend sync & WhatsApp automation trigger
       const backendResult = await syncLeadToBackend('step1_contact', {
-        lead_id: activeLeadId || clientGeneratedId,
+        lead_id: activeLeadId || undefined,
       });
 
       if (backendResult?.lead_id) {
         activeLeadId = backendResult.lead_id;
-      } else if (clientGeneratedId && !activeLeadId) {
-        activeLeadId = clientGeneratedId;
       }
-
-      // Best effort direct Supabase insert for instant local reflection if authenticated
-      try {
-        if (activeLeadId) {
-          await supabase.from('leads').update(step1Payload).eq('id', activeLeadId);
-        } else {
-          const insertPayload = clientGeneratedId ? { id: clientGeneratedId, ...step1Payload } : step1Payload;
-          await supabase.from('leads').insert(insertPayload);
-        }
-      } catch (clientDbErr) {}
 
       if (activeLeadId) {
         setExistingLeadId(activeLeadId);

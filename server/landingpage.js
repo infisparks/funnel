@@ -635,7 +635,10 @@ async function captureLead(body, supabase) {
       .maybeSingle();
     if (error) throw error;
     savedRecord = data;
-  } else {
+  }
+
+  // If no existing record was updated, insert as new lead
+  if (!savedRecord) {
     const { data, error } = await supabase
       .from('leads')
       .insert(payload)
