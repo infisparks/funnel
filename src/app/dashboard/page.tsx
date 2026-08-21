@@ -95,6 +95,22 @@ export default function ExecutiveCrmDashboard() {
   useEffect(() => {
     if (user) {
       fetchUserIsolatedLeads();
+
+      // Real-time listener for live leads ingestion
+      const channel = supabase
+        .channel(`dashboard_leads_${user.id}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'leads' },
+          () => {
+            fetchUserIsolatedLeads();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [user, workspace]);
 

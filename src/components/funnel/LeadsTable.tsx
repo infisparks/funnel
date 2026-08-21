@@ -88,6 +88,22 @@ export function LeadsTable() {
   useEffect(() => {
     if (user) {
       fetchUserLeadsOnly();
+
+      // Real-time listener for live leads updates
+      const channel = supabase
+        .channel(`leads_table_${user.id}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'leads' },
+          () => {
+            fetchUserLeadsOnly();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [user, workspace]);
 
