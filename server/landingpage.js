@@ -106,15 +106,16 @@ function extractSubdomain(hostHeader, querySubdomain, queryDomain) {
  * Resolve workspace record from Supabase by Subdomain, Custom Domain, or User ID
  */
 async function resolveWorkspace(targetIdentifier, supabase) {
-  if (!supabase) return null;
-  const cleanId = (targetIdentifier || '').toLowerCase().trim();
+  if (!supabase || !targetIdentifier) return null;
+  const cleanId = targetIdentifier.toString().toLowerCase().trim().replace(/^https?:\/\//, '').replace(/\/$/, '').split(':')[0];
+  const subPart = cleanId.includes('.') ? cleanId.split('.')[0] : cleanId;
 
   try {
     if (cleanId) {
       const { data, error } = await supabase
         .from('funnel_workspaces')
         .select('*')
-        .or(`subdomain.eq.${cleanId},custom_domain.ilike.%${cleanId}%,id.eq.${cleanId},user_id.eq.${cleanId}`)
+        .or(`custom_domain.eq.${cleanId},subdomain.eq.${cleanId},subdomain.eq.${subPart},custom_domain.ilike.%${cleanId}%,custom_domain.ilike.%${subPart}%,id.eq.${cleanId},user_id.eq.${cleanId}`)
         .order('updated_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -124,15 +125,7 @@ async function resolveWorkspace(targetIdentifier, supabase) {
       }
     }
 
-    // Fallback: Fetch latest active workspace
-    const { data: fallbackWs } = await supabase
-      .from('funnel_workspaces')
-      .select('*')
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    return fallbackWs || null;
+    return null;
   } catch (err) {
     console.error('[landingpage.js] Error resolving workspace from Supabase:', err.message);
     return null;
@@ -525,12 +518,13 @@ async function captureLead(body, supabase) {
     throw new Error('Name, Phone or Email is required');
   }
 
-  // Resolve target workspace if funnel_id is missing
+  // Resolve target workspace accurately from domain, subdomain, or funnel_id
   let resolvedFunnelId = funnel_id;
   let resolvedUserId = user_id;
 
-  if (!resolvedFunnelId && subdomain) {
-    const ws = await resolveWorkspace(subdomain, supabase);
+  const rawDomainIdentifier = body.domain || body.subdomain || subdomain || '';
+  if (rawDomainIdentifier) {
+    const ws = await resolveWorkspace(rawDomainIdentifier, supabase);
     if (ws) {
       resolvedFunnelId = ws.id;
       resolvedUserId = ws.user_id;

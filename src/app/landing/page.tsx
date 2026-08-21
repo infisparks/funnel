@@ -11,51 +11,42 @@ interface SearchParamsProps {
   isPublic?: string;
 }
 
-// Server Component: Performs rapid fetch for PUBLIC published landing page view only
-async function fetchPublicSubdomainWorkspace(subdomain?: string, domain?: string) {
+// Server Component: Performs rapid fetch for PUBLIC published landing page view
+async function fetchPublicSubdomainWorkspace(subdomain?: string, domain?: string, hostHeader?: string) {
   try {
-    const rawDomain = (domain || subdomain || '').toLowerCase().trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const rawHost = (hostHeader || '').toLowerCase().trim().replace(/^https?:\/\//, '').replace(/\/$/, '').split(':')[0];
+    const rawDomain = (domain || subdomain || rawHost || '').toLowerCase().trim().replace(/^https?:\/\//, '').replace(/\/$/, '').split(':')[0];
     const subPart = rawDomain.includes('.') ? rawDomain.split('.')[0] : rawDomain;
 
-    if (!rawDomain && !subPart) {
+    if (!rawDomain && !subPart && !rawHost) {
       return null;
     }
 
-    // 1. Try finding workspace by exact custom_domain or subdomain
-    const { data } = await supabase
+    // 1. Exact custom_domain, subdomain, or host match
+    const { data: exactMatch } = await supabase
       .from('funnel_workspaces')
       .select('*')
-      .or(`custom_domain.eq.${rawDomain},subdomain.eq.${subPart},custom_domain.ilike.%${subPart}%,subdomain.ilike.%${subPart}%`)
+      .or(`custom_domain.eq.${rawHost},custom_domain.eq.${rawDomain},subdomain.eq.${subPart},subdomain.eq.${rawDomain},subdomain.eq.${rawHost}`)
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (data) {
-      return data;
+    if (exactMatch) {
+      return exactMatch;
     }
 
-    // 2. Fallback: match by custom_domain contains
-    const { data: fallbackMatch } = await supabase
+    // 2. Partial custom_domain match (e.g. testing.infispark.in -> testing)
+    const { data: partialMatch } = await supabase
       .from('funnel_workspaces')
       .select('*')
-      .ilike('custom_domain', `%${rawDomain}%`)
+      .or(`custom_domain.ilike.%${rawHost}%,custom_domain.ilike.%${subPart}%,subdomain.ilike.%${subPart}%`)
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (fallbackMatch) {
-      return fallbackMatch;
+    if (partialMatch) {
+      return partialMatch;
     }
-
-    // 3. Fallback: Return the most recent active workspace
-    const { data: defaultWs } = await supabase
-      .from('funnel_workspaces')
-      .select('*')
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    return defaultWs || null;
   } catch (err) {
     console.error('[Public Server Fetch Exception]:', err);
   }
@@ -69,18 +60,19 @@ export default async function LandingPage({
 }) {
   const resolvedParams = await searchParams;
   const headersList = await headers();
-  const host = (headersList.get('host') || '').toLowerCase();
+  const rawHost = (headersList.get('x-forwarded-host') || headersList.get('host') || '').toLowerCase().trim().split(':')[0];
 
   const isSubdomainHost =
-    host.includes('.') &&
-    !host.includes('localhost') &&
-    !host.includes('vercel.app') &&
-    host !== 'firstoption.cloud' &&
-    host !== 'www.firstoption.cloud';
+    rawHost.includes('.') &&
+    !rawHost.includes('localhost') &&
+    rawHost !== 'firstoption.cloud' &&
+    rawHost !== 'www.firstoption.cloud';
 
   let subdomainName = resolvedParams.subdomain || resolvedParams.domain || '';
-  if (!subdomainName && host.endsWith('.firstoption.cloud')) {
-    subdomainName = host.replace('.firstoption.cloud', '');
+  if (!subdomainName && rawHost.endsWith('.firstoption.cloud')) {
+    subdomainName = rawHost.replace('.firstoption.cloud', '');
+  } else if (!subdomainName && isSubdomainHost) {
+    subdomainName = rawHost;
   }
 
   const isPublicView =
@@ -89,8 +81,7 @@ export default async function LandingPage({
     !!resolvedParams.domain ||
     isSubdomainHost;
 
-  // If in CRM Admin mode, do NOT fetch random public workspace from server.
-  // The client will securely load only the authenticated user's workspace via AuthContext.
+  // If in CRM Admin mode (on firstoption.cloud), load only auth workspace
   if (!isPublicView) {
     return (
       <LandingPageClient
@@ -102,8 +93,8 @@ export default async function LandingPage({
     );
   }
 
-  // PUBLIC VISITOR MODE: Fetch the specific published workspace by subdomain/domain
-  const publicWorkspace = await fetchPublicSubdomainWorkspace(subdomainName, resolvedParams.domain);
+  // PUBLIC VISITOR MODE: Fetch the specific published workspace by subdomain/custom domain/host
+  const publicWorkspace = await fetchPublicSubdomainWorkspace(subdomainName, resolvedParams.domain, rawHost);
   const initialHtml = publicWorkspace?.landing_html || DEFAULT_LANDING_HTML;
 
   return (
@@ -111,7 +102,7 @@ export default async function LandingPage({
       initialHtmlCode={initialHtml}
       initialWorkspace={publicWorkspace}
       isPublicView={true}
-      subdomainName={subdomainName}
+      subdomainName={subdomainName || rawHost}
     />
   );
 }

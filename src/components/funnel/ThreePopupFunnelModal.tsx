@@ -483,6 +483,7 @@ export function ThreePopupFunnelModal({
   const syncLeadToBackend = async (stepProgress: string, extraData: any = {}) => {
     try {
       const cleanPhone = getFullPhone();
+      const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
       const payload = {
         name: name || 'Landing Lead',
         email: email || '',
@@ -493,6 +494,8 @@ export function ThreePopupFunnelModal({
         meeting_time: meetingTime || null,
         funnel_id: funnelId || null,
         user_id: userId || null,
+        domain: currentHost,
+        subdomain: currentHost,
         lead_id: existingLeadId || null,
         ...extraData,
       };
