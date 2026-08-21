@@ -38,6 +38,8 @@ import {
   formatFullPhone,
 } from '@/lib/phoneUtils';
 
+const SERVER_URL = (process.env.NEXT_PUBLIC_SERVER_URL || 'https://funnel.infiplus.in').replace(/\/$/, '');
+
 const InstagramIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
@@ -477,6 +479,42 @@ export function ThreePopupFunnelModal({
     }
   };
 
+  // Helper to sync lead reliably through server-side ingestion
+  const syncLeadToBackend = async (stepProgress: string, extraData: any = {}) => {
+    try {
+      const cleanPhone = getFullPhone();
+      const payload = {
+        name: name || 'Landing Lead',
+        email: email || '',
+        phone: cleanPhone,
+        step_progress: stepProgress,
+        survey_responses: surveyAnswers,
+        meeting_date: selectedIsoDate || null,
+        meeting_time: meetingTime || null,
+        funnel_id: funnelId || null,
+        user_id: userId || null,
+        lead_id: existingLeadId || null,
+        ...extraData,
+      };
+
+      const res = await fetch(`${SERVER_URL}/api/landing/lead`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.lead_id && !existingLeadId) {
+          setExistingLeadId(data.lead_id);
+        }
+        return data;
+      }
+    } catch (e) {
+      console.warn('[Backend Lead Sync Error]:', e);
+    }
+    return null;
+  };
+
   const handleStep1Submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanPhone = getFullPhone();
@@ -541,6 +579,12 @@ export function ThreePopupFunnelModal({
         }
       }
 
+      // Also sync to Backend Server for guaranteed database ingestion & webhook triggers
+      const backendResult = await syncLeadToBackend('step1_contact', { lead_id: activeLeadId });
+      if (backendResult?.lead_id && !activeLeadId) {
+        activeLeadId = backendResult.lead_id;
+      }
+
       if (activeLeadId) {
         setExistingLeadId(activeLeadId);
         console.log('[Supabase Success] Client-side Step 1 saved under lead ID:', activeLeadId);
@@ -594,12 +638,13 @@ export function ThreePopupFunnelModal({
       }
 
       const isAlreadyMeeting = step === 4 || matchedLead?.step_progress === 'meeting_booked' || Boolean(matchedLead?.meeting_date || matchedLead?.meeting_time);
+      const stage = isAlreadyMeeting ? 'meeting_booked' : 'survey_completed';
 
       const payload: any = {
         name: name || 'Lead',
         email: email || '',
         phone: cleanPhone,
-        step_progress: isAlreadyMeeting ? 'meeting_booked' : 'survey_completed',
+        step_progress: stage,
         survey_responses: responses,
       };
       if (funnelId) payload.funnel_id = funnelId;
@@ -615,6 +660,9 @@ export function ThreePopupFunnelModal({
           console.log('[Supabase Sync] Inserted survey lead with ID:', inserted.id, responses);
         }
       }
+
+      // Sync survey response to backend server
+      await syncLeadToBackend(stage, { survey_responses: responses, lead_id: targetId });
     } catch (err) {
       console.error('Error saving survey responses to Supabase:', err);
     }
@@ -690,6 +738,15 @@ export function ThreePopupFunnelModal({
           setExistingLeadId(inserted.id);
         }
       }
+
+      // Sync meeting booking to backend server
+      await syncLeadToBackend('meeting_booked', {
+        survey_responses: surveyAnswers,
+        meeting_date: selectedIsoDate,
+        meeting_time: meetingTime,
+        google_meet_url: activeMeetUrl,
+        lead_id: targetId,
+      });
     } catch (err) {
       console.error('Error inserting/updating lead in Supabase:', err);
     } finally {

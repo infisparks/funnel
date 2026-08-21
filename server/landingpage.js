@@ -588,6 +588,31 @@ async function captureLead(body, supabase) {
     }
   }
 
+  // Ensure both funnel_id and user_id are populated
+  if (!resolvedUserId && resolvedFunnelId) {
+    try {
+      const { data: ws } = await supabase
+        .from('funnel_workspaces')
+        .select('user_id')
+        .eq('id', resolvedFunnelId)
+        .maybeSingle();
+      if (ws && ws.user_id) resolvedUserId = ws.user_id;
+    } catch (e) {}
+  }
+
+  if (!resolvedFunnelId && resolvedUserId) {
+    try {
+      const { data: ws } = await supabase
+        .from('funnel_workspaces')
+        .select('id')
+        .eq('user_id', resolvedUserId)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (ws && ws.id) resolvedFunnelId = ws.id;
+    } catch (e) {}
+  }
+
   const payload = {
     name: name || 'Landing Page Visitor',
     email: email || '',
@@ -598,7 +623,6 @@ async function captureLead(body, supabase) {
     meeting_time: meeting_time || null,
     funnel_id: resolvedFunnelId || null,
     user_id: resolvedUserId || null,
-    updated_at: new Date().toISOString(),
   };
 
   let savedRecord = null;
