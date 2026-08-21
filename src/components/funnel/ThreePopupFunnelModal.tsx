@@ -552,45 +552,33 @@ export function ThreePopupFunnelModal({
 
       const clientGeneratedId = activeLeadId || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : null);
 
-      // 2. Perform Direct Client-Side Supabase Upload FIRST
-      if (activeLeadId) {
-        const { data, error } = await supabase
-          .from('leads')
-          .update(step1Payload)
-          .eq('id', activeLeadId)
-          .select('id')
-          .maybeSingle();
+      // Ingest through Backend Server (server.js) as primary authoritative source
+      const backendResult = await syncLeadToBackend('step1_contact', {
+        lead_id: activeLeadId || clientGeneratedId,
+      });
 
-        if (data?.id) {
-          activeLeadId = data.id;
-        }
-      } else {
-        const insertPayload = clientGeneratedId ? { id: clientGeneratedId, ...step1Payload } : step1Payload;
-        const { data, error } = await supabase
-          .from('leads')
-          .insert(insertPayload)
-          .select('id')
-          .maybeSingle();
-
-        if (data?.id) {
-          activeLeadId = data.id;
-        } else if (clientGeneratedId) {
-          activeLeadId = clientGeneratedId;
-        }
-      }
-
-      // Also sync to Backend Server for guaranteed database ingestion & webhook triggers
-      const backendResult = await syncLeadToBackend('step1_contact', { lead_id: activeLeadId });
-      if (backendResult?.lead_id && !activeLeadId) {
+      if (backendResult?.lead_id) {
         activeLeadId = backendResult.lead_id;
+      } else if (clientGeneratedId && !activeLeadId) {
+        activeLeadId = clientGeneratedId;
       }
+
+      // Best effort direct Supabase insert for instant local reflection if authenticated
+      try {
+        if (activeLeadId) {
+          await supabase.from('leads').update(step1Payload).eq('id', activeLeadId);
+        } else {
+          const insertPayload = clientGeneratedId ? { id: clientGeneratedId, ...step1Payload } : step1Payload;
+          await supabase.from('leads').insert(insertPayload);
+        }
+      } catch (clientDbErr) {}
 
       if (activeLeadId) {
         setExistingLeadId(activeLeadId);
-        console.log('[Supabase Success] Client-side Step 1 saved under lead ID:', activeLeadId);
+        console.log('[Lead Captured] Step 1 saved under lead ID:', activeLeadId);
       }
     } catch (err) {
-      console.error('[Supabase Exception] Exception during client-side Step 1 upload:', err);
+      console.error('[Exception during Step 1 upload]:', err);
     } finally {
       setIsSubmitting(false);
       saveSessionToLocalStorage(surveyAnswers, false, activeLeadId || undefined, cleanPhone);
@@ -629,7 +617,7 @@ export function ThreePopupFunnelModal({
       let targetId = existingLeadId;
       let matchedLead: any = null;
       const cleanPhone = getFullPhone();
-      if (cleanPhone) {
+      if (cleanPhone && !targetId) {
         matchedLead = await lookupLeadByPhone(cleanPhone);
         if (matchedLead?.id) {
           targetId = matchedLead.id;
@@ -650,21 +638,22 @@ export function ThreePopupFunnelModal({
       if (funnelId) payload.funnel_id = funnelId;
       if (userId) payload.user_id = userId;
 
-      if (targetId) {
-        await supabase.from('leads').update(payload).eq('id', targetId);
-        console.log('[Supabase Sync] Updated survey responses for lead ID:', targetId, responses);
-      } else if (cleanPhone) {
-        const { data: inserted } = await supabase.from('leads').insert(payload).select('id').maybeSingle();
-        if (inserted?.id) {
-          setExistingLeadId(inserted.id);
-          console.log('[Supabase Sync] Inserted survey lead with ID:', inserted.id, responses);
-        }
+      // Sync survey response to backend server (server.js)
+      const backendResult = await syncLeadToBackend(stage, { survey_responses: responses, lead_id: targetId });
+      if (backendResult?.lead_id && !targetId) {
+        targetId = backendResult.lead_id;
+        setExistingLeadId(backendResult.lead_id);
       }
 
-      // Sync survey response to backend server
-      await syncLeadToBackend(stage, { survey_responses: responses, lead_id: targetId });
+      try {
+        if (targetId) {
+          await supabase.from('leads').update(payload).eq('id', targetId);
+        } else if (cleanPhone) {
+          await supabase.from('leads').insert(payload);
+        }
+      } catch (e) {}
     } catch (err) {
-      console.error('Error saving survey responses to Supabase:', err);
+      console.error('Error saving survey responses:', err);
     }
   };
 
@@ -730,25 +719,29 @@ export function ThreePopupFunnelModal({
         }
       }
 
-      if (targetId) {
-        await supabase.from('leads').update(finalLeadPayload).eq('id', targetId);
-      } else {
-        const { data: inserted } = await supabase.from('leads').insert(finalLeadPayload).select('id').maybeSingle();
-        if (inserted?.id) {
-          setExistingLeadId(inserted.id);
-        }
-      }
-
-      // Sync meeting booking to backend server
-      await syncLeadToBackend('meeting_booked', {
+      // Sync meeting booking to backend server (server.js)
+      const backendResult = await syncLeadToBackend('meeting_booked', {
         survey_responses: surveyAnswers,
         meeting_date: selectedIsoDate,
         meeting_time: meetingTime,
         google_meet_url: activeMeetUrl,
         lead_id: targetId,
       });
+
+      if (backendResult?.lead_id && !targetId) {
+        targetId = backendResult.lead_id;
+        setExistingLeadId(backendResult.lead_id);
+      }
+
+      try {
+        if (targetId) {
+          await supabase.from('leads').update(finalLeadPayload).eq('id', targetId);
+        } else {
+          await supabase.from('leads').insert(finalLeadPayload);
+        }
+      } catch (e) {}
     } catch (err) {
-      console.error('Error inserting/updating lead in Supabase:', err);
+      console.error('Error saving meeting lead:', err);
     } finally {
       setIsSubmitting(false);
       saveSessionToLocalStorage(surveyAnswers, true, undefined, cleanPhone);

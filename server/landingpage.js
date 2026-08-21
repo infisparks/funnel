@@ -683,7 +683,8 @@ async function handleLandingRequest(req, res, supabase, readJsonBody, sendJson) 
   if (req.method === 'GET' && pathname === '/api/landing/workspace') {
     const targetSub = extractSubdomain(host, url.searchParams.get('subdomain'), url.searchParams.get('domain'));
     const ws = await resolveWorkspace(targetSub, supabase);
-    return sendJson(200, { success: true, workspace: ws });
+    sendJson(200, { success: true, workspace: ws });
+    return true;
   }
 
   // 2. POST /api/landing/lead - Capture Lead
@@ -691,10 +692,11 @@ async function handleLandingRequest(req, res, supabase, readJsonBody, sendJson) 
     try {
       const body = await readJsonBody();
       const lead = await captureLead(body, supabase);
-      return sendJson(200, { success: true, lead_id: lead?.id, lead });
+      sendJson(200, { success: true, lead_id: lead?.id, lead });
     } catch (err) {
-      return sendJson(400, { success: false, error: err.message });
+      sendJson(400, { success: false, error: err.message });
     }
+    return true;
   }
 
   // 3. GET /landing or Subdomain Root - Serve live compiled Landing Page HTML

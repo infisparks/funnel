@@ -293,44 +293,48 @@ async function logWhatsappMessage(params: {
       status: 'sent',
     };
 
-    // 1. Insert into global whatsapp_message_logs table
-    await supabase.from('whatsapp_message_logs').insert([
-      {
-        recipient_phone: params.phone,
-        recipient_name: params.name || 'Lead',
-        trigger_type: params.triggerKey,
-        message_text: params.message,
-        media_url: params.mediaUrl || null,
-        status: 'sent',
-        instance_name: params.instanceName,
-        response_payload: params.responsePayload,
-        created_at: new Date().toISOString(),
-      },
-    ]);
+    // 1. Insert into global whatsapp_message_logs table (best effort on client, server does authoritative logging)
+    try {
+      await supabase.from('whatsapp_message_logs').insert([
+        {
+          recipient_phone: params.phone,
+          recipient_name: params.name || 'Lead',
+          trigger_type: params.triggerKey,
+          message_text: params.message,
+          media_url: params.mediaUrl || null,
+          status: 'sent',
+          instance_name: params.instanceName,
+          response_payload: params.responsePayload,
+          created_at: new Date().toISOString(),
+        },
+      ]);
+    } catch (e) {}
 
     // 2. Append to specific lead's whatsapp_logs jsonb array if lead exists
-    if (params.phone || params.email) {
-      let query = supabase.from('leads').select('id, whatsapp_logs');
-      if (params.email) {
-        query = query.eq('email', params.email);
-      } else if (params.phone) {
-        query = query.ilike('phone', `%${params.phone.slice(-10)}%`);
-      }
+    try {
+      if (params.phone || params.email) {
+        let query = supabase.from('leads').select('id, whatsapp_logs');
+        if (params.email) {
+          query = query.eq('email', params.email);
+        } else if (params.phone) {
+          query = query.ilike('phone', `%${params.phone.slice(-10)}%`);
+        }
 
-      const { data: matchedLeads } = await query.limit(1);
-      if (matchedLeads && matchedLeads.length > 0) {
-        const leadRow = matchedLeads[0];
-        const existingLogs = Array.isArray(leadRow.whatsapp_logs) ? leadRow.whatsapp_logs : [];
-        const updatedLogs = [logItem, ...existingLogs];
+        const { data: matchedLeads } = await query.limit(1);
+        if (matchedLeads && matchedLeads.length > 0) {
+          const leadRow = matchedLeads[0];
+          const existingLogs = Array.isArray(leadRow.whatsapp_logs) ? leadRow.whatsapp_logs : [];
+          const updatedLogs = [logItem, ...existingLogs];
 
-        await supabase
-          .from('leads')
-          .update({ whatsapp_logs: updatedLogs })
-          .eq('id', leadRow.id);
+          await supabase
+            .from('leads')
+            .update({ whatsapp_logs: updatedLogs })
+            .eq('id', leadRow.id);
+        }
       }
-    }
+    } catch (e) {}
   } catch (err) {
-    console.error('Failed to log WhatsApp message to Supabase:', err);
+    // Non-blocking
   }
 }
 

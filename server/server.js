@@ -148,13 +148,19 @@ async function getUserMonthlyQuota(userId) {
 
 // HTTP Server & API Router
 const server = http.createServer(async (req, res) => {
-  // CORS Headers
+  // CORS Headers - Allow cross-origin requests from any client domain (e.g. *.vercel.app, firstoption.cloud, localhost)
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id, apikey, X-Requested-With, Accept');
+  res.setHeader('Access-Control-Max-Age', '86400');
 
   if (req.method === 'OPTIONS') {
-    res.writeHead(200);
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-user-id, apikey, X-Requested-With, Accept',
+      'Access-Control-Max-Age': '86400',
+    });
     res.end();
     return;
   }
@@ -178,7 +184,13 @@ const server = http.createServer(async (req, res) => {
     });
 
   const sendJson = (statusCode, data) => {
-    res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+    if (res.writableEnded || res.headersSent) return;
+    res.writeHead(statusCode, {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-user-id, apikey, X-Requested-With, Accept',
+    });
     res.end(JSON.stringify(data));
   };
 
