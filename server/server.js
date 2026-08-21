@@ -114,12 +114,18 @@ function getMonthKey() {
 async function getUserMonthlyQuota(userId) {
   const { monthKey, resetDate } = getMonthKey();
   try {
-    // Check in funnel_workspaces or count from scheduled_whatsapp_tasks
+    // Check in funnel_workspaces or count from scheduled_whatsapp_tasks for this specific user
     const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
-    const { count, error } = await supabase
+    let query = supabase
       .from('scheduled_whatsapp_tasks')
       .select('*', { count: 'exact', head: true })
       .gte('created_at', startOfMonth);
+
+    if (userId && userId !== 'all' && userId !== 'default_user') {
+      query = query.eq('user_id', userId);
+    }
+
+    const { count, error } = await query;
 
     const used = typeof count === 'number' ? count : 0;
     return {
@@ -197,7 +203,8 @@ const server = http.createServer(async (req, res) => {
 
     // 2. GET /api/tasks/queue - List live queue status & scheduled tasks DIRECTLY FROM GCP CLOUD TASKS
     if (req.method === 'GET' && (pathname === '/api/tasks/queue' || pathname === '/api/whatsapp/queue')) {
-      const quota = await getUserMonthlyQuota();
+      const queryUserId = url.searchParams.get('userId') || req.headers['x-user-id'] || null;
+      const quota = await getUserMonthlyQuota(queryUserId);
 
       let gcpLiveTasks = [];
       let gcpError = null;
@@ -234,6 +241,7 @@ const server = http.createServer(async (req, res) => {
                 id: taskId,
                 gcp_task_id: taskId,
                 gcp_task_name: t.name,
+                user_id: parsedBody.userId || null,
                 recipient_phone: parsedBody.recipientPhone || 'N/A',
                 recipient_name: parsedBody.recipientName || 'Recipient',
                 message_text: parsedBody.messageText || 'Scheduled WhatsApp Broadcast',
@@ -245,6 +253,11 @@ const server = http.createServer(async (req, res) => {
                 created_at: t.createTime && t.createTime.seconds ? new Date(Number(t.createTime.seconds) * 1000).toISOString() : new Date().toISOString(),
               };
             });
+
+            // Filter GCP tasks by userId if queryUserId is provided
+            if (queryUserId && queryUserId !== 'all' && queryUserId !== 'default_user') {
+              gcpLiveTasks = gcpLiveTasks.filter((t) => t.user_id === queryUserId);
+            }
           }
         } catch (err) {
           console.error('[GCP ListTasks Error]:', err.message);
@@ -255,11 +268,17 @@ const server = http.createServer(async (req, res) => {
       // Fetch tasks from Supabase to include completed / cancelled history
       let dbTasks = [];
       try {
-        const { data: dbData } = await supabase
+        let dbQuery = supabase
           .from('scheduled_whatsapp_tasks')
           .select('*')
           .order('created_at', { ascending: false })
           .limit(50);
+
+        if (queryUserId && queryUserId !== 'all' && queryUserId !== 'default_user') {
+          dbQuery = dbQuery.eq('user_id', queryUserId);
+        }
+
+        const { data: dbData } = await dbQuery;
 
         if (dbData) dbTasks = dbData;
       } catch (err) {
@@ -274,6 +293,7 @@ const server = http.createServer(async (req, res) => {
           id: d.id || d.gcp_task_id,
           gcp_task_id: d.gcp_task_id,
           gcp_task_name: d.gcp_task_name,
+          user_id: d.user_id,
           recipient_phone: d.recipient_phone,
           recipient_name: d.recipient_name,
           message_text: d.message_text,

@@ -23,11 +23,13 @@ import {
   Save,
 } from 'lucide-react';
 import { Button, Badge, Card } from '../ui';
+import { useAuth } from '../auth/AuthContext';
 
 const SERVER_URL = (process.env.NEXT_PUBLIC_SERVER_URL || 'https://funnel.infiplus.in').replace(/\/$/, '');
 
 export function ClientDrawer() {
   const { isOpen, selectedClient, closeClientDrawer } = useClientDrawer();
+  const { user, workspace } = useAuth();
   const { accentColor } = useTheme();
 
   // Selected lead states
@@ -116,7 +118,11 @@ export function ClientDrawer() {
     if (!selectedClient?.phone) return;
     setIsGcpQueueLoading(true);
     try {
-      const res = await fetch(`${SERVER_URL}/api/tasks/queue`);
+      const targetUserId = user?.id || workspace?.user_id || (selectedClient as any)?.user_id;
+      const queryParam = targetUserId ? `?userId=${encodeURIComponent(targetUserId)}` : '';
+      const res = await fetch(`${SERVER_URL}/api/tasks/queue${queryParam}`, {
+        headers: targetUserId ? { 'x-user-id': targetUserId } : {},
+      });
       const data = await res.json();
       if (data.success && Array.isArray(data.tasks)) {
         const cleanTarget = selectedClient.phone.replace(/[^0-9]/g, '').slice(-10);

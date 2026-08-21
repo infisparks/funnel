@@ -87,10 +87,14 @@ export default function WhatsappAutomationPage() {
   };
 
   // Fetch GCP Cloud Tasks Queue & Quota from Node.js Server
-  const fetchGcpQueue = async () => {
+  const fetchGcpQueue = async (overrideUserId?: string) => {
     setIsQueueLoading(true);
     try {
-      const res = await fetch(`${SERVER_URL}/api/tasks/queue`);
+      const activeUserId = overrideUserId || user?.id || workspace?.user_id || workspaceId;
+      const queryParam = activeUserId ? `?userId=${encodeURIComponent(activeUserId)}` : '';
+      const res = await fetch(`${SERVER_URL}/api/tasks/queue${queryParam}`, {
+        headers: activeUserId ? { 'x-user-id': activeUserId } : {},
+      });
       const data = await res.json();
       if (data.success) {
         setQueueData(data);
@@ -104,6 +108,7 @@ export default function WhatsappAutomationPage() {
 
   // Fetch workspace whatsapp_config & GCP queue on mount
   useEffect(() => {
+    let activeUid = user?.id;
     (async () => {
       setIsLoading(true);
       try {
@@ -111,25 +116,28 @@ export default function WhatsappAutomationPage() {
         if (workspace?.id) {
           setWorkspaceId(workspace.id);
           wsData = workspace;
+          if (!activeUid && workspace.user_id) activeUid = workspace.user_id;
         } else if (user?.id) {
           const { data: ws } = await supabase
             .from('funnel_workspaces')
-            .select('id, whatsapp_config')
+            .select('id, user_id, whatsapp_config')
             .eq('user_id', user.id)
             .maybeSingle();
           if (ws) {
             wsData = ws;
             setWorkspaceId(ws.id);
+            if (!activeUid && ws.user_id) activeUid = ws.user_id;
           }
         } else {
           const { data: ws } = await supabase
             .from('funnel_workspaces')
-            .select('id, whatsapp_config')
+            .select('id, user_id, whatsapp_config')
             .limit(1)
             .maybeSingle();
           if (ws) {
             wsData = ws;
             setWorkspaceId(ws.id);
+            if (!activeUid && ws.user_id) activeUid = ws.user_id;
           }
         }
 
@@ -144,11 +152,10 @@ export default function WhatsappAutomationPage() {
         console.error('Error loading WhatsApp config:', err);
       } finally {
         setIsLoading(false);
+        fetchGcpQueue(activeUid);
       }
     })();
-
-    fetchGcpQueue();
-  }, [user, workspace]);
+  }, [user?.id, workspace?.id]);
 
   // Save only WhatsApp Instance Name
   const handleSaveInstance = async () => {
@@ -287,7 +294,7 @@ export default function WhatsappAutomationPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: workspaceId || 'default_user',
+          userId: user?.id || workspace?.user_id || workspaceId || 'default_user',
           recipientPhone: schedulePhone,
           recipientName: scheduleName || 'Valued Lead',
           messageText: scheduleMessage,
@@ -370,7 +377,7 @@ export default function WhatsappAutomationPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={fetchGcpQueue}
+              onClick={() => fetchGcpQueue()}
               isLoading={isQueueLoading}
               leftIcon={<RefreshCw className="w-3.5 h-3.5 text-indigo-600" />}
             >
