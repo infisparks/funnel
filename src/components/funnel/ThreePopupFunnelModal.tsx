@@ -198,6 +198,45 @@ export function ThreePopupFunnelModal({
 
   // Popup 2 State: Survey Responses
   const [surveyAnswers, setSurveyAnswers] = useState<Record<string, any>>({});
+  
+  // Scroll Affordance State for Survey Options List
+  const optionsContainerRef = useRef<HTMLDivElement>(null);
+  const [canScrollDown, setCanScrollDown] = useState(false);
+  const [canScrollUp, setCanScrollUp] = useState(false);
+
+  const checkScrollAffordance = () => {
+    const el = optionsContainerRef.current;
+    if (!el) return;
+    const hasMoreDown = el.scrollHeight > el.clientHeight + 4 && el.scrollTop + el.clientHeight < el.scrollHeight - 6;
+    const hasMoreUp = el.scrollTop > 6;
+    setCanScrollDown(hasMoreDown);
+    setCanScrollUp(hasMoreUp);
+  };
+
+  // Re-check scrollability when question, step, or modal visibility changes
+  useEffect(() => {
+    if (step === 2 && isOpen) {
+      if (optionsContainerRef.current) {
+        optionsContainerRef.current.scrollTop = 0;
+      }
+      const timer = setTimeout(() => {
+        checkScrollAffordance();
+      }, 60);
+      return () => clearTimeout(timer);
+    }
+  }, [currentQuestionIndex, step, isOpen, surveyQuestions]);
+
+  const handleOptionsScroll = () => {
+    checkScrollAffordance();
+  };
+
+  const handleScrollDownClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (optionsContainerRef.current) {
+      optionsContainerRef.current.scrollBy({ top: 140, behavior: 'smooth' });
+    }
+  };
 
   // Popup 3 State: Date & Time Slot
   const [selectedIsoDate, setSelectedIsoDate] = useState(initialDate);
@@ -1130,62 +1169,123 @@ export function ThreePopupFunnelModal({
               </div>
 
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
                   <label className="block text-xs sm:text-sm font-extrabold" style={{ color: primaryColor }}>
                     Q{currentQuestionIndex + 1}. {currentQ.label}
                   </label>
-                  {currentQ.allowMultiple && (
-                    <span className="text-[10px] text-gray-400 font-mono">(Tick 1 or Multiple)</span>
-                  )}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {currentQ.allowMultiple && (
+                      <span className="text-[10px] text-gray-400 font-mono">(Tick 1 or Multiple)</span>
+                    )}
+                    {currentQ.options && currentQ.options.length > 4 && (
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border flex items-center gap-1 transition-all ${
+                        isLightMode 
+                          ? 'bg-purple-50 border-purple-200 text-purple-700' 
+                          : 'bg-purple-950/60 border-purple-700/50 text-purple-300'
+                      }`}>
+                        <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+                        <span>{currentQ.options.length} options</span>
+                        {canScrollDown && <span className="opacity-80 font-mono">• Scroll ↓</span>}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
-                {/* DYNAMIC GRID: 1 OPTION PER ROW IF TEXT LENGTH > 20, ELSE 2-COLUMN */}
-                <div className={`grid gap-2 pt-1 max-h-[280px] overflow-y-auto pr-1 ${hasLongOption ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'}`}>
-                  {currentQ.options.map((opt) => {
-                    const isMultiple = currentQ.allowMultiple;
-                    const qKey = currentQ.label || currentQ.id;
-                    const currentVal = surveyAnswers[qKey] ?? surveyAnswers[currentQ.id];
-                    const isSelected = isMultiple
-                      ? Array.isArray(currentVal) && currentVal.includes(opt)
-                      : currentVal === opt;
+                {/* RELATIVE WRAPPER WITH SCROLL SHADOWS & FLOATING HELPER */}
+                <div className="relative">
+                  {/* Top shadow gradient indicator when user has scrolled down */}
+                  <div
+                    className={`absolute top-0 left-0 right-0 h-6 pointer-events-none z-10 rounded-t-xl transition-opacity duration-300 ${
+                      canScrollUp ? 'opacity-100' : 'opacity-0'
+                    } ${
+                      isLightMode
+                        ? 'bg-gradient-to-b from-white to-transparent'
+                        : 'bg-gradient-to-b from-[#0B0F17] to-transparent'
+                    }`}
+                  />
 
-                    return (
-                      <button
-                        type="button"
-                        key={opt}
-                        onClick={() => handleOptionSelect(currentQ.id, opt, isMultiple)}
-                        className={`p-3 rounded-xl text-xs font-bold text-left leading-relaxed whitespace-normal break-words border transition-all cursor-pointer flex items-center justify-between gap-2 ${
-                          isSelected
-                            ? 'shadow-md scale-[1.01]'
-                            : isLightMode
-                            ? 'border-gray-200 bg-[#F8FAFC] text-gray-800 hover:border-gray-300'
-                            : 'border-gray-800 bg-[#131B2A] text-gray-300 hover:border-gray-700'
-                        }`}
-                        style={
-                          isSelected
-                            ? {
-                                borderColor: primaryColor,
-                                backgroundColor: `${primaryColor}25`,
-                                color: isLightMode ? '#111827' : '#FFFFFF',
-                              }
-                            : {}
-                        }
-                      >
-                        <span className="flex-1">{opt}</span>
-                        {isMultiple ? (
-                          <span className="shrink-0 ml-1">
-                            {isSelected ? (
-                              <CheckSquare className="w-4 h-4 text-emerald-400" />
-                            ) : (
-                              <Square className="w-4 h-4 text-gray-500" />
-                            )}
-                          </span>
-                        ) : (
-                          isSelected && <CheckCircle2 className="w-4 h-4 shrink-0 ml-1" style={{ color: primaryColor }} />
-                        )}
-                      </button>
-                    );
-                  })}
+                  {/* DYNAMIC GRID: 1 OPTION PER ROW IF TEXT LENGTH > 20, ELSE 2-COLUMN */}
+                  <div
+                    ref={optionsContainerRef}
+                    onScroll={handleOptionsScroll}
+                    className={`grid gap-2 pt-1 max-h-[275px] overflow-y-auto pr-1.5 overscroll-contain transition-all custom-modal-scrollbar ${
+                      hasLongOption ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'
+                    }`}
+                  >
+                    {currentQ.options.map((opt) => {
+                      const isMultiple = currentQ.allowMultiple;
+                      const qKey = currentQ.label || currentQ.id;
+                      const currentVal = surveyAnswers[qKey] ?? surveyAnswers[currentQ.id];
+                      const isSelected = isMultiple
+                        ? Array.isArray(currentVal) && currentVal.includes(opt)
+                        : currentVal === opt;
+
+                      return (
+                        <button
+                          type="button"
+                          key={opt}
+                          onClick={() => handleOptionSelect(currentQ.id, opt, isMultiple)}
+                          className={`p-3 rounded-xl text-xs font-bold text-left leading-relaxed whitespace-normal break-words border transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                            isSelected
+                              ? 'shadow-md scale-[1.01]'
+                              : isLightMode
+                              ? 'border-gray-200 bg-[#F8FAFC] text-gray-800 hover:border-gray-300'
+                              : 'border-gray-800 bg-[#131B2A] text-gray-300 hover:border-gray-700'
+                          }`}
+                          style={
+                            isSelected
+                              ? {
+                                  borderColor: primaryColor,
+                                  backgroundColor: `${primaryColor}25`,
+                                  color: isLightMode ? '#111827' : '#FFFFFF',
+                                }
+                              : {}
+                          }
+                        >
+                          <span className="flex-1">{opt}</span>
+                          {isMultiple ? (
+                            <span className="shrink-0 ml-1">
+                              {isSelected ? (
+                                <CheckSquare className="w-4 h-4 text-emerald-400" />
+                              ) : (
+                                <Square className="w-4 h-4 text-gray-500" />
+                              )}
+                            </span>
+                          ) : (
+                            isSelected && <CheckCircle2 className="w-4 h-4 shrink-0 ml-1" style={{ color: primaryColor }} />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Bottom shadow gradient indicator when more options are below */}
+                  <div
+                    className={`absolute bottom-0 left-0 right-0 h-10 pointer-events-none z-10 rounded-b-xl transition-opacity duration-300 ${
+                      canScrollDown ? 'opacity-100' : 'opacity-0'
+                    } ${
+                      isLightMode
+                        ? 'bg-gradient-to-t from-white via-white/80 to-transparent'
+                        : 'bg-gradient-to-t from-[#0B0F17] via-[#0B0F17]/80 to-transparent'
+                    }`}
+                  />
+
+                  {/* Floating "Scroll down for more options" helper badge */}
+                  {canScrollDown && (
+                    <button
+                      type="button"
+                      onClick={handleScrollDownClick}
+                      className={`absolute bottom-2 left-1/2 -translate-x-1/2 z-20 px-3 py-1 rounded-full text-[11px] font-bold shadow-lg border flex items-center gap-1.5 backdrop-blur-md cursor-pointer transition-all hover:scale-105 active:scale-95 animate-bounce ${
+                        isLightMode
+                          ? 'bg-white/95 border-gray-300 text-gray-800 hover:bg-gray-50 shadow-purple-500/10'
+                          : 'bg-[#131B2A]/95 border-gray-700 text-gray-200 hover:bg-[#1E293B] shadow-black/50'
+                      }`}
+                      style={{ borderColor: `${primaryColor}60` }}
+                    >
+                      <ChevronDown className="w-3.5 h-3.5" style={{ color: primaryColor }} />
+                      <span className="tracking-tight">Scroll for more options</span>
+                    </button>
+                  )}
                 </div>
               </div>
 

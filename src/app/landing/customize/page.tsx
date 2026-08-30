@@ -1602,10 +1602,17 @@ export default function CustomizeStudioPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="block text-xs font-bold" style={{ color: primaryColor }}>
-                      Q1. {surveyQuestions[0]?.label || 'Select Your Primary Industry'}
-                    </label>
-                    <div className={`grid gap-1.5 ${previewHasLongOption ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                    <div className="flex items-center justify-between gap-1 flex-wrap">
+                      <label className="block text-xs font-bold" style={{ color: primaryColor }}>
+                        Q1. {surveyQuestions[0]?.label || 'Select Your Primary Industry'}
+                      </label>
+                      {(surveyQuestions[0]?.options?.length || 0) > 4 && (
+                        <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded-full border border-purple-500/30 text-purple-400 bg-purple-500/10">
+                          {surveyQuestions[0]?.options?.length} options • Scroll ↓
+                        </span>
+                      )}
+                    </div>
+                    <div className={`grid gap-1.5 max-h-[220px] overflow-y-auto custom-modal-scrollbar pr-1 ${previewHasLongOption ? 'grid-cols-1' : 'grid-cols-2'}`}>
                       {(surveyQuestions[0]?.options || ['Service Business', 'Manufacturer / B2B', 'Medical / Clinic', 'E-commerce']).map((opt, idx) => (
                         <div
                           key={opt}

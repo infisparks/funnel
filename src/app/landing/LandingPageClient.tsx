@@ -144,9 +144,9 @@ export function LandingPageClient({
   const [isPickerActive, setIsPickerActive] = useState(false);
   const [showTriggerBar, setShowTriggerBar] = useState(false);
 
-  // Sync workspace state if logged in admin updates workspace or on initial load
+  // Sync workspace state if logged in admin updates workspace in studio (not public view)
   useEffect(() => {
-    if (workspace) {
+    if (!isPublicView && workspace) {
       if (workspace.landing_html && workspace.landing_html.trim()) {
         setHtmlCode(workspace.landing_html);
       }
@@ -163,7 +163,7 @@ export function LandingPageClient({
       }
       setIframeKey((prev) => prev + 1);
     }
-  }, [workspace]);
+  }, [workspace, isPublicView]);
 
   // Also sync if initialHtmlCode changes
   useEffect(() => {
@@ -872,8 +872,8 @@ export function LandingPageClient({
       <ThreePopupFunnelModal
         isOpen={isPopupFunnelOpen}
         onClose={() => setIsPopupFunnelOpen(false)}
-        funnelId={workspace?.id || initialWorkspace?.id}
-        userId={user?.id || initialWorkspace?.user_id}
+        funnelId={isPublicView ? (initialWorkspace?.id || workspace?.id) : (workspace?.id || initialWorkspace?.id)}
+        userId={isPublicView ? (initialWorkspace?.user_id || user?.id) : (user?.id || initialWorkspace?.user_id)}
         surveyQuestions={surveyQuestions}
         popupTheme={popupTheme}
         onComplete={(lead) => {

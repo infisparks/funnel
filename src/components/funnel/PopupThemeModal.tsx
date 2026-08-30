@@ -815,7 +815,7 @@ export function PopupThemeModal({
               {/* LIVE FORM CONTENT STEP 2 (REAL-TIME LIVE SURVEY QUESTIONS) */}
               {activeStepTab === 2 && (
                 <div className="p-5 pt-2 space-y-3">
-                  <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                  <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1 custom-modal-scrollbar">
                     {surveyQuestions.map((q) => (
                       <div key={q.id} className="space-y-1.5">
                         <label className="block text-[11px] font-bold" style={{ color: primaryColor }}>
