@@ -149,3 +149,109 @@ export function isMeetingPassed(meetingDate?: string, meetingTime?: string): boo
     return false;
   }
 }
+
+/**
+ * Formats entry date and time nicely.
+ * e.g. "30 Aug 2026", "01:13 PM"
+ */
+export function formatEntryDateTime(dateStr?: string | null): { date: string; time: string; full: string } {
+  if (!dateStr) {
+    return { date: 'N/A', time: '', full: 'N/A' };
+  }
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) {
+    return { date: dateStr, time: '', full: dateStr };
+  }
+
+  const dateFormatted = d.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+
+  const timeFormatted = d.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+
+  return {
+    date: dateFormatted,
+    time: timeFormatted,
+    full: `${dateFormatted}, ${timeFormatted}`,
+  };
+}
+
+/**
+ * Checks if a given timestamp falls within the selected date range preset or custom range.
+ */
+export function isDateInRange(
+  dateString: string | null | undefined,
+  rangeType: string,
+  customStart?: string,
+  customEnd?: string
+): boolean {
+  if (!dateString) return false;
+  if (!rangeType || rangeType === 'all' || rangeType === 'All Time') return true;
+
+  const itemDate = new Date(dateString);
+  if (isNaN(itemDate.getTime())) return true;
+
+  const now = new Date();
+
+  if (rangeType === 'today' || rangeType === 'Today') {
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    return itemDate >= startOfToday && itemDate <= endOfToday;
+  }
+
+  if (rangeType === 'yesterday' || rangeType === 'Yesterday') {
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const startOfYesterday = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 0, 0, 0, 0);
+    const endOfYesterday = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59, 999);
+    return itemDate >= startOfYesterday && itemDate <= endOfYesterday;
+  }
+
+  if (rangeType === 'last_7_days' || rangeType === 'Last 7 Days' || rangeType === 'Last 7 Days (Default)') {
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+    return itemDate >= sevenDaysAgo;
+  }
+
+  if (rangeType === 'last_30_days' || rangeType === 'Last 30 Days') {
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    thirtyDaysAgo.setHours(0, 0, 0, 0);
+    return itemDate >= thirtyDaysAgo;
+  }
+
+  if (rangeType === 'this_month' || rangeType === 'This Month') {
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    return itemDate >= startOfMonth && itemDate <= endOfMonth;
+  }
+
+  if (rangeType === 'custom' || rangeType === 'Custom Range') {
+    if (!customStart && !customEnd) return true;
+    if (customStart && customEnd) {
+      const [sY, sM, sD] = customStart.split('-').map(Number);
+      const [eY, eM, eD] = customEnd.split('-').map(Number);
+      const start = new Date(sY, sM - 1, sD, 0, 0, 0, 0);
+      const end = new Date(eY, eM - 1, eD, 23, 59, 59, 999);
+      return itemDate >= start && itemDate <= end;
+    }
+    if (customStart) {
+      const [sY, sM, sD] = customStart.split('-').map(Number);
+      const start = new Date(sY, sM - 1, sD, 0, 0, 0, 0);
+      return itemDate >= start;
+    }
+    if (customEnd) {
+      const [eY, eM, eD] = customEnd.split('-').map(Number);
+      const end = new Date(eY, eM - 1, eD, 23, 59, 59, 999);
+      return itemDate <= end;
+    }
+  }
+
+  return true;
+}
+

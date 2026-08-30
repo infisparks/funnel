@@ -22,7 +22,10 @@ import {
   ChevronRight,
   SlidersHorizontal,
   ExternalLink,
+  Clock,
 } from 'lucide-react';
+import { DateFilterDropdown } from '@/components/dashboard/DateFilterDropdown';
+import { formatEntryDateTime, isDateInRange } from '@/lib/dateUtils';
 
 interface Stage {
   id: string;
@@ -49,6 +52,11 @@ export default function PipelinePage() {
   const [leads, setLeads] = useState<any[]>([]);
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Date Filter State
+  const [dateRange, setDateRange] = useState('all');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
 
   // Modals
   const [isAddStageOpen, setIsAddStageOpen] = useState(false);
@@ -302,7 +310,19 @@ export default function PipelinePage() {
         title="Pipeline Stage Board"
         subtitle="Visual sales stages, deal momentum, and stage conversions."
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Custom Date Range & Preset Filter Dropdown */}
+            <DateFilterDropdown
+              dateRange={dateRange}
+              onDateRangeChange={setDateRange}
+              customStartDate={customStartDate}
+              customEndDate={customEndDate}
+              onCustomDateChange={(s, e) => {
+                setCustomStartDate(s);
+                setCustomEndDate(e);
+              }}
+            />
+
             {/* PC Slide Scroll Navigation Arrows */}
             <div className="flex items-center bg-white border border-[#E5E7EB] rounded-xl p-0.5 shadow-2xs">
               <button
@@ -365,10 +385,12 @@ export default function PipelinePage() {
         }}
       >
         {activeStages.map((col) => {
-          const colLeads = leads.filter((lead) => {
-            const effectiveStage = getLeadStage(lead);
-            return effectiveStage === col.id;
-          });
+          const colLeads = leads
+            .filter((lead) => isDateInRange(lead.created_at, dateRange, customStartDate, customEndDate))
+            .filter((lead) => {
+              const effectiveStage = getLeadStage(lead);
+              return effectiveStage === col.id;
+            });
 
           const totalColValue = colLeads.reduce((acc, lead) => {
             const valStr = lead.deal_value || lead.dealValue || '0';
@@ -495,8 +517,16 @@ export default function PipelinePage() {
                           </div>
                         </div>
 
-                        {/* Inline Badges: Survey, Meeting Slot & Meet Link (Compact Chips) */}
+                        {/* Inline Badges: Entry Time, Survey, Meeting Slot & Meet Link */}
                         <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                          {/* Entry Date & Time Chip */}
+                          {lead.created_at && (
+                            <span className="inline-flex items-center gap-1 text-[9px] font-medium text-slate-600 bg-slate-100/90 px-1.5 py-0.5 rounded border border-slate-200/80">
+                              <Clock className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                              <span>{formatEntryDateTime(lead.created_at).full}</span>
+                            </span>
+                          )}
+
                           {/* Survey Chip */}
                           {hasSurvey && (
                             <span className="inline-flex items-center gap-1 text-[9px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/70">

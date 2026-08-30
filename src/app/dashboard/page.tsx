@@ -28,8 +28,11 @@ import {
   ExternalLink,
   ChevronRight,
   Sparkles,
+  Clock,
 } from 'lucide-react';
 import { isMeetingPassed } from '../calendar/page';
+import { DateFilterDropdown } from '@/components/dashboard/DateFilterDropdown';
+import { formatEntryDateTime, isDateInRange } from '@/lib/dateUtils';
 
 export default function ExecutiveCrmDashboard() {
   const { user, workspace } = useAuth();
@@ -37,7 +40,9 @@ export default function ExecutiveCrmDashboard() {
 
   const [activeTab, setActiveTab] = useState<'leads' | 'meetings'>('leads');
   const [searchQuery, setSearchQuery] = useState('');
-  const [dateRange, setDateRange] = useState('Last 7 Days (Default)');
+  const [dateRange, setDateRange] = useState('all');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
   const [statusFilter, setStatusFilter] = useState('All Status');
 
   const [leadsData, setLeadsData] = useState<any[]>([]);
@@ -121,7 +126,12 @@ export default function ExecutiveCrmDashboard() {
     return Boolean(lead.survey_responses && Object.keys(lead.survey_responses).length > 0) || lead.step_progress === 'survey_completed';
   };
 
-  const filteredLeads = leadsData.filter((lead) => {
+  // Filter by date range first for KPIs & metrics
+  const dateFilteredLeads = leadsData.filter((lead) =>
+    isDateInRange(lead.created_at, dateRange, customStartDate, customEndDate)
+  );
+
+  const filteredLeads = dateFilteredLeads.filter((lead) => {
     const isBooked = isMeetingLead(lead);
     const hasSurvey = isSurveyLead(lead);
 
@@ -141,11 +151,11 @@ export default function ExecutiveCrmDashboard() {
     return true;
   });
 
-  const totalLeadsCount = leadsData.length;
-  const meetingsCount = leadsData.filter(isMeetingLead).length;
-  const surveyDoneCount = leadsData.filter(isSurveyLead).length;
+  const totalLeadsCount = dateFilteredLeads.length;
+  const meetingsCount = dateFilteredLeads.filter(isMeetingLead).length;
+  const surveyDoneCount = dateFilteredLeads.filter(isSurveyLead).length;
   const partialLeadsCount = totalLeadsCount - surveyDoneCount;
-  const conversionRate = totalLeadsCount > 0 ? Math.round((meetingsCount / totalLeadsCount) * 100) : 64;
+  const conversionRate = totalLeadsCount > 0 ? Math.round((meetingsCount / totalLeadsCount) * 100) : 0;
 
   const getInitials = (name: string) => {
     if (!name) return 'AV';
@@ -345,21 +355,17 @@ export default function ExecutiveCrmDashboard() {
 
           {/* Right Controls: Filters & Search */}
           <div className="flex flex-wrap items-center gap-2">
-            {/* Date Range Selector */}
-            <div className="relative flex-1 sm:flex-none min-w-[140px]">
-              <select
-                value={dateRange}
-                onChange={(e) => setDateRange(e.target.value)}
-                className="w-full appearance-none pl-7 pr-7 py-1.5 text-xs font-normal rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] text-[#334155] focus:bg-white focus:outline-none cursor-pointer"
-              >
-                <option>Last 7 Days (Default)</option>
-                <option>Today</option>
-                <option>Last 30 Days</option>
-                <option>All Time</option>
-              </select>
-              <Zap className="w-3 h-3 text-amber-500 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
+            {/* Custom Date Range & Preset Filter Dropdown */}
+            <DateFilterDropdown
+              dateRange={dateRange}
+              onDateRangeChange={setDateRange}
+              customStartDate={customStartDate}
+              customEndDate={customEndDate}
+              onCustomDateChange={(s, e) => {
+                setCustomStartDate(s);
+                setCustomEndDate(e);
+              }}
+            />
 
             {/* Status Filter */}
             <div className="relative flex-1 sm:flex-none min-w-[130px]">
@@ -401,7 +407,7 @@ export default function ExecutiveCrmDashboard() {
                 <th className="px-5 py-3">MOBILE NUMBER</th>
                 <th className="px-5 py-3">STAGE & STATUS</th>
                 <th className="px-5 py-3">SURVEY PROFILE</th>
-                <th className="px-5 py-3">ENTRY TIME</th>
+                <th className="px-5 py-3">ENTRY DATE & TIME</th>
                 <th className="px-5 py-3 text-right">QUICK ACTIONS</th>
               </tr>
             </thead>
@@ -557,11 +563,18 @@ export default function ExecutiveCrmDashboard() {
                         )}
                       </td>
 
-                      {/* ENTRY TIME */}
-                      <td className="px-5 py-3 font-normal text-[#64748B] text-[11px]">
-                        {lead.created_at
-                          ? new Date(lead.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                          : '14:45'}
+                      {/* ENTRY DATE & TIME */}
+                      <td className="px-5 py-3 font-normal text-xs whitespace-nowrap">
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-[#0F172A] text-xs flex items-center gap-1.5">
+                            <CalendarIcon className="w-3 h-3 text-slate-400 shrink-0" />
+                            <span>{formatEntryDateTime(lead.created_at).date}</span>
+                          </span>
+                          <span className="text-[11px] text-[#64748B] font-mono flex items-center gap-1 mt-0.5">
+                            <Clock className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                            <span>{formatEntryDateTime(lead.created_at).time}</span>
+                          </span>
+                        </div>
                       </td>
 
                       {/* QUICK ACTIONS */}
@@ -664,11 +677,10 @@ export default function ExecutiveCrmDashboard() {
                       </div>
                     </div>
 
-                    <span className="text-[10px] font-medium text-[#64748B] bg-slate-100 px-2 py-0.5 rounded shrink-0">
-                      {lead.created_at
-                        ? new Date(lead.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                        : '14:45'}
-                    </span>
+                    <div className="flex items-center gap-1 text-[10px] font-medium text-[#64748B] bg-slate-100 px-2 py-1 rounded shrink-0">
+                      <CalendarIcon className="w-3 h-3 text-slate-400 shrink-0" />
+                      <span>{formatEntryDateTime(lead.created_at).full}</span>
+                    </div>
                   </div>
 
                   {/* Phone & Status Badges */}
