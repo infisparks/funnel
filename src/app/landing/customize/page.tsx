@@ -1608,7 +1608,7 @@ export default function CustomizeStudioPage() {
                       </label>
                       {(surveyQuestions[0]?.options?.length || 0) > 4 && (
                         <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded-full border border-purple-500/30 text-purple-400 bg-purple-500/10">
-                          {surveyQuestions[0]?.options?.length} options • Scroll ↓
+                          {surveyQuestions[0]?.options?.length} options
                         </span>
                       )}
                     </div>

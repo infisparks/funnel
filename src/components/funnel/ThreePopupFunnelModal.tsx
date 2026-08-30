@@ -1185,7 +1185,6 @@ export function ThreePopupFunnelModal({
                       }`}>
                         <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
                         <span>{currentQ.options.length} options</span>
-                        {canScrollDown && <span className="opacity-80 font-mono">• Scroll ↓</span>}
                       </span>
                     )}
                   </div>
@@ -1270,20 +1269,20 @@ export function ThreePopupFunnelModal({
                     }`}
                   />
 
-                  {/* Floating "Scroll down for more options" helper badge */}
+                  {/* Floating simple scroll down icon button */}
                   {canScrollDown && (
                     <button
                       type="button"
                       onClick={handleScrollDownClick}
-                      className={`absolute bottom-2 left-1/2 -translate-x-1/2 z-20 px-3 py-1 rounded-full text-[11px] font-bold shadow-lg border flex items-center gap-1.5 backdrop-blur-md cursor-pointer transition-all hover:scale-105 active:scale-95 animate-bounce ${
+                      className={`absolute bottom-2 left-1/2 -translate-x-1/2 z-20 w-8 h-8 rounded-full shadow-lg border flex items-center justify-center backdrop-blur-md cursor-pointer transition-all hover:scale-110 active:scale-95 animate-bounce ${
                         isLightMode
                           ? 'bg-white/95 border-gray-300 text-gray-800 hover:bg-gray-50 shadow-purple-500/10'
                           : 'bg-[#131B2A]/95 border-gray-700 text-gray-200 hover:bg-[#1E293B] shadow-black/50'
                       }`}
-                      style={{ borderColor: `${primaryColor}60` }}
+                      style={{ borderColor: `${primaryColor}80` }}
+                      aria-label="Scroll down for more options"
                     >
-                      <ChevronDown className="w-3.5 h-3.5" style={{ color: primaryColor }} />
-                      <span className="tracking-tight">Scroll for more options</span>
+                      <ChevronDown className="w-4 h-4" style={{ color: primaryColor }} />
                     </button>
                   )}
                 </div>
