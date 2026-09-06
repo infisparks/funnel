@@ -38,7 +38,7 @@ import {
   formatFullPhone,
 } from '@/lib/phoneUtils';
 
-const SERVER_URL = (process.env.NEXT_PUBLIC_SERVER_URL || 'https://funnel.infiplus.in').replace(/\/$/, '');
+const SERVER_URL = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_SERVER_URL || '').replace(/\/$/, '');
 
 const InstagramIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

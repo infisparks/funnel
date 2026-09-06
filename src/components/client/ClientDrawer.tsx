@@ -25,7 +25,7 @@ import {
 import { Button, Badge, Card } from '../ui';
 import { useAuth } from '../auth/AuthContext';
 
-const SERVER_URL = (process.env.NEXT_PUBLIC_SERVER_URL || 'https://funnel.infiplus.in').replace(/\/$/, '');
+const SERVER_URL = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_SERVER_URL || '').replace(/\/$/, '');
 
 export function ClientDrawer() {
   const { isOpen, selectedClient, closeClientDrawer } = useClientDrawer();

@@ -76,7 +76,7 @@ export function parseWhatsappTemplate(template: string, lead: WhatsappLeadData, 
     .replace(/\{\{\s*meeting_url\s*\}\}/gi, meetUrl);
 }
 
-const SERVER_URL = (process.env.NEXT_PUBLIC_SERVER_URL || 'https://funnel.infiplus.in').replace(/\/$/, '');
+const SERVER_URL = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_SERVER_URL || '').replace(/\/$/, '');
 
 // Client-side deduplication cache
 const clientDispatchCooldown = new Map<string, number>();
@@ -111,7 +111,7 @@ export async function dispatchWhatsappTrigger(
       return { success: true };
     }
 
-    // 1. Try Server-Side Dispatch via server.js / whatappmanage.js
+    // 1. Try Server-Side Dispatch via Next.js backend API (/api/whatsapp/send)
     try {
       const serverRes = await fetch(`${SERVER_URL}/api/whatsapp/send`, {
         method: 'POST',

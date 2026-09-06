@@ -37,7 +37,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 
-const SERVER_URL = (process.env.NEXT_PUBLIC_SERVER_URL || 'https://funnel.infiplus.in').replace(/\/$/, '');
+const SERVER_URL = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_SERVER_URL || '').replace(/\/$/, '');
 
 
 export default function WhatsappAutomationPage() {
@@ -317,7 +317,7 @@ export default function WhatsappAutomationPage() {
       }
     } catch (err: any) {
       console.error('Schedule error:', err);
-      alert(err.message || 'Network error connecting to Node.js backend server at ' + SERVER_URL);
+      alert(err.message || 'Error connecting to backend API');
     } finally {
       setIsScheduling(false);
     }
