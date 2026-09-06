@@ -29,6 +29,7 @@ import { DateFilterDropdown } from '@/components/dashboard/DateFilterDropdown';
 import { formatEntryDateTime, isDateInRange } from '@/lib/dateUtils';
 import { StageAutomationModal } from '@/components/pipeline/StageAutomationModal';
 import { AgencyQuickRulesModal } from '@/components/pipeline/AgencyQuickRulesModal';
+import { LeadGcpTasksModal } from '@/components/pipeline/LeadGcpTasksModal';
 
 interface Stage {
   id: string;
@@ -70,10 +71,20 @@ export default function PipelinePage() {
 
   // Stage Automation Rules & Scheduled Tasks State
   const [isAutomationModalOpen, setIsAutomationModalOpen] = useState(false);
+  const [isAgencyQuickRulesOpen, setIsAgencyQuickRulesOpen] = useState(false);
   const [selectedStageForAutomation, setSelectedStageForAutomation] = useState<Stage | null>(null);
   const [scheduledTasks, setScheduledTasks] = useState<any[]>([]);
   const [rulesCountByStage, setRulesCountByStage] = useState<Record<string, number>>({});
-  const [isAgencyQuickRulesOpen, setIsAgencyQuickRulesOpen] = useState(false);
+  const [gcpModalLead, setGcpModalLead] = useState<any | null>(null);
+  const [tickerNow, setTickerNow] = useState<number>(Date.now());
+
+  // 1-second interval ticker for live running countdowns on cards
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTickerNow(Date.now());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Drag and Drop state
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
@@ -580,9 +591,10 @@ export default function PipelinePage() {
                     const hasSurvey = lead.survey_responses && Object.keys(lead.survey_responses).length > 0;
                     const isBeingDragged = String(draggedLeadId) === String(lead.id);
                     const meetLink = lead.google_meet_url || lead.googleMeetUrl;
-                    const leadPendingTask = scheduledTasks.find(
+                    const leadPendingTasks = scheduledTasks.filter(
                       (t) => String(t.lead_id) === String(lead.id) && t.status === 'scheduled'
                     );
+                    const leadPendingTask = leadPendingTasks[0];
 
                     return (
                       <div
@@ -652,26 +664,51 @@ export default function PipelinePage() {
                             </span>
                           )}
 
-                          {/* Scheduled Automation Countdown Chip */}
-                          {leadPendingTask && (
-                            <span
-                              className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 shadow-2xs"
-                              title={`Scheduled execution at ${new Date(leadPendingTask.scheduled_for).toLocaleTimeString()}`}
-                            >
-                              <Zap className="w-2.5 h-2.5 text-amber-600 shrink-0 fill-amber-500" />
-                              <span>
+                          {/* Interactive GCP Cloud Tasks Tag on Every Card */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setGcpModalLead(lead);
+                            }}
+                            className={`inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded border shadow-2xs transition-all cursor-pointer ${
+                              leadPendingTasks.length > 0
+                                ? 'text-amber-900 bg-amber-100/90 hover:bg-amber-200 border-amber-300'
+                                : 'text-slate-500 bg-slate-100 hover:bg-slate-200 border-slate-200'
+                            }`}
+                            title={
+                              leadPendingTasks.length > 0
+                                ? `Click to view ${leadPendingTasks.length} pending GCP message${leadPendingTasks.length === 1 ? '' : 's'}`
+                                : 'View GCP Automation Queue'
+                            }
+                          >
+                            <Zap
+                              className={`w-2.5 h-2.5 ${
+                                leadPendingTasks.length > 0
+                                  ? 'text-amber-600 fill-amber-500 animate-pulse'
+                                  : 'text-slate-400'
+                              }`}
+                            />
+                            <span>GCP {leadPendingTasks.length > 0 ? `(${leadPendingTasks.length})` : 'Queue'}</span>
+                            {leadPendingTask && (
+                              <span className="text-[8px] opacity-85 font-mono tabular-nums">
                                 {(() => {
-                                  const diffMs = new Date(leadPendingTask.scheduled_for).getTime() - Date.now();
-                                  if (diffMs <= 0) return 'WA executing...';
-                                  const diffMins = Math.ceil(diffMs / 60000);
-                                  if (diffMins < 60) return `Auto WA in ${diffMins}m`;
-                                  const diffHours = Math.ceil(diffMins / 60);
-                                  if (diffHours < 24) return `Auto WA in ${diffHours}h`;
-                                  return `Auto WA in ${Math.ceil(diffHours / 24)}d`;
+                                  const diffMs = new Date(leadPendingTask.scheduled_for).getTime() - tickerNow;
+                                  if (diffMs <= 0) return 'now ⚡';
+                                  const totalSec = Math.floor(diffMs / 1000);
+                                  if (totalSec < 60) return `${totalSec}s`;
+                                  const diffMins = Math.floor(totalSec / 60);
+                                  if (diffMins < 60) {
+                                    const remSec = totalSec % 60;
+                                    return `${diffMins}m ${remSec}s`;
+                                  }
+                                  const diffHours = Math.floor(diffMins / 60);
+                                  if (diffHours < 24) return `${diffHours}h ${diffMins % 60}m`;
+                                  return `${Math.ceil(diffHours / 24)}d`;
                                 })()}
                               </span>
-                            </span>
-                          )}
+                            )}
+                          </button>
 
                           {/* Survey Chip */}
                           {hasSurvey && (
@@ -930,6 +967,17 @@ export default function PipelinePage() {
         defaultAgencyName={user?.user_metadata?.company_name || user?.user_metadata?.full_name || ''}
         onRulesApplied={() => {
           fetchRulesCount();
+          fetchScheduledTasks();
+        }}
+      />
+
+      {/* Live GCP Cloud Tasks Queue Modal for Cards */}
+      <LeadGcpTasksModal
+        isOpen={Boolean(gcpModalLead)}
+        onClose={() => setGcpModalLead(null)}
+        lead={gcpModalLead}
+        organizationId={user?.id || ''}
+        onTaskCancelled={() => {
           fetchScheduledTasks();
         }}
       />

@@ -79,16 +79,39 @@ export function ClientDrawer() {
     { id: 'closed_won', name: '5. Closed Won' },
   ]);
 
-  const getRemainingTimeText = (dateStr: string) => {
+  const [tickerNow, setTickerNow] = useState<number>(Date.now());
+
+  // 1-second live running countdown ticker
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTickerNow(Date.now());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const getRemainingTimeText = (dateStr: string, currentTimestamp: number = tickerNow) => {
     if (!dateStr) return 'Scheduled';
-    const diffMs = new Date(dateStr).getTime() - Date.now();
-    if (diffMs <= 0) return 'Triggering / Dispatched';
-    const diffSec = Math.floor(diffMs / 1000);
-    const diffMin = Math.ceil(diffMs / (1000 * 60));
-    if (diffSec < 60) return `Sending in ${diffSec}s ⚡`;
-    if (diffMin < 60) return `Sending in ~${diffMin} min${diffMin > 1 ? 's' : ''} ⏳`;
-    const diffHours = Math.floor(diffMin / 60);
-    return `In ${diffHours}h ${diffMin % 60}m`;
+    const targetMs = new Date(dateStr).getTime();
+    if (isNaN(targetMs)) return 'Scheduled';
+    const diffMs = targetMs - currentTimestamp;
+    if (diffMs <= 0) return '⚡ Executing now...';
+
+    const totalSec = Math.floor(diffMs / 1000);
+    const days = Math.floor(totalSec / 86400);
+    const hours = Math.floor((totalSec % 86400) / 3600);
+    const minutes = Math.floor((totalSec % 3600) / 60);
+    const seconds = totalSec % 60;
+
+    if (days > 0) {
+      return `⏳ Sending in ${days}d ${hours}h ${minutes}m ${seconds}s`;
+    }
+    if (hours > 0) {
+      return `⏳ Sending in ${hours}h ${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s`;
+    }
+    if (minutes > 0) {
+      return `⏳ Sending in ${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s`;
+    }
+    return `⚡ Sending in ${seconds}s`;
   };
 
   // Fetch live WhatsApp logs from Supabase
@@ -186,6 +209,22 @@ export function ClientDrawer() {
       setIsGcpQueueLoading(false);
     }
   };
+
+  // Auto-refresh when any task countdown reaches 0
+  useEffect(() => {
+    if (!selectedClient || gcpLiveQueueTasks.length === 0) return;
+    const hasExecutingTask = gcpLiveQueueTasks.some((t) => {
+      const ms = new Date(t.scheduled_at).getTime() - tickerNow;
+      return ms <= 0 && ms > -7000;
+    });
+    if (hasExecutingTask) {
+      const timer = setTimeout(() => {
+        fetchGcpLiveQueue();
+        fetchLeadWhatsappLogs();
+      }, 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [tickerNow, gcpLiveQueueTasks, selectedClient]);
 
   const handleCancelGcpTaskInDrawer = async (taskId: string, gcpTaskName: string) => {
     if (!confirm('Are you sure you want to cancel and delete this scheduled task directly from Google Cloud Tasks Queue?')) return;
@@ -1033,8 +1072,8 @@ export function ClientDrawer() {
                             <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                             <span className="truncate">{task.rule_title || 'Follow-Up WhatsApp'}</span>
                           </span>
-                          <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 shrink-0">
-                            ⏳ {getRemainingTimeText(task.scheduled_at)}
+                          <span className="text-[10px] font-mono font-bold text-amber-900 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 shrink-0 tabular-nums">
+                            {getRemainingTimeText(task.scheduled_at, tickerNow)}
                           </span>
                         </div>
 
