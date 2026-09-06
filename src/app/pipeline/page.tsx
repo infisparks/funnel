@@ -23,9 +23,11 @@ import {
   SlidersHorizontal,
   ExternalLink,
   Clock,
+  Zap,
 } from 'lucide-react';
 import { DateFilterDropdown } from '@/components/dashboard/DateFilterDropdown';
 import { formatEntryDateTime, isDateInRange } from '@/lib/dateUtils';
+import { StageAutomationModal } from '@/components/pipeline/StageAutomationModal';
 
 interface Stage {
   id: string;
@@ -64,6 +66,12 @@ export default function PipelinePage() {
   const [newStageName, setNewStageName] = useState('');
   const [newStageColor, setNewStageColor] = useState('#06B6D4');
   const [isSavingStage, setIsSavingStage] = useState(false);
+
+  // Stage Automation Rules & Scheduled Tasks State
+  const [isAutomationModalOpen, setIsAutomationModalOpen] = useState(false);
+  const [selectedStageForAutomation, setSelectedStageForAutomation] = useState<Stage | null>(null);
+  const [scheduledTasks, setScheduledTasks] = useState<any[]>([]);
+  const [rulesCountByStage, setRulesCountByStage] = useState<Record<string, number>>({});
 
   // Drag and Drop state
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
@@ -215,9 +223,43 @@ export default function PipelinePage() {
     return 'step1_contact';
   };
 
+  const fetchScheduledTasks = async () => {
+    if (!user?.id) return;
+    try {
+      const res = await fetch(`/api/automations/tasks?organizationId=${encodeURIComponent(user.id)}`);
+      const data = await res.json();
+      if (res.ok && data.tasks) {
+        setScheduledTasks(data.tasks);
+      }
+    } catch (e) {
+      console.error('Error loading scheduled tasks:', e);
+    }
+  };
+
+  const fetchRulesCount = async () => {
+    if (!user?.id) return;
+    try {
+      const res = await fetch(`/api/automations/rules?organizationId=${encodeURIComponent(user.id)}`);
+      const data = await res.json();
+      if (res.ok && data.rules) {
+        const counts: Record<string, number> = {};
+        for (const r of data.rules) {
+          if (r.is_enabled) {
+            counts[r.stage_id] = (counts[r.stage_id] || 0) + 1;
+          }
+        }
+        setRulesCountByStage(counts);
+      }
+    } catch (e) {
+      console.error('Error loading rules count:', e);
+    }
+  };
+
   useEffect(() => {
     if (user) {
       fetchData();
+      fetchScheduledTasks();
+      fetchRulesCount();
     }
   }, [user, workspace]);
 
@@ -291,11 +333,52 @@ export default function PipelinePage() {
   };
 
   const handleMoveLeadStage = async (leadId: string | number, newStageId: string) => {
+    const targetLead = leads.find((l) => String(l.id) === String(leadId));
+    const previousStageId = targetLead ? getLeadStage(targetLead) : null;
+    if (previousStageId === newStageId) return;
+
     try {
+      const nowIso = new Date().toISOString();
+
+      // 1. Optimistic UI update
       setLeads((prev) =>
-        prev.map((l) => (l.id === leadId ? { ...l, step_progress: newStageId } : l))
+        prev.map((l) =>
+          String(l.id) === String(leadId)
+            ? { ...l, step_progress: newStageId, stage_id: newStageId, stage_moved_at: nowIso }
+            : l
+        )
       );
-      await supabase.from('leads').update({ step_progress: newStageId }).eq('id', leadId);
+
+      // 2. Persist update in database
+      await supabase
+        .from('leads')
+        .update({
+          step_progress: newStageId,
+          stage_id: newStageId,
+          stage_moved_at: nowIso,
+        })
+        .eq('id', leadId);
+
+      // 3. Trigger Stage Movement & Cancellation Engine
+      const orgId = targetLead?.organization_id || targetLead?.user_id || user?.id;
+      if (orgId) {
+        fetch('/api/automations/sync-lead', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            organizationId: orgId,
+            leadId,
+            previousStageId,
+            newStageId,
+          }),
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            console.log('[Pipeline Automation Engine Sync Result]:', data);
+            fetchScheduledTasks();
+          })
+          .catch((err) => console.error('[Automation Sync Error]:', err));
+      }
     } catch (err) {
       console.error('Error moving lead stage:', err);
     }
@@ -435,9 +518,31 @@ export default function PipelinePage() {
                     {colLeads.length}
                   </span>
                 </div>
-                <span className="text-[11px] font-bold text-indigo-600 font-mono shrink-0">
-                  ₹{totalColValue > 0 ? totalColValue.toLocaleString('en-IN') : '0'}
-                </span>
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedStageForAutomation(col);
+                      setIsAutomationModalOpen(true);
+                    }}
+                    className={`p-1 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+                      rulesCountByStage[col.id] > 0
+                        ? 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200'
+                        : 'bg-white text-gray-400 hover:text-indigo-600 hover:bg-gray-100 border border-[#E5E7EB]'
+                    }`}
+                    title={`Configure Automations for ${col.name}`}
+                  >
+                    <Zap className="w-3 h-3" />
+                    {rulesCountByStage[col.id] > 0 && (
+                      <span className="text-[9px] font-bold text-indigo-700">{rulesCountByStage[col.id]}</span>
+                    )}
+                  </button>
+                  <span className="text-[11px] font-bold text-indigo-600 font-mono shrink-0">
+                    ₹{totalColValue > 0 ? totalColValue.toLocaleString('en-IN') : '0'}
+                  </span>
+                </div>
               </div>
 
               {/* Column Lead Cards Container (Compact & Clean) */}
@@ -458,6 +563,9 @@ export default function PipelinePage() {
                     const hasSurvey = lead.survey_responses && Object.keys(lead.survey_responses).length > 0;
                     const isBeingDragged = String(draggedLeadId) === String(lead.id);
                     const meetLink = lead.google_meet_url || lead.googleMeetUrl;
+                    const leadPendingTask = scheduledTasks.find(
+                      (t) => String(t.lead_id) === String(lead.id) && t.status === 'scheduled'
+                    );
 
                     return (
                       <div
@@ -524,6 +632,27 @@ export default function PipelinePage() {
                             <span className="inline-flex items-center gap-1 text-[9px] font-medium text-slate-600 bg-slate-100/90 px-1.5 py-0.5 rounded border border-slate-200/80">
                               <Clock className="w-2.5 h-2.5 text-slate-400 shrink-0" />
                               <span>{formatEntryDateTime(lead.created_at).full}</span>
+                            </span>
+                          )}
+
+                          {/* Scheduled Automation Countdown Chip */}
+                          {leadPendingTask && (
+                            <span
+                              className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 shadow-2xs"
+                              title={`Scheduled execution at ${new Date(leadPendingTask.scheduled_for).toLocaleTimeString()}`}
+                            >
+                              <Zap className="w-2.5 h-2.5 text-amber-600 shrink-0 fill-amber-500" />
+                              <span>
+                                {(() => {
+                                  const diffMs = new Date(leadPendingTask.scheduled_for).getTime() - Date.now();
+                                  if (diffMs <= 0) return 'WA executing...';
+                                  const diffMins = Math.ceil(diffMs / 60000);
+                                  if (diffMins < 60) return `Auto WA in ${diffMins}m`;
+                                  const diffHours = Math.ceil(diffMins / 60);
+                                  if (diffHours < 24) return `Auto WA in ${diffHours}h`;
+                                  return `Auto WA in ${Math.ceil(diffHours / 24)}d`;
+                                })()}
+                              </span>
                             </span>
                           )}
 
@@ -763,6 +892,18 @@ export default function PipelinePage() {
           </div>
         </div>
       )}
+
+      {/* Stage Automation Rules Modal */}
+      <StageAutomationModal
+        isOpen={isAutomationModalOpen}
+        onClose={() => setIsAutomationModalOpen(false)}
+        stage={selectedStageForAutomation}
+        organizationId={user?.id || ''}
+        onRulesUpdated={() => {
+          fetchRulesCount();
+          fetchScheduledTasks();
+        }}
+      />
     </MainLayout>
   );
 }
