@@ -161,21 +161,23 @@ export function ClientDrawer() {
 
   useEffect(() => {
     if (selectedClient) {
-      const progressStr = (selectedClient.step_progress || selectedClient.stage_id || '').toLowerCase();
+      const progressStr = (selectedClient.stage_id || selectedClient.step_progress || '').trim();
       const hasSurvey = Boolean(selectedClient.survey_responses && Object.keys(selectedClient.survey_responses).length > 0);
 
       let initialStage = 'step1_contact';
-      if (progressStr === 'meeting_booked' && hasSurvey) {
-        initialStage = 'meeting_booked';
-      } else if (['meeting_missed', 'closed_won', 'closed_lost', 'not_qualified', 'qualified'].includes(progressStr)) {
-        initialStage = progressStr;
-      } else if (progressStr === 'survey_completed' || hasSurvey) {
+      if (progressStr === 'step1_contact') {
+        initialStage = 'step1_contact';
+      } else if (progressStr === 'survey_completed' || (!progressStr && hasSurvey)) {
         initialStage = 'survey_completed';
+      } else if (progressStr === 'meeting_booked') {
+        initialStage = 'meeting_booked';
+      } else if (progressStr) {
+        initialStage = progressStr;
       } else {
         initialStage = 'step1_contact';
       }
 
-      setPipelineStage(initialStage);
+      setPipelineStage(initialStage || 'step1_contact');
       setDealValue(selectedClient.deal_value || '');
       setStaffNotes(Array.isArray(selectedClient.staff_notes) ? selectedClient.staff_notes : []);
       setStaffNotesHistory(Array.isArray(selectedClient.staff_notes) ? selectedClient.staff_notes : []);
@@ -184,8 +186,12 @@ export function ClientDrawer() {
         selectedClient.google_meet_url || selectedClient.googleMeetUrl || 'https://meet.google.com/qbi-erbq-moy'
       );
       setWhatsappLogs(Array.isArray(selectedClient.whatsapp_logs) ? selectedClient.whatsapp_logs : []);
-      if (selectedClient.meeting_date) setRescheduleDate(selectedClient.meeting_date);
-      if (selectedClient.meeting_time) setRescheduleTime(selectedClient.meeting_time);
+      if (selectedClient.meeting_date && initialStage === 'meeting_booked') {
+        setRescheduleDate(selectedClient.meeting_date);
+      }
+      if (selectedClient.meeting_time && initialStage === 'meeting_booked') {
+        setRescheduleTime(selectedClient.meeting_time);
+      }
       
       // Auto set schedule to +1 min from now
       const target = new Date(Date.now() + 1 * 60 * 1000);
@@ -897,25 +903,51 @@ export function ClientDrawer() {
                 <span className="text-emerald-700 font-mono">{selectedClient.phone || 'N/A'}</span>
               </div>
 
-              <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50/60 flex items-center justify-between text-xs font-bold text-emerald-800">
+              {/* Step 2 Indicator */}
+              <div className={`p-3 rounded-xl border flex items-center justify-between text-xs font-bold ${
+                selectedClient.survey_responses && Object.keys(selectedClient.survey_responses).length > 0
+                  ? 'border-emerald-200 bg-emerald-50/60 text-emerald-800'
+                  : 'border-gray-200 bg-gray-50/80 text-gray-500'
+              }`}>
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <CheckCircle2 className={`w-4 h-4 ${
+                    selectedClient.survey_responses && Object.keys(selectedClient.survey_responses).length > 0
+                      ? 'text-emerald-600'
+                      : 'text-gray-400'
+                  }`} />
                   <span>2. Business Survey</span>
                 </div>
-                <span className="text-emerald-700">
+                <span className={
+                  selectedClient.survey_responses && Object.keys(selectedClient.survey_responses).length > 0
+                    ? 'text-emerald-700 font-semibold'
+                    : 'text-gray-400 font-medium'
+                }>
                   {selectedClient.survey_responses && Object.keys(selectedClient.survey_responses).length > 0
                     ? 'Completed'
                     : 'Pending'}
                 </span>
               </div>
 
-              <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50/60 flex items-center justify-between text-xs font-bold text-emerald-800">
+              {/* Step 3 Indicator */}
+              <div className={`p-3 rounded-xl border flex items-center justify-between text-xs font-bold ${
+                pipelineStage === 'meeting_booked' && selectedClient.meeting_date
+                  ? 'border-emerald-200 bg-emerald-50/60 text-emerald-800'
+                  : 'border-gray-200 bg-gray-50/80 text-gray-500'
+              }`}>
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <CheckCircle2 className={`w-4 h-4 ${
+                    pipelineStage === 'meeting_booked' && selectedClient.meeting_date
+                      ? 'text-emerald-600'
+                      : 'text-gray-400'
+                  }`} />
                   <span>3. Scheduled Meeting</span>
                 </div>
-                <span className="text-emerald-700">
-                  {selectedClient.meeting_date && (selectedClient.survey_responses && Object.keys(selectedClient.survey_responses).length > 0)
+                <span className={
+                  pipelineStage === 'meeting_booked' && selectedClient.meeting_date
+                    ? 'text-emerald-700 font-semibold'
+                    : 'text-gray-400 font-medium'
+                }>
+                  {pipelineStage === 'meeting_booked' && selectedClient.meeting_date
                     ? `${selectedClient.meeting_date} @ ${selectedClient.meeting_time || '11:00 AM'}`
                     : 'Pending'}
                 </span>

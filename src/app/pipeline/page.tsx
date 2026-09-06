@@ -188,27 +188,6 @@ export default function PipelinePage() {
       const { data: leadRows } = await query;
       setLeads(leadRows || []);
 
-      if (leadRows && leadRows.length > 0) {
-        // Heal misclassified leads: if they have NO survey responses, they only filled
-        // the step 1 popup contact form and must NEVER be in meeting_booked.
-        const misclassifiedLeads = leadRows.filter(
-          (l) => (!l.survey_responses || Object.keys(l.survey_responses).length === 0) &&
-                 (l.step_progress === 'meeting_booked' || Boolean(l.meeting_date || l.meeting_time))
-        );
-        if (misclassifiedLeads.length > 0) {
-          (async () => {
-            try {
-              const idsToFix = misclassifiedLeads.map((l) => l.id);
-              await supabase
-                .from('leads')
-                .update({ step_progress: 'step1_contact', meeting_date: null, meeting_time: null })
-                .in('id', idsToFix);
-            } catch (e) {
-              console.warn('Auto-healing leads warning:', e);
-            }
-          })();
-        }
-      }
     } catch (err) {
       console.error('Error fetching pipeline data:', err);
     } finally {
@@ -218,25 +197,34 @@ export default function PipelinePage() {
   };
 
   const getLeadStage = (lead: any): string => {
-    if (lead.stage_id && !['step1_contact', 'survey_completed', 'meeting_booked', 'Not Qualified', 'Qualified'].includes(lead.stage_id)) {
-      return lead.stage_id;
-    }
-    if (lead.step_progress && !['step1_contact', 'survey_completed', 'meeting_booked', 'Not Qualified', 'Qualified'].includes(lead.step_progress)) {
-      return lead.step_progress;
+    const rawStage = (lead.stage_id || lead.step_progress || '').trim();
+
+    // 1. Contact Form Captured
+    if (rawStage === 'step1_contact') {
+      return 'step1_contact';
     }
 
-    const hasSurvey = Boolean(lead.survey_responses && Object.keys(lead.survey_responses).length > 0);
+    // 2. Survey Completed
+    if (rawStage === 'survey_completed') {
+      return 'survey_completed';
+    }
 
-    // Only genuine booked meetings have completed survey + meeting_booked status
-    if (lead.step_progress === 'meeting_booked') {
-      if (!hasSurvey) {
-        return 'step1_contact';
-      }
+    // 3. Meeting Booked
+    if (rawStage === 'meeting_booked') {
       return 'meeting_booked';
     }
 
-    if (lead.step_progress === 'survey_completed' || hasSurvey) {
+    // 4. Any other custom pipeline stage
+    if (rawStage) {
+      return rawStage;
+    }
+
+    // 5. Fallbacks only if stage is entirely unset
+    if (lead.survey_responses && Object.keys(lead.survey_responses).length > 0) {
       return 'survey_completed';
+    }
+    if (lead.meeting_date || lead.meeting_time) {
+      return 'meeting_booked';
     }
 
     return 'step1_contact';

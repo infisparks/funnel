@@ -1,6 +1,5 @@
 import { supabaseAdmin } from './supabaseAdmin';
 import { handleStepTrigger } from './whatsappManager';
-import { syncLeadAutomations } from './syncLeadAutomations';
 import { DEFAULT_LANDING_HTML } from './defaultLandingHtml';
 
 export function extractSubdomain(
@@ -135,8 +134,9 @@ export async function captureLead(body: Record<string, any>) {
     }
   }
 
-  // Prevent double booking
-  if (meeting_date && meeting_time && (step_progress === 'meeting_booked' || body.meeting_time)) {
+  // Prevent double booking only when actually booking a meeting
+  const isMeetingBooked = step_progress === 'meeting_booked';
+  if (isMeetingBooked && meeting_date && meeting_time) {
     const cleanDate = meeting_date.includes('T') ? meeting_date.split('T')[0] : meeting_date.trim();
     const cleanTime = meeting_time.trim();
 
@@ -173,9 +173,6 @@ export async function captureLead(body: Record<string, any>) {
     if (ws?.user_id) resolvedUserId = ws.user_id;
   }
 
-  const isMeeting = step_progress === 'meeting_booked';
-  const hasSurvey = Boolean(survey_responses && Object.keys(survey_responses).length > 0);
-
   const payload: Record<string, any> = {
     name: name || 'Landing Page Visitor',
     email: email || '',
@@ -183,9 +180,9 @@ export async function captureLead(body: Record<string, any>) {
     step_progress: step_progress || 'step1_contact',
     stage_id: step_progress || 'step1_contact',
     full_name: name || 'Landing Page Visitor',
-    survey_responses: hasSurvey ? survey_responses : null,
-    meeting_date: isMeeting ? (meeting_date || null) : null,
-    meeting_time: isMeeting ? (meeting_time || null) : null,
+    survey_responses: survey_responses || null,
+    meeting_date: isMeetingBooked ? (meeting_date || null) : null,
+    meeting_time: isMeetingBooked ? (meeting_time || null) : null,
     funnel_id: resolvedFunnelId || null,
     user_id: resolvedUserId || null,
     organization_id: resolvedUserId || null,
@@ -229,21 +226,6 @@ export async function captureLead(body: Record<string, any>) {
       },
       null
     ).catch((e) => console.warn('[LandingPage Lead WhatsApp Trigger Error]:', e.message));
-
-    // Schedule automated stage rules (e.g. 1h, 5h, 24h follow-ups)
-    try {
-      const orgId = resolvedUserId || savedRecord.user_id || savedRecord.funnel_id;
-      if (orgId) {
-        syncLeadAutomations({
-          organizationId: orgId,
-          leadId: savedRecord.id,
-          previousStageId: existingLeadId ? (body.previous_stage || null) : null,
-          newStageId: payload.step_progress,
-        }).catch((e) => console.warn('[LandingPage Lead Automations Sync Warning]:', e.message));
-      }
-    } catch (e) {
-      console.warn('[syncLeadAutomations invoke warning]:', e);
-    }
   }
 
   return savedRecord;

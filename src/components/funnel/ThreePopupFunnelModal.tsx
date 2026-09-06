@@ -309,12 +309,9 @@ export function ThreePopupFunnelModal({
             }
           }
 
-          // Preserve meeting_booked stage only if explicitly meeting_booked or on Step 4
+          // Preserve meeting_booked stage if confirmed
           let finalStage = 'step1_contact';
-          if (
-            step === 4 ||
-            (existingLeadData?.step_progress === 'meeting_booked' && existingLeadData?.survey_responses)
-          ) {
+          if (step === 4 || existingLeadData?.step_progress === 'meeting_booked') {
             finalStage = 'meeting_booked';
           } else if (Object.keys(surveyAnswers).length > 0 || existingLeadData?.step_progress === 'survey_completed') {
             finalStage = 'survey_completed';
@@ -325,11 +322,15 @@ export function ThreePopupFunnelModal({
             email,
             phone: cleanPhone,
             step_progress: finalStage,
+            stage_id: finalStage,
             survey_responses: Object.keys(surveyAnswers).length > 0 ? surveyAnswers : null,
           };
-          if (finalStage === 'meeting_booked' && selectedIsoDate && meetingTime) {
+          if (step === 4 && selectedIsoDate && meetingTime) {
             payload.meeting_date = selectedIsoDate;
             payload.meeting_time = meetingTime;
+          } else if (finalStage !== 'meeting_booked') {
+            payload.meeting_date = null;
+            payload.meeting_time = null;
           }
           if (funnelId) payload.funnel_id = funnelId;
           if (userId) payload.user_id = userId;
@@ -522,16 +523,16 @@ export function ThreePopupFunnelModal({
     try {
       const cleanPhone = getFullPhone();
       const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
-      const isBookingMeeting = stepProgress === 'meeting_booked' || extraData.step_progress === 'meeting_booked';
-      const hasSurveyAnswers = Object.keys(surveyAnswers).length > 0 || Boolean(extraData.survey_responses);
+      const isBookingMeeting = stepProgress === 'meeting_booked';
       const payload = {
         name: name || 'Landing Lead',
         email: email || '',
         phone: cleanPhone,
         step_progress: stepProgress,
-        survey_responses: hasSurveyAnswers ? (extraData.survey_responses || surveyAnswers) : null,
-        meeting_date: isBookingMeeting ? (extraData.meeting_date || selectedIsoDate || null) : null,
-        meeting_time: isBookingMeeting ? (extraData.meeting_time || meetingTime || null) : null,
+        stage_id: stepProgress,
+        survey_responses: Object.keys(surveyAnswers).length > 0 ? surveyAnswers : null,
+        meeting_date: isBookingMeeting ? (selectedIsoDate || null) : null,
+        meeting_time: isBookingMeeting ? (meetingTime || null) : null,
         funnel_id: funnelId || null,
         user_id: userId || null,
         domain: currentHost,
@@ -587,6 +588,9 @@ export function ThreePopupFunnelModal({
         email,
         phone: cleanPhone,
         step_progress: 'step1_contact',
+        stage_id: 'step1_contact',
+        meeting_date: null,
+        meeting_time: null,
       };
       if (funnelId) step1Payload.funnel_id = funnelId;
       if (userId) step1Payload.user_id = userId;
@@ -609,6 +613,8 @@ export function ThreePopupFunnelModal({
       // 2. Authoritative Backend sync & WhatsApp automation trigger
       const backendResult = await syncLeadToBackend('step1_contact', {
         lead_id: activeLeadId || undefined,
+        meeting_date: null,
+        meeting_time: null,
       });
 
       if (backendResult?.lead_id) {
@@ -667,7 +673,7 @@ export function ThreePopupFunnelModal({
         }
       }
 
-      const isAlreadyMeeting = step === 4 || matchedLead?.step_progress === 'meeting_booked';
+      const isAlreadyMeeting = step === 4 || matchedLead?.step_progress === 'meeting_booked' || Boolean(matchedLead?.meeting_date || matchedLead?.meeting_time);
       const stage = isAlreadyMeeting ? 'meeting_booked' : 'survey_completed';
 
       const payload: any = {
@@ -675,13 +681,26 @@ export function ThreePopupFunnelModal({
         email: email || '',
         phone: cleanPhone,
         step_progress: stage,
+        stage_id: stage,
         survey_responses: responses,
       };
+      if (isAlreadyMeeting && matchedLead?.meeting_date) {
+        payload.meeting_date = matchedLead.meeting_date;
+        payload.meeting_time = matchedLead.meeting_time;
+      } else {
+        payload.meeting_date = null;
+        payload.meeting_time = null;
+      }
       if (funnelId) payload.funnel_id = funnelId;
       if (userId) payload.user_id = userId;
 
       // Sync survey response to backend server (server.js)
-      const backendResult = await syncLeadToBackend(stage, { survey_responses: responses, lead_id: targetId });
+      const backendResult = await syncLeadToBackend(stage, { 
+        survey_responses: responses, 
+        lead_id: targetId,
+        meeting_date: isAlreadyMeeting ? (matchedLead?.meeting_date || null) : null,
+        meeting_time: isAlreadyMeeting ? (matchedLead?.meeting_time || null) : null,
+      });
       if (backendResult?.lead_id && !targetId) {
         targetId = backendResult.lead_id;
         setExistingLeadId(backendResult.lead_id);

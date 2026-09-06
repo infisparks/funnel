@@ -116,8 +116,8 @@ export function LeadsTable() {
       lead.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       lead.phone?.includes(searchQuery);
 
-    const hasSurvey = Boolean(lead.survey_responses && Object.keys(lead.survey_responses).length > 0) || lead.step_progress === 'survey_completed';
-    const isMeeting = (lead.step_progress === 'meeting_booked' || Boolean(lead.meeting_date || lead.meeting_time)) && hasSurvey;
+    const isMeeting = lead.step_progress === 'meeting_booked';
+    const hasSurvey = lead.step_progress === 'survey_completed' || Boolean(lead.survey_responses && Object.keys(lead.survey_responses).length > 0);
 
     // Status Filter
     const matchesStatus =
@@ -420,9 +420,9 @@ export function LeadsTable() {
 
                       {/* Status */}
                       <td className="px-5 py-3.5">
-                        {lead.step_progress === 'meeting_booked' && lead.survey_responses && Object.keys(lead.survey_responses).length > 0 ? (
+                        {lead.step_progress === 'meeting_booked' ? (
                           <Badge variant="success">Meeting Booked 📅</Badge>
-                        ) : lead.survey_responses && Object.keys(lead.survey_responses).length > 0 ? (
+                        ) : lead.step_progress === 'survey_completed' || (lead.survey_responses && Object.keys(lead.survey_responses).length > 0) ? (
                           <Badge variant="info">Survey Qualified</Badge>
                         ) : (
                           <Badge variant="warning">Contact Info Saved</Badge>

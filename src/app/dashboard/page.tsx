@@ -72,19 +72,6 @@ export default function ExecutiveCrmDashboard() {
 
       if (!error && data) {
         setLeadsData(data || []);
-
-        // Auto-heal any leads in DB with booked meetings
-        const needsHealing = data.filter(
-          (l) => (l.meeting_date || l.meeting_time) && l.step_progress === 'survey_completed'
-        );
-        if (needsHealing.length > 0) {
-          (async () => {
-            try {
-              const ids = needsHealing.map((l) => l.id);
-              await supabase.from('leads').update({ step_progress: 'meeting_booked' }).in('id', ids);
-            } catch (e) {}
-          })();
-        }
       } else {
         console.error('Supabase leads query error:', error);
         setLeadsData([]);
@@ -120,10 +107,10 @@ export default function ExecutiveCrmDashboard() {
   }, [user, workspace]);
 
   const isMeetingLead = (lead: any) => {
-    return lead.step_progress === 'meeting_booked' || Boolean(lead.meeting_date || lead.meeting_time);
+    return lead.step_progress === 'meeting_booked';
   };
   const isSurveyLead = (lead: any) => {
-    return Boolean(lead.survey_responses && Object.keys(lead.survey_responses).length > 0) || lead.step_progress === 'survey_completed';
+    return lead.step_progress === 'survey_completed' || Boolean(lead.survey_responses && Object.keys(lead.survey_responses).length > 0);
   };
 
   // Filter by date range first for KPIs & metrics
