@@ -28,6 +28,7 @@ import {
 import { DateFilterDropdown } from '@/components/dashboard/DateFilterDropdown';
 import { formatEntryDateTime, isDateInRange } from '@/lib/dateUtils';
 import { StageAutomationModal } from '@/components/pipeline/StageAutomationModal';
+import { AgencyQuickRulesModal } from '@/components/pipeline/AgencyQuickRulesModal';
 
 interface Stage {
   id: string;
@@ -72,6 +73,7 @@ export default function PipelinePage() {
   const [selectedStageForAutomation, setSelectedStageForAutomation] = useState<Stage | null>(null);
   const [scheduledTasks, setScheduledTasks] = useState<any[]>([]);
   const [rulesCountByStage, setRulesCountByStage] = useState<Record<string, number>>({});
+  const [isAgencyQuickRulesOpen, setIsAgencyQuickRulesOpen] = useState(false);
 
   // Drag and Drop state
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
@@ -436,6 +438,16 @@ export default function PipelinePage() {
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
+
+            <button
+              type="button"
+              onClick={() => setIsAgencyQuickRulesOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 shadow-2xs transition-all cursor-pointer"
+              title="1-Click: Setup 9 Automated Follow-up Rules with your Agency Name"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-indigo-600 fill-indigo-100" />
+              <span>⚡ Quick Add Agency Rules</span>
+            </button>
 
             <button
               onClick={() => setIsManageStagesOpen(true)}
@@ -900,6 +912,18 @@ export default function PipelinePage() {
         stage={selectedStageForAutomation}
         organizationId={user?.id || ''}
         onRulesUpdated={() => {
+          fetchRulesCount();
+          fetchScheduledTasks();
+        }}
+      />
+
+      {/* Agency Quick Rules 1-Click Setup Modal */}
+      <AgencyQuickRulesModal
+        isOpen={isAgencyQuickRulesOpen}
+        onClose={() => setIsAgencyQuickRulesOpen(false)}
+        organizationId={user?.id || ''}
+        defaultAgencyName={user?.user_metadata?.company_name || user?.user_metadata?.full_name || ''}
+        onRulesApplied={() => {
           fetchRulesCount();
           fetchScheduledTasks();
         }}

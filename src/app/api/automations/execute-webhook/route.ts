@@ -88,26 +88,31 @@ export async function POST(req: Request) {
     let evolutionApiUrl = process.env.EVOLUTION_API_URL || 'https://evo.infispark.in';
     let evolutionApiKey = process.env.EVOLUTION_APIKEY || 'vR39h6avY69g7kAU3YQbS6V6XEvudson';
 
-    if (!instanceName) {
-      const { data: ws } = await supabaseAdmin
-        .from('funnel_workspaces')
-        .select('whatsapp_config, google_meet_url')
-        .or(`user_id.eq.${organizationId},id.eq.${lead.funnel_id || lead.workspace_id}`)
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+    let resolvedWs: any = null;
+    const { data: wsRecord } = await supabaseAdmin
+      .from('funnel_workspaces')
+      .select('*')
+      .or(`user_id.eq.${organizationId},id.eq.${lead.funnel_id || lead.workspace_id || ''}`)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-      if (ws?.whatsapp_config?.instance_name) {
-        instanceName = ws.whatsapp_config.instance_name;
+    if (wsRecord) {
+      resolvedWs = wsRecord;
+    }
+
+    if (!instanceName && resolvedWs) {
+      if (resolvedWs.whatsapp_config?.instance_name) {
+        instanceName = resolvedWs.whatsapp_config.instance_name;
       }
-      if (ws?.whatsapp_config?.evolution_api_url) {
-        evolutionApiUrl = ws.whatsapp_config.evolution_api_url;
+      if (resolvedWs.whatsapp_config?.evolution_api_url) {
+        evolutionApiUrl = resolvedWs.whatsapp_config.evolution_api_url;
       }
-      if (ws?.whatsapp_config?.evolution_apikey) {
-        evolutionApiKey = ws.whatsapp_config.evolution_apikey;
+      if (resolvedWs.whatsapp_config?.evolution_apikey) {
+        evolutionApiKey = resolvedWs.whatsapp_config.evolution_apikey;
       }
-      if (ws?.google_meet_url && !lead.google_meet_url && !lead.meeting_url) {
-        lead.meeting_url = ws.google_meet_url;
+      if (resolvedWs.google_meet_url && !lead.google_meet_url && !lead.meeting_url) {
+        lead.meeting_url = resolvedWs.google_meet_url;
       }
     }
 
@@ -116,7 +121,22 @@ export async function POST(req: Request) {
       instanceName = 'mudassir';
     }
 
-    // 6. RENDER DYNAMIC MESSAGE TEMPLATE
+    // 6. RESOLVE WORKSPACE URLS & RENDER DYNAMIC TEMPLATE
+    let baseUrl = 'https://firstoption.cloud';
+
+    if (resolvedWs?.custom_domain && resolvedWs.custom_domain !== 'firstoption.cloud') {
+      baseUrl = `https://${resolvedWs.custom_domain.replace(/^https?:\/\//, '').replace(/\/$/, '')}`;
+    } else if (resolvedWs?.subdomain && resolvedWs.subdomain !== 'firstoption.cloud') {
+      baseUrl = `https://${resolvedWs.subdomain}.firstoption.cloud`;
+    }
+
+    const surveyUrl = `${baseUrl}/survey?funnel_id=${encodeURIComponent(resolvedWs?.id || '')}&lead_id=${encodeURIComponent(lead.id || '')}`;
+    const bookingUrl = `${baseUrl}/meeting?funnel_id=${encodeURIComponent(resolvedWs?.id || '')}&lead_id=${encodeURIComponent(lead.id || '')}`;
+    const liveMeetingUrl =
+      stageId === 'survey_completed'
+        ? bookingUrl
+        : lead.meeting_url || lead.google_meet_url || resolvedWs?.google_meet_url || bookingUrl;
+
     const rawTemplate = template || 'Hello {{name}}, thank you for reaching out!';
     const renderedText = rawTemplate
       .replace(/\{\{\s*name\s*\}\}/gi, lead.full_name || lead.name || 'Friend')
@@ -124,10 +144,9 @@ export async function POST(req: Request) {
       .replace(/\{\{\s*email\s*\}\}/gi, lead.email || '')
       .replace(/\{\{\s*date\s*\}\}/gi, lead.meeting_date || '')
       .replace(/\{\{\s*time\s*\}\}/gi, lead.meeting_time || '')
-      .replace(
-        /\{\{\s*meeting_url\s*\}\}/gi,
-        lead.meeting_url || lead.google_meet_url || 'https://meet.google.com/qbi-erbq-moy'
-      )
+      .replace(/\{\{\s*survey_url\s*\}\}/gi, surveyUrl)
+      .replace(/\{\{\s*meeting_url\s*\}\}/gi, liveMeetingUrl)
+      .replace(/\{\{\s*booking_url\s*\}\}/gi, bookingUrl)
       .replace(/\{\{\s*stage\s*\}\}/gi, stageId);
 
     const formattedNumber = formatWhatsappNumber(lead.phone);

@@ -180,6 +180,182 @@ export function StageAutomationModal({
     }
   };
 
+  const [isApplyingPreset, setIsApplyingPreset] = useState(false);
+
+  const handleApplyPresetForThisStage = async () => {
+    if (!stage || !organizationId) return;
+    setIsApplyingPreset(true);
+    setNotification(null);
+
+    let stageRulesToCreate: any[] = [];
+    const isContact = stage.id === 'step1_contact' || stage.name.toLowerCase().includes('contact');
+    const isSurvey = stage.id === 'survey_completed' || stage.name.toLowerCase().includes('survey');
+    const isMeeting = stage.id === 'meeting_booked' || stage.name.toLowerCase().includes('meeting');
+
+    if (isContact) {
+      stageRulesToCreate = [
+        {
+          organizationId,
+          stageId: stage.id,
+          title: 'Survey Follow-Up 1 (1h)',
+          triggerBase: 'stage_entered',
+          offsetType: 'after',
+          offsetValue: 1,
+          offsetUnit: 'hours',
+          template: 'Hi {{name}}, thank you for reaching out! To help us craft your custom solution, please complete your quick questionnaire: {{survey_url}}',
+          channel: 'whatsapp',
+        },
+        {
+          organizationId,
+          stageId: stage.id,
+          title: 'Survey Reminder 2 (5h)',
+          triggerBase: 'stage_entered',
+          offsetType: 'after',
+          offsetValue: 5,
+          offsetUnit: 'hours',
+          template: 'Hi {{name}}, we noticed your questionnaire is still pending. Take 60 seconds to finish it here: {{survey_url}}',
+          channel: 'whatsapp',
+        },
+        {
+          organizationId,
+          stageId: stage.id,
+          title: 'Survey Final Reminder (24h)',
+          triggerBase: 'stage_entered',
+          offsetType: 'after',
+          offsetValue: 1,
+          offsetUnit: 'days',
+          template: 'Hi {{name}}, final notice: Please submit your survey here: {{survey_url}} so we can review your project.',
+          channel: 'whatsapp',
+        },
+      ];
+    } else if (isSurvey) {
+      stageRulesToCreate = [
+        {
+          organizationId,
+          stageId: stage.id,
+          title: 'Meeting Booking 1 (1h)',
+          triggerBase: 'stage_entered',
+          offsetType: 'after',
+          offsetValue: 1,
+          offsetUnit: 'hours',
+          template: 'Hi {{name}}, thank you for completing the survey! You are qualified. Pick a time for your strategy session: {{meeting_url}}',
+          channel: 'whatsapp',
+        },
+        {
+          organizationId,
+          stageId: stage.id,
+          title: 'Meeting Booking Urgency (5h)',
+          triggerBase: 'stage_entered',
+          offsetType: 'after',
+          offsetValue: 5,
+          offsetUnit: 'hours',
+          template: 'Hi {{name}}, calendar spots are filling up fast. Reserve your consultation time slot now: {{meeting_url}}',
+          channel: 'whatsapp',
+        },
+        {
+          organizationId,
+          stageId: stage.id,
+          title: 'Meeting Booking Final (24h)',
+          triggerBase: 'stage_entered',
+          offsetType: 'after',
+          offsetValue: 1,
+          offsetUnit: 'days',
+          template: 'Hi {{name}}, last chance to lock in your strategy session this week. Choose your time: {{meeting_url}}',
+          channel: 'whatsapp',
+        },
+      ];
+    } else if (isMeeting) {
+      stageRulesToCreate = [
+        {
+          organizationId,
+          stageId: stage.id,
+          title: 'Meeting Reminder (24h before)',
+          triggerBase: 'meeting_scheduled',
+          offsetType: 'before',
+          offsetValue: 1,
+          offsetUnit: 'days',
+          template: 'Hi {{name}}, reminder: Your strategy call is scheduled for tomorrow at {{meeting_time}} ({{meeting_date}}). Join link: {{meeting_url}}',
+          channel: 'whatsapp',
+        },
+        {
+          organizationId,
+          stageId: stage.id,
+          title: 'Meeting Reminder (1h before)',
+          triggerBase: 'meeting_scheduled',
+          offsetType: 'before',
+          offsetValue: 1,
+          offsetUnit: 'hours',
+          template: 'Hi {{name}}, our meeting starts in 1 hour! Join link: {{meeting_url}}',
+          channel: 'whatsapp',
+        },
+        {
+          organizationId,
+          stageId: stage.id,
+          title: 'Meeting Starting Now (5m before)',
+          triggerBase: 'meeting_scheduled',
+          offsetType: 'before',
+          offsetValue: 5,
+          offsetUnit: 'minutes',
+          template: 'Hi {{name}}, we are starting in 5 minutes! Click here to join: {{meeting_url}}',
+          channel: 'whatsapp',
+        },
+      ];
+    } else {
+      stageRulesToCreate = [
+        {
+          organizationId,
+          stageId: stage.id,
+          title: `${stage.name} - Follow-up 1 (1h)`,
+          triggerBase: 'stage_entered',
+          offsetType: 'after',
+          offsetValue: 1,
+          offsetUnit: 'hours',
+          template: 'Hi {{name}}, checking in on your project! Let us know if you have any questions.',
+          channel: 'whatsapp',
+        },
+        {
+          organizationId,
+          stageId: stage.id,
+          title: `${stage.name} - Follow-up 2 (5h)`,
+          triggerBase: 'stage_entered',
+          offsetType: 'after',
+          offsetValue: 5,
+          offsetUnit: 'hours',
+          template: 'Hi {{name}}, our team is ready to assist you. Reply here or book a call: {{meeting_url}}',
+          channel: 'whatsapp',
+        },
+        {
+          organizationId,
+          stageId: stage.id,
+          title: `${stage.name} - Follow-up 3 (24h)`,
+          triggerBase: 'stage_entered',
+          offsetType: 'after',
+          offsetValue: 1,
+          offsetUnit: 'days',
+          template: 'Hi {{name}}, hope all is well! Just following up on our previous note.',
+          channel: 'whatsapp',
+        },
+      ];
+    }
+
+    try {
+      for (const r of stageRulesToCreate) {
+        await fetch('/api/automations/rules', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(r),
+        });
+      }
+      setNotification({ type: 'success', message: 'Applied 3 quick automation rules for this stage! ⚡' });
+      fetchRules();
+      onRulesUpdated?.();
+    } catch (err: unknown) {
+      setNotification({ type: 'error', message: (err as Error).message || 'Failed to apply preset' });
+    } finally {
+      setIsApplyingPreset(false);
+    }
+  };
+
   if (!isOpen || !stage) return null;
 
   return (
@@ -238,35 +414,64 @@ export function StageAutomationModal({
                 <span className="text-xs text-gray-500">({rules.length})</span>
               </div>
               {!isCreating && (
-                <Button
-                  size="sm"
-                  variant="primary"
-                  leftIcon={<Plus className="w-3.5 h-3.5" />}
-                  onClick={() => setIsCreating(true)}
-                  className="text-xs font-semibold"
-                >
-                  + Add Rule
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    leftIcon={<Sparkles className="w-3.5 h-3.5 text-indigo-600" />}
+                    onClick={handleApplyPresetForThisStage}
+                    isLoading={isApplyingPreset}
+                    disabled={isApplyingPreset}
+                    className="text-xs font-semibold border-indigo-200 text-indigo-700 bg-indigo-50/50 hover:bg-indigo-100/50"
+                  >
+                    ⚡ Quick 3 Rules
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    leftIcon={<Plus className="w-3.5 h-3.5" />}
+                    onClick={() => setIsCreating(true)}
+                    className="text-xs font-semibold"
+                  >
+                    + Add Rule
+                  </Button>
+                </div>
               )}
             </div>
 
             {isLoading ? (
               <div className="py-8 text-center text-xs text-gray-400">Loading stage automations...</div>
             ) : rules.length === 0 && !isCreating ? (
-              <div className="py-10 px-4 rounded-xl border border-dashed border-[#E5E7EB] bg-[#F5F6F8] text-center space-y-2">
+              <div className="py-10 px-4 rounded-xl border border-dashed border-[#E5E7EB] bg-[#F5F6F8] text-center space-y-3">
                 <MessageSquare className="w-8 h-8 text-gray-300 mx-auto" />
-                <p className="text-xs font-medium text-gray-600">No automation rules configured for this stage yet.</p>
-                <p className="text-[11px] text-gray-400">
-                  Leads moved here will not trigger any automated messages until a rule is created.
-                </p>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => setIsCreating(true)}
-                  className="text-xs mt-2"
-                >
-                  Create First Stage Rule
-                </Button>
+                <div>
+                  <p className="text-xs font-bold text-gray-700">No automation rules configured for this stage yet.</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    Leads moved here will not trigger any automated WhatsApp follow-ups.
+                  </p>
+                </div>
+                <div className="flex items-center justify-center gap-2 pt-1">
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={handleApplyPresetForThisStage}
+                    isLoading={isApplyingPreset}
+                    disabled={isApplyingPreset}
+                    leftIcon={<Sparkles className="w-3.5 h-3.5" />}
+                    className="text-xs bg-indigo-600 hover:bg-indigo-700 font-semibold"
+                  >
+                    ⚡ 1-Click: Add 3 Standard Rules
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setIsCreating(true)}
+                    className="text-xs"
+                  >
+                    Create Custom Rule
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="space-y-3">
