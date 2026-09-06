@@ -1,34 +1,38 @@
-# Root Production Dockerfile for Backend Deployment on Coolify / Docker
 FROM node:22-alpine AS base
 
-# Install dumb-init and curl for healthcheck
-RUN apk add --no-cache dumb-init curl
-
-# Set working directory
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Copy server package configuration
-COPY server/package.json ./
+# Stage 1: Install dependencies
+FROM base AS deps
+COPY package.json package-lock.json* ./
+RUN npm ci --legacy-peer-deps
 
-# Install production dependencies
-RUN npm install --omit=dev --no-audit --no-fund
-
-# Copy backend source files
-COPY server/*.js ./
-COPY server/.env* ./
-
-# Expose backend port
-EXPOSE 5005
-
-# Environment defaults
+# Stage 2: Build the Next.js app with standalone output
+FROM base AS builder
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
-ENV PORT=5005
+RUN npm run build
 
-# Healthcheck
-HEALTHCHECK --interval=20s --timeout=5s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:5005/health || exit 1
+# Stage 3: Minimal production runner (~120MB)
+FROM base AS runner
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 
-# Run with dumb-init for graceful shutdown
-USER node
-ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+COPY --from=builder /app/public ./public
+
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+USER nextjs
+
+EXPOSE 3000
+
 CMD ["node", "server.js"]
