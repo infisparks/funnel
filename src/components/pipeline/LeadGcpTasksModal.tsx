@@ -23,6 +23,7 @@ export function LeadGcpTasksModal({
   const [isLoading, setIsLoading] = useState(false);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [tickerNow, setTickerNow] = useState<number>(Date.now());
 
   const fetchTasks = async () => {
     if (!lead?.id) return;
@@ -55,7 +56,29 @@ export function LeadGcpTasksModal({
     }
   }, [isOpen, lead?.id]);
 
-  if (!isOpen || !lead) return null;
+  // 1-second live running countdown ticker
+  useEffect(() => {
+    if (!isOpen) return;
+    const interval = setInterval(() => {
+      setTickerNow(Date.now());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isOpen]);
+
+  // Auto-refresh when any task countdown reaches 0
+  useEffect(() => {
+    if (!isOpen || tasks.length === 0) return;
+    const hasExecutingTask = tasks.some((t) => {
+      const ms = new Date(t.scheduled_for).getTime() - tickerNow;
+      return ms <= 0 && ms > -7000;
+    });
+    if (hasExecutingTask) {
+      const timer = setTimeout(() => {
+        fetchTasks();
+      }, 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [tickerNow, tasks, isOpen]);
 
   const handleCancelTask = async (taskId: string, externalTaskId?: string) => {
     if (!confirm('Are you sure you want to cancel this pending automation directly from Google Cloud Tasks Queue?')) {
@@ -89,32 +112,6 @@ export function LeadGcpTasksModal({
     }
   };
 
-  const [tickerNow, setTickerNow] = useState<number>(Date.now());
-
-  // 1-second live running countdown ticker
-  useEffect(() => {
-    if (!isOpen) return;
-    const interval = setInterval(() => {
-      setTickerNow(Date.now());
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [isOpen]);
-
-  // Auto-refresh when any task countdown reaches 0
-  useEffect(() => {
-    if (!isOpen || tasks.length === 0) return;
-    const hasExecutingTask = tasks.some((t) => {
-      const ms = new Date(t.scheduled_for).getTime() - tickerNow;
-      return ms <= 0 && ms > -7000;
-    });
-    if (hasExecutingTask) {
-      const timer = setTimeout(() => {
-        fetchTasks();
-      }, 3500);
-      return () => clearTimeout(timer);
-    }
-  }, [tickerNow, tasks, isOpen]);
-
   const getCountdown = (scheduledFor: string, currentTimestamp: number = tickerNow) => {
     if (!scheduledFor) return 'Scheduled';
     const targetMs = new Date(scheduledFor).getTime();
@@ -139,6 +136,8 @@ export function LeadGcpTasksModal({
     }
     return `⚡ ${seconds}s`;
   };
+
+  if (!isOpen || !lead) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
