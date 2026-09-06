@@ -432,9 +432,45 @@ export function ClientDrawer() {
 
   // Update pipeline stage
   const handleUpdateStage = async (val: string) => {
+    const prevStage = pipelineStage;
     setPipelineStage(val);
-    if (selectedClient?.id) {
-      await supabase.from('leads').update({ step_progress: val }).eq('id', selectedClient.id);
+    if (!selectedClient?.id) return;
+
+    try {
+      const updateData: Record<string, any> = {
+        step_progress: val,
+        stage_id: val,
+        stage_moved_at: new Date().toISOString(),
+      };
+      if (val !== 'meeting_booked') {
+        updateData.meeting_date = null;
+        updateData.meeting_time = null;
+      }
+
+      await supabase.from('leads').update(updateData).eq('id', selectedClient.id);
+
+      // Trigger Stage Movement & Cancellation Engine
+      const orgId = (selectedClient as any)?.organization_id || (selectedClient as any)?.user_id || user?.id;
+      if (orgId) {
+        fetch('/api/automations/sync-lead', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            organizationId: orgId,
+            leadId: selectedClient.id,
+            previousStageId: prevStage,
+            newStageId: val,
+          }),
+        })
+          .then((res) => res.json())
+          .then(() => {
+            fetchGcpLiveQueue();
+            fetchLeadWhatsappLogs();
+          })
+          .catch((err) => console.error('[Drawer Stage Sync Error]:', err));
+      }
+    } catch (err) {
+      console.error('Error updating stage in drawer:', err);
     }
   };
 

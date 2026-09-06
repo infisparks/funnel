@@ -107,10 +107,23 @@ export async function captureLead(body: Record<string, any>) {
     }
   }
 
-  // Find existing lead by phone/email
-  let existingLeadId: string | null = null;
-  if (cleanPhone || email) {
-    let query = supabaseAdmin.from('leads').select('id, funnel_id, user_id');
+  // Find existing lead by explicit lead_id or by phone/email
+  let existingLeadId: string | null = body.lead_id || null;
+  let previousStageId: string | null = null;
+
+  if (existingLeadId) {
+    const { data: ex } = await supabaseAdmin
+      .from('leads')
+      .select('id, step_progress, stage_id')
+      .eq('id', existingLeadId)
+      .maybeSingle();
+    if (ex) {
+      previousStageId = ex.stage_id || ex.step_progress || null;
+    }
+  }
+
+  if (!existingLeadId && (cleanPhone || email)) {
+    let query = supabaseAdmin.from('leads').select('id, funnel_id, user_id, step_progress, stage_id');
     if (cleanPhone && email) {
       query = query.or(`phone.eq.${cleanPhone},email.eq.${email}`);
     } else if (cleanPhone) {
@@ -132,6 +145,7 @@ export async function captureLead(body: Record<string, any>) {
 
     if (found?.id) {
       existingLeadId = found.id;
+      previousStageId = found.stage_id || found.step_progress || null;
     }
   }
 
@@ -234,6 +248,7 @@ export async function captureLead(body: Record<string, any>) {
   if (effectiveOrgId && savedRecord?.id) {
     syncLeadAutomations({
       leadId: savedRecord.id,
+      previousStageId: previousStageId,
       newStageId: step_progress || 'step1_contact',
       organizationId: effectiveOrgId,
     }).catch((e) => console.warn('[LandingPage Lead Sync Automation Error]:', e.message));

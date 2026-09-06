@@ -309,12 +309,14 @@ export function ThreePopupFunnelModal({
             }
           }
 
-          // Preserve meeting_booked stage if confirmed
+          // Strictly determine stage based on actual step progress (never force meeting_booked from stale data)
           let finalStage = 'step1_contact';
-          if (step === 4 || existingLeadData?.step_progress === 'meeting_booked') {
+          if (step === 4 || (step === 3 && selectedIsoDate && meetingTime)) {
             finalStage = 'meeting_booked';
-          } else if (Object.keys(surveyAnswers).length > 0 || existingLeadData?.step_progress === 'survey_completed') {
+          } else if (step === 2 || (surveyAnswers && Object.keys(surveyAnswers).length > 0)) {
             finalStage = 'survey_completed';
+          } else {
+            finalStage = 'step1_contact';
           }
 
           const payload: any = {
@@ -325,22 +327,35 @@ export function ThreePopupFunnelModal({
             stage_id: finalStage,
             survey_responses: Object.keys(surveyAnswers).length > 0 ? surveyAnswers : null,
           };
-          if (step === 4 && selectedIsoDate && meetingTime) {
+          if (finalStage === 'meeting_booked' && selectedIsoDate && meetingTime) {
             payload.meeting_date = selectedIsoDate;
             payload.meeting_time = meetingTime;
-          } else if (finalStage !== 'meeting_booked') {
+          } else {
             payload.meeting_date = null;
             payload.meeting_time = null;
           }
           if (funnelId) payload.funnel_id = funnelId;
-          if (userId) payload.user_id = userId;
+          if (userId) {
+            payload.user_id = userId;
+            payload.organization_id = userId;
+          }
 
           if (targetLeadId) {
             await supabase.from('leads').update(payload).eq('id', targetLeadId);
           } else {
-            await supabase.from('leads').insert(payload);
+            const { data } = await supabase.from('leads').insert(payload).select('id').maybeSingle();
+            if (data?.id) targetLeadId = data.id;
           }
-        } catch (err) {}
+
+          // Authoritative backend sync & GCP Stage Automation Assignment
+          await syncLeadToBackend(finalStage, {
+            lead_id: targetLeadId || undefined,
+            meeting_date: payload.meeting_date,
+            meeting_time: payload.meeting_time,
+          });
+        } catch (err) {
+          console.warn('[handleCloseModal Sync Note]:', err);
+        }
       })();
     }
 
@@ -593,7 +608,10 @@ export function ThreePopupFunnelModal({
         meeting_time: null,
       };
       if (funnelId) step1Payload.funnel_id = funnelId;
-      if (userId) step1Payload.user_id = userId;
+      if (userId) {
+        step1Payload.user_id = userId;
+        step1Payload.organization_id = userId;
+      }
 
       console.log('[Supabase Client-Side Upload] Submitting Step 1 contact payload to database:', step1Payload);
 
@@ -692,7 +710,10 @@ export function ThreePopupFunnelModal({
         payload.meeting_time = null;
       }
       if (funnelId) payload.funnel_id = funnelId;
-      if (userId) payload.user_id = userId;
+      if (userId) {
+        payload.user_id = userId;
+        payload.organization_id = userId;
+      }
 
       // Sync survey response to backend server (server.js)
       const backendResult = await syncLeadToBackend(stage, { 
@@ -759,10 +780,12 @@ export function ThreePopupFunnelModal({
     const finalLeadPayload = {
       funnel_id: funnelId || null,
       user_id: userId || null,
+      organization_id: userId || null,
       name,
       phone: cleanPhone,
       email,
       step_progress: 'meeting_booked',
+      stage_id: 'meeting_booked',
       survey_responses: surveyAnswers,
       meeting_date: selectedIsoDate,
       meeting_time: meetingTime,

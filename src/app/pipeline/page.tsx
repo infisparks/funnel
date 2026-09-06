@@ -368,13 +368,19 @@ export default function PipelinePage() {
       );
 
       // 2. Persist update in database
+      const updatePayload: Record<string, any> = {
+        step_progress: newStageId,
+        stage_id: newStageId,
+        stage_moved_at: nowIso,
+      };
+      if (newStageId !== 'meeting_booked') {
+        updatePayload.meeting_date = null;
+        updatePayload.meeting_time = null;
+      }
+
       await supabase
         .from('leads')
-        .update({
-          step_progress: newStageId,
-          stage_id: newStageId,
-          stage_moved_at: nowIso,
-        })
+        .update(updatePayload)
         .eq('id', leadId);
 
       // 3. Trigger Stage Movement & Cancellation Engine

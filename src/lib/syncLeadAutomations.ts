@@ -26,11 +26,10 @@ export async function syncLeadAutomations(
 ): Promise<SyncLeadAutomationsResult> {
   const { organizationId, leadId, previousStageId, newStageId } = params;
 
-  // 1. Fetch current lead details using privileged client
+  // 1. Fetch current lead details directly by primary key UUID
   const { data: lead, error: leadErr } = await supabaseAdmin
     .from('leads')
     .select('*')
-    .or(`organization_id.eq.${organizationId},user_id.eq.${organizationId}`)
     .eq('id', leadId)
     .maybeSingle();
 
@@ -43,16 +42,20 @@ export async function syncLeadAutomations(
   const leadPhone = lead.phone || '';
   const cleanPhone = leadPhone.replace(/[^0-9]/g, '');
 
+  if (!lead.organization_id && effectiveOrgId) {
+    await supabaseAdmin.from('leads').update({ organization_id: effectiveOrgId }).eq('id', leadId);
+  }
+
   // 2. STAGE CHANGE DETECTED: CANCEL ALL PENDING TASKS OF OLD STAGE
-  if (previousStageId && previousStageId !== newStageId) {
+  const effectivePreviousStage = previousStageId || (lead.stage_id && lead.stage_id !== newStageId ? lead.stage_id : null);
+  if (effectivePreviousStage && effectivePreviousStage !== newStageId) {
     console.log(
-      `[Automation Sync] Lead ${lead.phone || leadId} moving: ${previousStageId} -> ${newStageId}. Purging old pending tasks...`
+      `[Automation Sync] Lead ${lead.phone || leadId} moving: ${effectivePreviousStage} -> ${newStageId}. Purging old pending tasks...`
     );
 
     const { data: pendingTasks } = await supabaseAdmin
       .from('scheduled_automation_tasks')
       .select('*')
-      .eq('organization_id', effectiveOrgId)
       .eq('lead_id', leadId)
       .eq('status', 'scheduled');
 
@@ -71,7 +74,6 @@ export async function syncLeadAutomations(
         await supabaseAdmin
           .from('automation_executions')
           .delete()
-          .eq('organization_id', effectiveOrgId)
           .eq('trigger_key', task.trigger_key)
           .eq('status', 'pending');
       }
@@ -80,7 +82,6 @@ export async function syncLeadAutomations(
       await supabaseAdmin
         .from('scheduled_automation_tasks')
         .update({ status: 'cancelled' })
-        .eq('organization_id', effectiveOrgId)
         .eq('lead_id', leadId)
         .eq('status', 'scheduled');
     }
@@ -88,20 +89,30 @@ export async function syncLeadAutomations(
 
   // Persist updated stage timestamps on lead
   const stageMovedAt = new Date().toISOString();
+  const leadUpdatePayload: Record<string, any> = {
+    stage_id: newStageId,
+    step_progress: newStageId,
+    stage_moved_at: stageMovedAt,
+  };
+  if (newStageId !== 'meeting_booked') {
+    leadUpdatePayload.meeting_date = null;
+    leadUpdatePayload.meeting_time = null;
+  }
   await supabaseAdmin
     .from('leads')
-    .update({
-      stage_id: newStageId,
-      step_progress: newStageId,
-      stage_moved_at: stageMovedAt,
-    })
+    .update(leadUpdatePayload)
     .eq('id', leadId);
 
   // 3. FETCH ACTIVE RULES FOR NEW STAGE
+  const candidateOrgIds = Array.from(
+    new Set([effectiveOrgId, lead.user_id, organizationId].filter(Boolean))
+  );
+  const orgFilter = candidateOrgIds.map((id) => `organization_id.eq.${id}`).join(',');
+
   const { data: rules, error: rulesErr } = await supabaseAdmin
     .from('stage_automation_rules')
     .select('*')
-    .eq('organization_id', effectiveOrgId)
+    .or(orgFilter)
     .eq('stage_id', newStageId)
     .eq('is_enabled', true);
 
