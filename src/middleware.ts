@@ -27,6 +27,9 @@ export function middleware(request: NextRequest) {
   const isRootAdmin =
     hostname === 'firstoption.cloud' ||
     hostname === 'www.firstoption.cloud' ||
+    hostname === '72.61.236.148' ||
+    hostname === 'srv1181671.hstgr.cloud' ||
+    hostname.includes('.sslip.io') ||
     hostname === 'funnel-red-six.vercel.app';
 
   if (isRootAdmin && !url.searchParams.has('isPublic')) {
