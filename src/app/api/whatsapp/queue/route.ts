@@ -1,1 +1,2 @@
-export { GET, runtime } from '@/app/api/tasks/queue/route';
+export const runtime = 'nodejs';
+export { GET } from '@/app/api/tasks/queue/route';
