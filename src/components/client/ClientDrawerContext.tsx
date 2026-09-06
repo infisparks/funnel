@@ -9,6 +9,7 @@ export interface ClientData {
   phone?: string;
   avatar?: string;
   stage?: string;
+  stage_id?: string;
   dealValue?: string | number;
   deal_value?: string | number;
   followup_date?: string;

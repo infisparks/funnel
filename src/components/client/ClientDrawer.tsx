@@ -161,12 +161,21 @@ export function ClientDrawer() {
 
   useEffect(() => {
     if (selectedClient) {
-      const progressStr = selectedClient.step_progress || '';
-      const initialStage: string = (selectedClient.meeting_date || selectedClient.meeting_time || progressStr === 'meeting_booked')
-        ? (['meeting_missed', 'closed_won'].includes(progressStr) ? progressStr : 'meeting_booked')
-        : (progressStr || (selectedClient.survey_responses && Object.keys(selectedClient.survey_responses).length > 0 ? 'survey_completed' : 'step1_contact'));
+      const progressStr = (selectedClient.step_progress || selectedClient.stage_id || '').toLowerCase();
+      const hasSurvey = Boolean(selectedClient.survey_responses && Object.keys(selectedClient.survey_responses).length > 0);
 
-      setPipelineStage(initialStage || 'step1_contact');
+      let initialStage = 'step1_contact';
+      if (progressStr === 'meeting_booked' && hasSurvey) {
+        initialStage = 'meeting_booked';
+      } else if (['meeting_missed', 'closed_won', 'closed_lost', 'not_qualified', 'qualified'].includes(progressStr)) {
+        initialStage = progressStr;
+      } else if (progressStr === 'survey_completed' || hasSurvey) {
+        initialStage = 'survey_completed';
+      } else {
+        initialStage = 'step1_contact';
+      }
+
+      setPipelineStage(initialStage);
       setDealValue(selectedClient.deal_value || '');
       setStaffNotes(Array.isArray(selectedClient.staff_notes) ? selectedClient.staff_notes : []);
       setStaffNotesHistory(Array.isArray(selectedClient.staff_notes) ? selectedClient.staff_notes : []);
@@ -906,7 +915,7 @@ export function ClientDrawer() {
                   <span>3. Scheduled Meeting</span>
                 </div>
                 <span className="text-emerald-700">
-                  {selectedClient.meeting_date
+                  {selectedClient.meeting_date && (selectedClient.survey_responses && Object.keys(selectedClient.survey_responses).length > 0)
                     ? `${selectedClient.meeting_date} @ ${selectedClient.meeting_time || '11:00 AM'}`
                     : 'Pending'}
                 </span>

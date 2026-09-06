@@ -309,12 +309,11 @@ export function ThreePopupFunnelModal({
             }
           }
 
-          // Preserve meeting_booked stage and never downgrade
+          // Preserve meeting_booked stage only if explicitly meeting_booked or on Step 4
           let finalStage = 'step1_contact';
           if (
             step === 4 ||
-            existingLeadData?.step_progress === 'meeting_booked' ||
-            Boolean(existingLeadData?.meeting_date || existingLeadData?.meeting_time)
+            (existingLeadData?.step_progress === 'meeting_booked' && existingLeadData?.survey_responses)
           ) {
             finalStage = 'meeting_booked';
           } else if (Object.keys(surveyAnswers).length > 0 || existingLeadData?.step_progress === 'survey_completed') {
@@ -328,7 +327,7 @@ export function ThreePopupFunnelModal({
             step_progress: finalStage,
             survey_responses: Object.keys(surveyAnswers).length > 0 ? surveyAnswers : null,
           };
-          if (step === 4 && selectedIsoDate && meetingTime) {
+          if (finalStage === 'meeting_booked' && selectedIsoDate && meetingTime) {
             payload.meeting_date = selectedIsoDate;
             payload.meeting_time = meetingTime;
           }
@@ -523,14 +522,16 @@ export function ThreePopupFunnelModal({
     try {
       const cleanPhone = getFullPhone();
       const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
+      const isBookingMeeting = stepProgress === 'meeting_booked' || extraData.step_progress === 'meeting_booked';
+      const hasSurveyAnswers = Object.keys(surveyAnswers).length > 0 || Boolean(extraData.survey_responses);
       const payload = {
         name: name || 'Landing Lead',
         email: email || '',
         phone: cleanPhone,
         step_progress: stepProgress,
-        survey_responses: surveyAnswers,
-        meeting_date: selectedIsoDate || null,
-        meeting_time: meetingTime || null,
+        survey_responses: hasSurveyAnswers ? (extraData.survey_responses || surveyAnswers) : null,
+        meeting_date: isBookingMeeting ? (extraData.meeting_date || selectedIsoDate || null) : null,
+        meeting_time: isBookingMeeting ? (extraData.meeting_time || meetingTime || null) : null,
         funnel_id: funnelId || null,
         user_id: userId || null,
         domain: currentHost,
@@ -666,7 +667,7 @@ export function ThreePopupFunnelModal({
         }
       }
 
-      const isAlreadyMeeting = step === 4 || matchedLead?.step_progress === 'meeting_booked' || Boolean(matchedLead?.meeting_date || matchedLead?.meeting_time);
+      const isAlreadyMeeting = step === 4 || matchedLead?.step_progress === 'meeting_booked';
       const stage = isAlreadyMeeting ? 'meeting_booked' : 'survey_completed';
 
       const payload: any = {

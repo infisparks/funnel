@@ -189,15 +189,23 @@ export default function PipelinePage() {
       setLeads(leadRows || []);
 
       if (leadRows && leadRows.length > 0) {
-        const needsHealing = leadRows.filter(
-          (l) => (l.meeting_date || l.meeting_time) && l.step_progress === 'survey_completed'
+        // Heal misclassified leads: if they have NO survey responses, they only filled
+        // the step 1 popup contact form and must NEVER be in meeting_booked.
+        const misclassifiedLeads = leadRows.filter(
+          (l) => (!l.survey_responses || Object.keys(l.survey_responses).length === 0) &&
+                 (l.step_progress === 'meeting_booked' || Boolean(l.meeting_date || l.meeting_time))
         );
-        if (needsHealing.length > 0) {
+        if (misclassifiedLeads.length > 0) {
           (async () => {
             try {
-              const idsToUpdate = needsHealing.map((l) => l.id);
-              await supabase.from('leads').update({ step_progress: 'meeting_booked' }).in('id', idsToUpdate);
-            } catch (e) {}
+              const idsToFix = misclassifiedLeads.map((l) => l.id);
+              await supabase
+                .from('leads')
+                .update({ step_progress: 'step1_contact', meeting_date: null, meeting_time: null })
+                .in('id', idsToFix);
+            } catch (e) {
+              console.warn('Auto-healing leads warning:', e);
+            }
           })();
         }
       }
@@ -210,18 +218,27 @@ export default function PipelinePage() {
   };
 
   const getLeadStage = (lead: any): string => {
+    if (lead.stage_id && !['step1_contact', 'survey_completed', 'meeting_booked', 'Not Qualified', 'Qualified'].includes(lead.stage_id)) {
+      return lead.stage_id;
+    }
     if (lead.step_progress && !['step1_contact', 'survey_completed', 'meeting_booked', 'Not Qualified', 'Qualified'].includes(lead.step_progress)) {
       return lead.step_progress;
     }
-    if (lead.step_progress === 'meeting_booked' || Boolean(lead.meeting_date || lead.meeting_time)) {
+
+    const hasSurvey = Boolean(lead.survey_responses && Object.keys(lead.survey_responses).length > 0);
+
+    // Only genuine booked meetings have completed survey + meeting_booked status
+    if (lead.step_progress === 'meeting_booked') {
+      if (!hasSurvey) {
+        return 'step1_contact';
+      }
       return 'meeting_booked';
     }
-    if (
-      lead.step_progress === 'survey_completed' ||
-      (lead.survey_responses && Object.keys(lead.survey_responses).length > 0)
-    ) {
+
+    if (lead.step_progress === 'survey_completed' || hasSurvey) {
       return 'survey_completed';
     }
+
     return 'step1_contact';
   };
 
