@@ -40,6 +40,11 @@ async function handleCancel(req: Request) {
         .from('scheduled_whatsapp_tasks')
         .update({ status: 'cancelled' })
         .or(matchCondition);
+
+      await supabaseAdmin
+        .from('scheduled_automation_tasks')
+        .update({ status: 'cancelled' })
+        .or(`external_task_id.eq.${targetName},id.eq.${taskId}`);
     }
 
     return NextResponse.json({

@@ -21,6 +21,7 @@ import {
   AlertCircle,
   ExternalLink,
   Save,
+  Zap,
 } from 'lucide-react';
 import { Button, Badge, Card } from '../ui';
 import { useAuth } from '../auth/AuthContext';
@@ -113,25 +114,72 @@ export function ClientDrawer() {
   const [gcpLiveQueueTasks, setGcpLiveQueueTasks] = useState<any[]>([]);
   const [isGcpQueueLoading, setIsGcpQueueLoading] = useState(false);
 
-  // Fetch live tasks directly from Google Cloud Tasks API
+  // Fetch live tasks directly from Google Cloud Tasks API & Stage Automations
   const fetchGcpLiveQueue = async () => {
-    if (!selectedClient?.phone) return;
+    if (!selectedClient?.id && !selectedClient?.phone) return;
     setIsGcpQueueLoading(true);
     try {
-      const targetUserId = user?.id || workspace?.user_id || (selectedClient as any)?.user_id;
-      const queryParam = targetUserId ? `?userId=${encodeURIComponent(targetUserId)}` : '';
-      const res = await fetch(`${SERVER_URL}/api/tasks/queue${queryParam}`, {
-        headers: targetUserId ? { 'x-user-id': targetUserId } : {},
-      });
-      const data = await res.json();
-      if (data.success && Array.isArray(data.tasks)) {
-        const cleanTarget = selectedClient.phone.replace(/[^0-9]/g, '').slice(-10);
-        const filtered = data.tasks.filter((t: any) => {
-          const cleanTaskPhone = (t.recipient_phone || '').replace(/[^0-9]/g, '').slice(-10);
-          return cleanTaskPhone === cleanTarget || (t.recipient_phone && t.recipient_phone.includes(cleanTarget));
-        });
-        setGcpLiveQueueTasks(filtered);
+      const targetUserId = user?.id || workspace?.user_id || (selectedClient as any)?.user_id || (selectedClient as any)?.organization_id;
+      const combined: any[] = [];
+
+      // 1. Fetch Stage Automations scheduled in GCP for this lead
+      try {
+        const leadIdParam = selectedClient.id ? `leadId=${encodeURIComponent(selectedClient.id)}` : '';
+        const orgParam = targetUserId ? `organizationId=${encodeURIComponent(targetUserId)}` : '';
+        const qs = [leadIdParam, orgParam].filter(Boolean).join('&');
+        const autoRes = await fetch(`/api/automations/tasks?${qs}`);
+        const autoData = await autoRes.json();
+        if (autoData?.tasks && Array.isArray(autoData.tasks)) {
+          autoData.tasks.forEach((t: any) => {
+            const rule = t.stage_automation_rules || {};
+            const cleanMsg = (rule.template || 'Automated WhatsApp Message')
+              .replace(/\{\{name\}\}/gi, selectedClient.name || 'there')
+              .replace(/\{\{phone\}\}/gi, selectedClient.phone || '')
+              .replace(/\{\{email\}\}/gi, selectedClient.email || '');
+
+            combined.push({
+              id: t.id,
+              gcp_task_id: t.external_task_id || t.id,
+              gcp_task_name: t.external_task_id || t.id,
+              rule_title: rule.title || 'Stage Automation Follow-Up',
+              scheduled_at: t.scheduled_for,
+              message_text: cleanMsg,
+              recipient_phone: selectedClient.phone || 'N/A',
+              recipient_name: selectedClient.name || 'Lead',
+              status: t.status,
+              channel: rule.channel || 'whatsapp',
+              source: 'GCP_CLOUD_TASKS',
+            });
+          });
+        }
+      } catch (e1) {
+        console.warn('Could not fetch stage automations for drawer:', e1);
       }
+
+      // 2. Also fetch any manual queue tasks from /api/tasks/queue
+      try {
+        const queryParam = targetUserId ? `?userId=${encodeURIComponent(targetUserId)}` : '';
+        const res = await fetch(`${SERVER_URL}/api/tasks/queue${queryParam}`, {
+          headers: targetUserId ? { 'x-user-id': targetUserId } : {},
+        });
+        const data = await res.json();
+        if (data.success && Array.isArray(data.tasks) && selectedClient.phone) {
+          const cleanTarget = selectedClient.phone.replace(/[^0-9]/g, '').slice(-10);
+          const filtered = data.tasks.filter((t: any) => {
+            const cleanTaskPhone = (t.recipient_phone || '').replace(/[^0-9]/g, '').slice(-10);
+            return (cleanTarget && cleanTaskPhone === cleanTarget) || (t.lead_id && String(t.lead_id) === String(selectedClient.id));
+          });
+          filtered.forEach((ft: any) => {
+            if (!combined.some((ex) => ex.gcp_task_name === ft.gcp_task_name || ex.id === ft.id)) {
+              combined.push(ft);
+            }
+          });
+        }
+      } catch (e2) {
+        console.warn('Could not fetch manual queue tasks:', e2);
+      }
+
+      setGcpLiveQueueTasks(combined);
     } catch (err) {
       console.warn('Could not fetch live GCP tasks in drawer:', err);
     } finally {
@@ -951,6 +999,69 @@ export function ClientDrawer() {
                     ? `${selectedClient.meeting_date} @ ${selectedClient.meeting_time || '11:00 AM'}`
                     : 'Pending'}
                 </span>
+              </div>
+
+              {/* Scheduled GCP Automations for this Lead */}
+              <div className="pt-3.5 border-t border-gray-100 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-gray-900">
+                    <Zap className="w-4 h-4 text-amber-500 fill-amber-400" />
+                    <span>GCP Cloud Tasks Automation Queue</span>
+                  </div>
+                  {isGcpQueueLoading ? (
+                    <span className="text-[10px] text-gray-400 font-medium">Checking GCP...</span>
+                  ) : (
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      gcpLiveQueueTasks.length > 0
+                        ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                        : 'bg-gray-100 text-gray-500'
+                    }`}>
+                      {gcpLiveQueueTasks.length} {gcpLiveQueueTasks.length === 1 ? 'Pending Message' : 'Pending Messages'}
+                    </span>
+                  )}
+                </div>
+
+                {gcpLiveQueueTasks && gcpLiveQueueTasks.length > 0 ? (
+                  <div className="space-y-2 pt-1">
+                    {gcpLiveQueueTasks.map((task: any) => (
+                      <div
+                        key={task.id || task.gcp_task_id}
+                        className="p-3 rounded-xl bg-[#F8FAFC] border border-amber-200/90 space-y-1.5 shadow-2xs"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-bold text-indigo-950 flex items-center gap-1.5 truncate">
+                            <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                            <span className="truncate">{task.rule_title || 'Follow-Up WhatsApp'}</span>
+                          </span>
+                          <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 shrink-0">
+                            ⏳ {getRemainingTimeText(task.scheduled_at)}
+                          </span>
+                        </div>
+
+                        <p className="text-xs text-gray-700 bg-white p-2 rounded-lg border border-gray-100 font-medium whitespace-pre-wrap leading-relaxed">
+                          {task.message_text}
+                        </p>
+
+                        <div className="flex items-center justify-between pt-1 text-[10px] text-gray-400">
+                          <span className="font-mono truncate max-w-[200px]" title={task.gcp_task_name || task.id}>
+                            🕒 Send: {new Date(task.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ({new Date(task.scheduled_at).toLocaleDateString()})
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleCancelGcpTaskInDrawer(task.id || task.gcp_task_id, task.gcp_task_name)}
+                            className="text-rose-600 hover:text-rose-800 font-bold hover:underline cursor-pointer ml-2 shrink-0"
+                          >
+                            Cancel in GCP ✕
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-gray-400 italic pt-0.5">
+                    No pending automated follow-ups in queue for this lead.
+                  </p>
+                )}
               </div>
             </div>
           </Card>

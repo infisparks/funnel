@@ -188,13 +188,24 @@ export async function syncLeadAutomations(
     const targetSeconds = Math.floor(targetTimeMs / 1000);
 
     // 5. ENQUEUE SCHEDULED TASK TO GOOGLE CLOUD TASKS
+    const cleanMsgText = (rule.template || '')
+      .replace(/\{\{name\}\}/gi, lead.name || 'there')
+      .replace(/\{\{phone\}\}/gi, lead.phone || '')
+      .replace(/\{\{email\}\}/gi, lead.email || '');
+
     const webhookPayload = {
       organizationId: effectiveOrgId,
+      userId: effectiveOrgId,
       leadId: lead.id,
+      recipientPhone: lead.phone,
+      recipientName: lead.name || 'Lead',
       stageId: newStageId,
       ruleId: rule.id,
+      ruleTitle: rule.title || 'Stage Automation',
       triggerKey,
       template: rule.template,
+      messageText: cleanMsgText,
+      scheduledAt: new Date(targetTimeMs).toISOString(),
       instanceName: rule.instance_name || null,
     };
 

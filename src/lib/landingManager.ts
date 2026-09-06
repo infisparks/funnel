@@ -1,6 +1,7 @@
 import { supabaseAdmin } from './supabaseAdmin';
 import { handleStepTrigger } from './whatsappManager';
 import { DEFAULT_LANDING_HTML } from './defaultLandingHtml';
+import { syncLeadAutomations } from './syncLeadAutomations';
 
 export function extractSubdomain(
   hostHeader?: string | null,
@@ -208,7 +209,7 @@ export async function captureLead(body: Record<string, any>) {
     savedRecord = data;
   }
 
-  // Trigger step progress WhatsApp
+  // 1. Trigger instant step progress WhatsApp
   if (savedRecord && cleanPhone) {
     const stepKeyMap: Record<string, string> = {
       step1_contact: 'step1',
@@ -226,6 +227,16 @@ export async function captureLead(body: Record<string, any>) {
       },
       null
     ).catch((e) => console.warn('[LandingPage Lead WhatsApp Trigger Error]:', e.message));
+  }
+
+  // 2. Trigger GCP Stage Automations via Google Cloud Tasks queue
+  const effectiveOrgId = savedRecord?.organization_id || savedRecord?.user_id || resolvedUserId;
+  if (effectiveOrgId && savedRecord?.id) {
+    syncLeadAutomations({
+      leadId: savedRecord.id,
+      newStageId: step_progress || 'step1_contact',
+      organizationId: effectiveOrgId,
+    }).catch((e) => console.warn('[LandingPage Lead Sync Automation Error]:', e.message));
   }
 
   return savedRecord;
