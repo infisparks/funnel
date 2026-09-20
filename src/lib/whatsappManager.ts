@@ -336,13 +336,13 @@ export async function handleStepTrigger(
     userId: leadData.user_id,
   });
 
-  // 3. Notify Admin with New Lead & Appointment Alert if admin_phone is configured
+  // 3. Notify Founder with New Lead Alert when someone fills the first detail form (step1)
   const adminPhone = config?.admin_phone || config?.admin_notification_phone;
-  const isAppointmentStep = stepKey === 'step3' || Boolean(leadData.meeting_date);
+  const isFirstDetailStep = stepKey === 'step1' || leadData.step_progress === 'step1_contact';
 
-  if (adminPhone && isAppointmentStep) {
+  if (adminPhone && isFirstDetailStep) {
     const formattedAdminPhone = formatWhatsappNumber(adminPhone);
-    const adminAlertKey = `admin_alert_${formattedAdminPhone}_${leadData.phone || ''}_${leadData.meeting_date || ''}_${leadData.meeting_time || ''}`;
+    const adminAlertKey = `admin_lead_alert_${formattedAdminPhone}_${leadData.phone || ''}`;
 
     if (!dispatchCooldownMap.has(adminAlertKey)) {
       dispatchCooldownMap.set(adminAlertKey, Date.now());
@@ -350,19 +350,13 @@ export async function handleStepTrigger(
       const leadName = leadData.name || leadData.full_name || 'New Client';
       const leadPhone = leadData.phone || 'N/A';
       const leadEmail = leadData.email || 'N/A';
-      const meetingDate = leadData.meeting_date || 'N/A';
-      const meetingTime = leadData.meeting_time || 'N/A';
-      const meetUrl = leadData.google_meet_url || config?.google_meet_url || 'https://meet.google.com/qbi-erbq-moy';
 
       const adminAlertMessage =
-        `🚨 *NEW LEAD & APPOINTMENT ALERT!* 📅\n\n` +
+        `🚨 *NEW LEAD ALERT!* 🚀\n\n` +
         `👤 *Lead Name:* ${leadName}\n` +
         `📞 *WhatsApp Phone:* ${leadPhone}\n` +
-        `📧 *Email:* ${leadEmail}\n` +
-        `🗓️ *Meeting Date:* ${meetingDate}\n` +
-        `⏰ *Meeting Time:* ${meetingTime}\n` +
-        `🎥 *Google Meet:* ${meetUrl}\n\n` +
-        `_A new appointment was successfully booked in your CRM funnel._`;
+        `📧 *Email:* ${leadEmail}\n\n` +
+        `_A new lead just filled their contact details on your landing page!_`;
 
       try {
         const adminSendResult = await sendWhatsappMessage({
@@ -375,7 +369,7 @@ export async function handleStepTrigger(
 
         await logWhatsappToDatabase({
           phone: formattedAdminPhone,
-          name: 'Admin Notification (New Lead Alert)',
+          name: 'Founder Notification (New Lead Alert)',
           email: leadEmail,
           message: adminAlertMessage,
           triggerType: 'admin_lead_alert',
@@ -385,9 +379,9 @@ export async function handleStepTrigger(
           userId: leadData.user_id,
         });
 
-        console.log(`[whatsappManager] Admin lead alert dispatched to ${formattedAdminPhone} via instance ${instanceName}`);
+        console.log(`[whatsappManager] Founder lead alert dispatched to ${formattedAdminPhone} via instance ${instanceName}`);
       } catch (adminErr: unknown) {
-        console.warn(`[whatsappManager] Failed to dispatch admin alert to ${formattedAdminPhone}:`, (adminErr as Error).message);
+        console.warn(`[whatsappManager] Failed to dispatch founder alert to ${formattedAdminPhone}:`, (adminErr as Error).message);
       }
     }
   }

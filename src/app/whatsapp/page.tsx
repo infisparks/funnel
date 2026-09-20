@@ -236,14 +236,11 @@ export default function WhatsappAutomationPage() {
           phone: config.admin_phone.trim(),
           instanceName: config.instance_name.trim(),
           message:
-            `🚨 *TEST NEW LEAD ALERT: Appointment Booked!* 📅\n\n` +
+            `🚨 *TEST NEW LEAD ALERT!* 🚀\n\n` +
             `👤 *Lead Name:* Mujtaba (PM Demo)\n` +
             `📞 *WhatsApp Phone:* +919876543210\n` +
-            `📧 *Email:* lead@firstoption.cloud\n` +
-            `🗓️ *Meeting Date:* ${new Date().toISOString().split('T')[0]}\n` +
-            `⏰ *Meeting Time:* 11:00 AM\n` +
-            `🎥 *Google Meet:* https://meet.google.com/qbi-erbq-moy\n\n` +
-            `✅ *Instance Check:* Dispatched successfully via assigned instance "${config.instance_name.trim()}". You will receive this alert whenever an appointment is booked!`,
+            `📧 *Email:* lead@firstoption.cloud\n\n` +
+            `✅ *Instance Check:* Dispatched successfully via assigned instance "${config.instance_name.trim()}". You will receive this alert as soon as any visitor fills the detail form on your landing page!`,
         }),
       });
 
@@ -596,7 +593,7 @@ export default function WhatsappAutomationPage() {
                   className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all shadow-2xs font-mono"
                 />
                 <p className="text-[11px] text-gray-500">
-                  When an appointment is booked, an instant WhatsApp alert is sent to this number.
+                  When a visitor fills the first contact detail form (Name, Phone, Email), an instant WhatsApp alert is sent to this number.
                 </p>
               </div>
             </div>
@@ -673,7 +670,7 @@ export default function WhatsappAutomationPage() {
                     +{config.admin_phone} (Active 🔔)
                   </span>
                 ) : (
-                  <span className="text-amber-600 italic font-medium">(Enter admin number above to receive appointment alerts)</span>
+                  <span className="text-amber-600 italic font-medium">(Enter admin number above to receive first detail form lead alerts)</span>
                 )}
               </div>
             </div>
