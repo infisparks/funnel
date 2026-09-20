@@ -31,11 +31,14 @@ import {
   ChevronUp,
   Share2,
   Download,
+  Activity,
 } from 'lucide-react';
 import { DEFAULT_LANDING_HTML } from '@/lib/defaultLandingHtml';
 import { HtmlCodeEditorModal } from '@/components/landing/HtmlCodeEditorModal';
 import { CustomDomainModal } from '@/components/landing/CustomDomainModal';
 import { ThreePopupFunnelModal, PopupThemeConfig } from '@/components/funnel/ThreePopupFunnelModal';
+import { MetaPixelModal } from '@/components/funnel/MetaPixelModal';
+import { injectMetaPixelIntoHtml, initClientMetaPixel } from '@/lib/metaPixel';
 import { SurveyQuestion } from '@/components/funnel/SurveyBuilderModal';
 import { LandingTemplateModal } from '@/components/landing/LandingTemplateModal';
 import { ShareLandingModal } from '@/components/landing/ShareLandingModal';
@@ -82,6 +85,10 @@ export function LandingPageClient({
     initialWorkspace?.popup_theme || {}
   );
 
+  const [pixelId, setPixelId] = useState<string | null>(
+    initialWorkspace?.pixel_id || workspace?.pixel_id || null
+  );
+  const [isPixelModalOpen, setIsPixelModalOpen] = useState(false);
   const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isDomainModalOpen, setIsDomainModalOpen] = useState(false);
@@ -94,6 +101,27 @@ export function LandingPageClient({
   const [supabaseToastMsg, setSupabaseToastMsg] = useState('');
   const [isCopiedDomain, setIsCopiedDomain] = useState(false);
   const [iframeKey, setIframeKey] = useState(0);
+
+  // Initialize client-side Meta Pixel tracking in parent window
+  useEffect(() => {
+    if (pixelId) {
+      initClientMetaPixel(pixelId);
+    }
+  }, [pixelId]);
+
+  const handleSavePixel = async (newPixelId: string | null) => {
+    setPixelId(newPixelId);
+    setIsSavingSupabase(true);
+    const ok = await saveWorkspaceConfig({
+      pixel_id: newPixelId,
+    });
+    setIsSavingSupabase(false);
+    setIframeKey((prev) => prev + 1);
+    if (ok) {
+      showToast(newPixelId ? `Meta Pixel ID ${newPixelId} saved & active! 🎯` : 'Meta Pixel removed.');
+    }
+    return ok;
+  };
 
   // Apply chosen pre-built landing page template
   const handleApplyTemplate = async (template: LandingTemplate) => {
@@ -160,6 +188,9 @@ export function LandingPageClient({
       }
       if (workspace.popup_theme && Object.keys(workspace.popup_theme).length > 0) {
         setPopupTheme(workspace.popup_theme);
+      }
+      if (workspace.pixel_id !== undefined) {
+        setPixelId(workspace.pixel_id);
       }
       setIframeKey((prev) => prev + 1);
     }
@@ -366,8 +397,14 @@ export function LandingPageClient({
     } else {
       code = code.replace('</head>', triggerScript + '\n</head>');
     }
+
+    // Auto-inject Meta Pixel tracking script if pixelId exists
+    if (pixelId) {
+      code = injectMetaPixelIntoHtml(code, pixelId);
+    }
+
     return code;
-  }, [htmlCode, triggerButtons, initialWorkspace]);
+  }, [htmlCode, triggerButtons, initialWorkspace, pixelId]);
 
   // Listen to postMessage from iframe
   useEffect(() => {
@@ -402,6 +439,7 @@ export function LandingPageClient({
           onClose={() => setIsPopupFunnelOpen(false)}
           funnelId={initialWorkspace?.id}
           userId={initialWorkspace?.user_id}
+          pixelId={pixelId}
           surveyQuestions={
             surveyQuestions && surveyQuestions.length > 0
               ? surveyQuestions
@@ -554,6 +592,19 @@ export function LandingPageClient({
           >
             <Globe className="w-3.5 h-3.5" />
             <span>Assign Domain</span>
+          </button>
+
+          <button
+            onClick={() => setIsPixelModalOpen(true)}
+            className={`px-2.5 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+              pixelId
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100'
+                : 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100'
+            }`}
+            title={pixelId ? `Active Meta Pixel: ${pixelId}` : 'Set Up Meta Pixel ID'}
+          >
+            <Activity className="w-3.5 h-3.5" />
+            <span>{pixelId ? `Pixel: ${pixelId}` : 'Set Up Pixel ID'}</span>
           </button>
         </div>
 
@@ -874,11 +925,20 @@ export function LandingPageClient({
         onClose={() => setIsPopupFunnelOpen(false)}
         funnelId={isPublicView ? (initialWorkspace?.id || workspace?.id) : (workspace?.id || initialWorkspace?.id)}
         userId={isPublicView ? (initialWorkspace?.user_id || user?.id) : (user?.id || initialWorkspace?.user_id)}
+        pixelId={pixelId}
         surveyQuestions={surveyQuestions}
         popupTheme={popupTheme}
         onComplete={(lead) => {
           console.log('Lead captured via 3-Popup funnel:', lead);
         }}
+      />
+
+      <MetaPixelModal
+        isOpen={isPixelModalOpen}
+        onClose={() => setIsPixelModalOpen(false)}
+        currentPixelId={pixelId}
+        onSave={handleSavePixel}
+        workspaceSubdomain={subdomain}
       />
 
       <LandingTemplateModal

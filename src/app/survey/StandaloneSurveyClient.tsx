@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, Sparkles, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
+import { initClientMetaPixel, trackMetaSurveyCompleted } from '@/lib/metaPixel';
 
 interface StandaloneSurveyClientProps {
   workspace: any;
@@ -11,6 +12,12 @@ interface StandaloneSurveyClientProps {
 
 export function StandaloneSurveyClient({ workspace }: StandaloneSurveyClientProps) {
   const router = useRouter();
+
+  useEffect(() => {
+    if (workspace?.pixel_id) {
+      initClientMetaPixel(workspace.pixel_id);
+    }
+  }, [workspace?.pixel_id]);
   const surveyQuestions = workspace?.survey_questions || [
     {
       id: 'q1',
@@ -181,6 +188,16 @@ export function StandaloneSurveyClient({ workspace }: StandaloneSurveyClientProp
     } finally {
       setIsSubmitting(false);
     }
+
+    // Fire Meta Pixel Survey Completed event
+    trackMetaSurveyCompleted({
+      survey_responses: answers,
+      funnel_id: workspace?.id || undefined,
+      user_id: workspace?.user_id || undefined,
+      name,
+      email,
+      phone: cleanPhone,
+    });
 
     // Save lead details to localStorage
     const leadSession = { name, email, phone: cleanPhone, leadId: activeLeadId, surveyAnswers: answers, hasCompletedSurvey: true };

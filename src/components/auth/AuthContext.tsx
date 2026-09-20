@@ -35,6 +35,7 @@ export interface UserWorkspace {
   whatsapp_config?: any;
   pipeline_stages?: any[];
   google_meet_url?: string;
+  pixel_id?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -165,6 +166,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (config.survey_questions !== undefined) updatePayload.survey_questions = config.survey_questions;
       if (config.subdomain !== undefined) updatePayload.subdomain = config.subdomain;
       if (config.custom_domain !== undefined) updatePayload.custom_domain = config.custom_domain;
+      if (config.pixel_id !== undefined) updatePayload.pixel_id = config.pixel_id ? config.pixel_id.trim() : null;
 
       // 1. Update existing workspace row for this user_id
       const { data: updated, error: updateError } = await supabase
@@ -197,6 +199,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         trigger_buttons: config.trigger_buttons !== undefined ? config.trigger_buttons : ['Claim Free Strategy Session'],
         popup_theme: config.popup_theme !== undefined ? config.popup_theme : { primaryColor: '#8146F0', themeMode: 'dark' },
         survey_questions: config.survey_questions !== undefined ? config.survey_questions : [],
+        pixel_id: config.pixel_id !== undefined ? (config.pixel_id ? config.pixel_id.trim() : null) : null,
         updated_at: new Date().toISOString(),
       };
 

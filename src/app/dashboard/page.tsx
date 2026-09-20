@@ -29,14 +29,28 @@ import {
   ChevronRight,
   Sparkles,
   Clock,
+  Activity,
 } from 'lucide-react';
 import { isMeetingPassed } from '../calendar/page';
 import { DateFilterDropdown } from '@/components/dashboard/DateFilterDropdown';
 import { formatEntryDateTime, isDateInRange } from '@/lib/dateUtils';
+import { MetaPixelModal } from '@/components/funnel/MetaPixelModal';
 
 export default function ExecutiveCrmDashboard() {
-  const { user, workspace } = useAuth();
+  const { user, workspace, saveWorkspaceConfig } = useAuth();
   const { openClientDrawer } = useClientDrawer();
+
+  const [isPixelModalOpen, setIsPixelModalOpen] = useState(false);
+  const [pixelToast, setPixelToast] = useState<string | null>(null);
+
+  const handleSaveDashboardPixel = async (newPixelId: string | null) => {
+    const ok = await saveWorkspaceConfig({ pixel_id: newPixelId });
+    if (ok) {
+      setPixelToast(newPixelId ? `Meta Pixel ID ${newPixelId} saved & active! 🎯` : 'Meta Pixel removed.');
+      setTimeout(() => setPixelToast(null), 4000);
+    }
+    return ok;
+  };
 
   const [activeTab, setActiveTab] = useState<'leads' | 'meetings'>('leads');
   const [searchQuery, setSearchQuery] = useState('');
@@ -179,6 +193,31 @@ export default function ExecutiveCrmDashboard() {
             <span className="hidden sm:inline">Isolated Domain Active</span>
             <span className="sm:hidden">Domain Active</span>
           </span>
+
+          <button
+            onClick={() => setIsPixelModalOpen(true)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border shadow-xs transition-all cursor-pointer ${
+              workspace?.pixel_id
+                ? 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-800'
+                : 'bg-indigo-50 hover:bg-indigo-100 border-indigo-200 text-indigo-700'
+            }`}
+            title={workspace?.pixel_id ? `Meta Pixel: ${workspace.pixel_id} (Click to Change)` : 'Set up Meta Pixel ID'}
+          >
+            {workspace?.pixel_id ? (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                <Activity className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span className="hidden md:inline">Pixel: {workspace.pixel_id}</span>
+                <span className="md:hidden">Pixel Active</span>
+                <span className="text-[10px] text-emerald-600 underline font-normal ml-0.5">Change</span>
+              </>
+            ) : (
+              <>
+                <Activity className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                <span>Set up Meta Pixel</span>
+              </>
+            )}
+          </button>
 
           <button
             onClick={fetchUserIsolatedLeads}
@@ -782,6 +821,25 @@ export default function ExecutiveCrmDashboard() {
           )}
         </div>
       </div>
+
+      {/* Meta Pixel Configuration Modal */}
+      <MetaPixelModal
+        isOpen={isPixelModalOpen}
+        onClose={() => setIsPixelModalOpen(false)}
+        currentPixelId={workspace?.pixel_id}
+        onSave={handleSaveDashboardPixel}
+        workspaceSubdomain={workspace?.subdomain}
+      />
+
+      {/* Toast Feedback */}
+      {pixelToast && (
+        <div className="fixed top-5 right-5 z-50 animate-in fade-in slide-in-from-top-3 duration-200">
+          <div className="px-3.5 py-2 rounded-xl bg-[#111827] text-white text-xs font-medium shadow-lg flex items-center gap-2 border border-gray-800">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>{pixelToast}</span>
+          </div>
+        </div>
+      )}
     </MainLayout>
   );
 }

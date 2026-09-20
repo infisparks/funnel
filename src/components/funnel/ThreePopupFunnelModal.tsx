@@ -37,6 +37,12 @@ import {
   splitPhoneAndCountryCode,
   formatFullPhone,
 } from '@/lib/phoneUtils';
+import {
+  initClientMetaPixel,
+  trackMetaLead,
+  trackMetaSurveyCompleted,
+  trackMetaMeetingBooked,
+} from '@/lib/metaPixel';
 
 const SERVER_URL = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_SERVER_URL || '').replace(/\/$/, '');
 
@@ -106,6 +112,7 @@ interface ThreePopupFunnelModalProps {
   popupTheme?: PopupThemeConfig;
   funnelId?: string;
   userId?: string;
+  pixelId?: string | null;
   onStep1Complete?: (leadData: any) => void;
   onComplete?: (leadData: any) => void;
 }
@@ -124,6 +131,7 @@ export function ThreePopupFunnelModal({
   popupTheme = {},
   funnelId,
   userId,
+  pixelId,
   onStep1Complete,
   onComplete,
 }: ThreePopupFunnelModalProps) {
@@ -229,6 +237,13 @@ export function ThreePopupFunnelModal({
   const handleOptionsScroll = () => {
     checkScrollAffordance();
   };
+
+  // Initialize Meta Pixel if pixelId is provided
+  useEffect(() => {
+    if (isOpen && pixelId) {
+      initClientMetaPixel(pixelId);
+    }
+  }, [isOpen, pixelId]);
 
   const handleScrollDownClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -660,6 +675,16 @@ export function ThreePopupFunnelModal({
         });
       }
 
+      // Fire Meta Pixel Lead conversion event
+      trackMetaLead({
+        name,
+        email,
+        phone: cleanPhone,
+        funnel_id: funnelId || undefined,
+        user_id: userId || undefined,
+        lead_id: activeLeadId || undefined,
+      });
+
       // Dispatch Step 1 WhatsApp message once per session
       if (!dispatchedStepsRef.current.has('step1')) {
         dispatchedStepsRef.current.add('step1');
@@ -745,6 +770,16 @@ export function ThreePopupFunnelModal({
     if (currentQuestionIndex < surveyQuestions.length - 1) {
       setCurrentQuestionIndex((prev) => prev + 1);
     } else {
+      // Fire Meta Pixel Survey Completed event (SubmitApplication + SurveySubmitted)
+      trackMetaSurveyCompleted({
+        survey_responses: surveyAnswers,
+        funnel_id: funnelId || undefined,
+        user_id: userId || undefined,
+        name,
+        email,
+        phone: getFullPhone(),
+      });
+
       // Dispatch Step 2 WhatsApp message upon survey completion once per session
       if (!dispatchedStepsRef.current.has('step2')) {
         dispatchedStepsRef.current.add('step2');
@@ -845,6 +880,18 @@ export function ThreePopupFunnelModal({
           workspace_id: funnelId || undefined,
         }).catch((e) => console.warn('[WhatsApp Trigger Step 3 error]:', e));
       }
+
+      // Fire Meta Pixel Meeting Booked event (Schedule + MeetingBooked)
+      trackMetaMeetingBooked({
+        meeting_date: selectedIsoDate,
+        meeting_time: meetingTime,
+        name,
+        email,
+        phone: cleanPhone,
+        google_meet_url: activeMeetUrl,
+        funnel_id: funnelId || undefined,
+        user_id: userId || undefined,
+      });
 
       if (onComplete) onComplete(finalLeadPayload);
       changeStep(4);

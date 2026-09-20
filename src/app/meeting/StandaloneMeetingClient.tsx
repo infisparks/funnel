@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { Calendar, Clock, CheckCircle2, User, Phone, Mail, ChevronDown } from 'lucide-react';
 import { isTimeSlotDisabled, getFirstAvailableSlot, getTodayIso } from '@/lib/dateUtils';
 import { COUNTRY_CODES, splitPhoneAndCountryCode, formatFullPhone } from '@/lib/phoneUtils';
+import { initClientMetaPixel, trackMetaMeetingBooked } from '@/lib/metaPixel';
 
 interface StandaloneMeetingClientProps {
   workspace: any;
@@ -14,6 +15,12 @@ interface StandaloneMeetingClientProps {
 export function StandaloneMeetingClient({ workspace }: StandaloneMeetingClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (workspace?.pixel_id) {
+      initClientMetaPixel(workspace.pixel_id);
+    }
+  }, [workspace?.pixel_id]);
 
   const availableSlots = useMemo(() => {
     return workspace?.custom_theme?.meetingSlots && workspace.custom_theme.meetingSlots.length > 0
@@ -107,6 +114,17 @@ export function StandaloneMeetingClient({ workspace }: StandaloneMeetingClientPr
       } else {
         await supabase.from('leads').insert(leadPayload);
       }
+
+      // Fire Meta Pixel Meeting Booked event
+      trackMetaMeetingBooked({
+        meeting_date: meetingDate,
+        meeting_time: meetingTime,
+        name,
+        email,
+        phone: cleanPhone,
+        funnel_id: workspace?.id || undefined,
+        user_id: workspace?.user_id || undefined,
+      });
     } catch (err) {
       console.error('Error inserting/updating lead from /meeting:', err);
     } finally {

@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS public.funnel_workspaces (
             "options": ["Founder / Owner", "Marketing Head", "Partner", "Manager"]
         }
     ]'::jsonb,
+    pixel_id TEXT DEFAULT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
