@@ -7,6 +7,7 @@ import { Calendar, Clock, CheckCircle2, User, Phone, Mail, ChevronDown } from 'l
 import { isTimeSlotDisabled, getFirstAvailableSlot, getTodayIso } from '@/lib/dateUtils';
 import { COUNTRY_CODES, splitPhoneAndCountryCode, formatFullPhone } from '@/lib/phoneUtils';
 import { initClientMetaPixel, trackMetaMeetingBooked } from '@/lib/metaPixel';
+import { dispatchWhatsappTrigger } from '@/lib/whatsappDispatch';
 
 interface StandaloneMeetingClientProps {
   workspace: any;
@@ -125,6 +126,19 @@ export function StandaloneMeetingClient({ workspace }: StandaloneMeetingClientPr
         funnel_id: workspace?.id || undefined,
         user_id: workspace?.user_id || undefined,
       });
+
+      // Dispatch Step 3 confirmation to lead and alert to admin
+      dispatchWhatsappTrigger('step3', {
+        name,
+        email,
+        phone: cleanPhone,
+        meeting_date: meetingDate,
+        meeting_time: meetingTime,
+        google_meet_url: workspace?.google_meet_url || 'https://meet.google.com/qbi-erbq-moy',
+        funnel_id: workspace?.id || undefined,
+        user_id: workspace?.user_id || undefined,
+        workspace_id: workspace?.id || undefined,
+      }).catch((e) => console.warn('[Standalone Meeting WhatsApp Error]:', e));
     } catch (err) {
       console.error('Error inserting/updating lead from /meeting:', err);
     } finally {

@@ -336,6 +336,62 @@ export async function handleStepTrigger(
     userId: leadData.user_id,
   });
 
+  // 3. Notify Admin with New Lead & Appointment Alert if admin_phone is configured
+  const adminPhone = config?.admin_phone || config?.admin_notification_phone;
+  const isAppointmentStep = stepKey === 'step3' || Boolean(leadData.meeting_date);
+
+  if (adminPhone && isAppointmentStep) {
+    const formattedAdminPhone = formatWhatsappNumber(adminPhone);
+    const adminAlertKey = `admin_alert_${formattedAdminPhone}_${leadData.phone || ''}_${leadData.meeting_date || ''}_${leadData.meeting_time || ''}`;
+
+    if (!dispatchCooldownMap.has(adminAlertKey)) {
+      dispatchCooldownMap.set(adminAlertKey, Date.now());
+
+      const leadName = leadData.name || leadData.full_name || 'New Client';
+      const leadPhone = leadData.phone || 'N/A';
+      const leadEmail = leadData.email || 'N/A';
+      const meetingDate = leadData.meeting_date || 'N/A';
+      const meetingTime = leadData.meeting_time || 'N/A';
+      const meetUrl = leadData.google_meet_url || config?.google_meet_url || 'https://meet.google.com/qbi-erbq-moy';
+
+      const adminAlertMessage =
+        `🚨 *NEW LEAD & APPOINTMENT ALERT!* 📅\n\n` +
+        `👤 *Lead Name:* ${leadName}\n` +
+        `📞 *WhatsApp Phone:* ${leadPhone}\n` +
+        `📧 *Email:* ${leadEmail}\n` +
+        `🗓️ *Meeting Date:* ${meetingDate}\n` +
+        `⏰ *Meeting Time:* ${meetingTime}\n` +
+        `🎥 *Google Meet:* ${meetUrl}\n\n` +
+        `_A new appointment was successfully booked in your CRM funnel._`;
+
+      try {
+        const adminSendResult = await sendWhatsappMessage({
+          recipientPhone: formattedAdminPhone,
+          messageText: adminAlertMessage,
+          mediaType: 'text',
+          instanceName: result.instanceName || instanceName,
+          userId: leadData.workspace_id || leadData.user_id,
+        });
+
+        await logWhatsappToDatabase({
+          phone: formattedAdminPhone,
+          name: 'Admin Notification (New Lead Alert)',
+          email: leadEmail,
+          message: adminAlertMessage,
+          triggerType: 'admin_lead_alert',
+          instanceName: adminSendResult.instanceName || instanceName,
+          responsePayload: adminSendResult.response,
+          status: 'sent',
+          userId: leadData.user_id,
+        });
+
+        console.log(`[whatsappManager] Admin lead alert dispatched to ${formattedAdminPhone} via instance ${instanceName}`);
+      } catch (adminErr: unknown) {
+        console.warn(`[whatsappManager] Failed to dispatch admin alert to ${formattedAdminPhone}:`, (adminErr as Error).message);
+      }
+    }
+  }
+
   return { success: true, result };
 }
 

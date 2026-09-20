@@ -157,12 +157,19 @@ export default function WhatsappAutomationPage() {
     })();
   }, [user?.id, workspace?.id]);
 
-  // Save only WhatsApp Instance Name
+  const [isTestingAdminAlert, setIsTestingAdminAlert] = useState(false);
+  const [adminTestMsg, setAdminTestMsg] = useState<{ success: boolean; message: string } | null>(null);
+
+  // Save WhatsApp Instance Name and Admin Alert Phone Number
   const handleSaveInstance = async () => {
     setIsSavingInstance(true);
     setInstanceSaveMsg('');
     try {
-      const updatedConfig = { ...config, instance_name: config.instance_name?.trim() || '' };
+      const updatedConfig = {
+        ...config,
+        instance_name: config.instance_name?.trim() || '',
+        admin_phone: config.admin_phone?.trim() || '',
+      };
       let targetWsId = workspaceId || workspace?.id;
 
       if (targetWsId) {
@@ -193,17 +200,73 @@ export default function WhatsappAutomationPage() {
         }
       }
 
+      setConfig(updatedConfig);
       setInstanceSaveMsg(
         updatedConfig.instance_name
-          ? `WhatsApp instance "${updatedConfig.instance_name}" saved successfully! 🚀`
-          : 'WhatsApp instance cleared and saved.'
+          ? `WhatsApp instance "${updatedConfig.instance_name}" ${updatedConfig.admin_phone ? `& Admin Alert (+${updatedConfig.admin_phone})` : ''} saved successfully! 🚀`
+          : 'WhatsApp instance settings saved.'
       );
-      setTimeout(() => setInstanceSaveMsg(''), 4000);
+      setTimeout(() => setInstanceSaveMsg(''), 4500);
     } catch (err: any) {
       console.error('Error saving instance:', err);
       setInstanceSaveMsg(`Error: ${err.message || 'Failed to save instance'}`);
     } finally {
       setIsSavingInstance(false);
+    }
+  };
+
+  // Test Admin New Lead & Appointment Alert
+  const handleTestAdminAlert = async () => {
+    if (!config.admin_phone?.trim()) {
+      alert('Please enter your Admin WhatsApp Phone Number first.');
+      return;
+    }
+    if (!config.instance_name?.trim()) {
+      alert('Please enter a WhatsApp Instance Name first.');
+      return;
+    }
+
+    setIsTestingAdminAlert(true);
+    setAdminTestMsg(null);
+    try {
+      const res = await fetch(`${SERVER_URL}/api/whatsapp/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: config.admin_phone.trim(),
+          instanceName: config.instance_name.trim(),
+          message:
+            `🚨 *TEST NEW LEAD ALERT: Appointment Booked!* 📅\n\n` +
+            `👤 *Lead Name:* Mujtaba (PM Demo)\n` +
+            `📞 *WhatsApp Phone:* +919876543210\n` +
+            `📧 *Email:* lead@firstoption.cloud\n` +
+            `🗓️ *Meeting Date:* ${new Date().toISOString().split('T')[0]}\n` +
+            `⏰ *Meeting Time:* 11:00 AM\n` +
+            `🎥 *Google Meet:* https://meet.google.com/qbi-erbq-moy\n\n` +
+            `✅ *Instance Check:* Dispatched successfully via assigned instance "${config.instance_name.trim()}". You will receive this alert whenever an appointment is booked!`,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setAdminTestMsg({
+          success: true,
+          message: `Test alert sent successfully to admin number ${config.admin_phone} via instance "${config.instance_name}"!`,
+        });
+      } else {
+        setAdminTestMsg({
+          success: false,
+          message: data.error || 'Failed to send test alert to admin.',
+        });
+      }
+    } catch (err: any) {
+      setAdminTestMsg({
+        success: false,
+        message: err.message || 'Error communicating with WhatsApp server.',
+      });
+    } finally {
+      setIsTestingAdminAlert(false);
+      setTimeout(() => setAdminTestMsg(null), 6000);
     }
   };
 
@@ -497,21 +560,49 @@ export default function WhatsappAutomationPage() {
             </div>
           </div>
 
-          <div className="space-y-3 max-w-xl">
-            <label className="block text-xs font-bold uppercase text-gray-700">
-              Your WhatsApp Instance Name <span className="text-red-500">*</span>
-            </label>
+          <div className="space-y-4 max-w-3xl">
+            {/* 2-Column Inputs Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Field 1: Instance Name */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold uppercase text-gray-700">
+                  Your WhatsApp Instance Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={config.instance_name || ''}
+                  onChange={(e) => setConfig({ ...config, instance_name: e.target.value })}
+                  placeholder="e.g. adnan, agency_main, sales_bot"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all shadow-2xs font-mono"
+                />
+                <p className="text-[11px] text-gray-500">
+                  Instance identifier registered on your WhatsApp Evolution API gateway.
+                </p>
+              </div>
 
-            {/* Input + Save Instance Button */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
-              <input
-                type="text"
-                value={config.instance_name || ''}
-                onChange={(e) => setConfig({ ...config, instance_name: e.target.value })}
-                placeholder="Enter your WhatsApp instance name (e.g. agency_main, sales_bot)"
-                className="flex-1 px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all shadow-2xs"
-              />
+              {/* Field 2: Admin WhatsApp Alert Number */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold uppercase text-gray-700 flex items-center justify-between">
+                  <span>Admin WhatsApp Alert Number <span className="text-red-500">*</span></span>
+                  <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/60">
+                    New Lead Alert
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  value={config.admin_phone || ''}
+                  onChange={(e) => setConfig({ ...config, admin_phone: e.target.value })}
+                  placeholder="e.g. 919876543210 (with country code)"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all shadow-2xs font-mono"
+                />
+                <p className="text-[11px] text-gray-500">
+                  When an appointment is booked, an instant WhatsApp alert is sent to this number.
+                </p>
+              </div>
+            </div>
 
+            {/* Actions: Save & Test Buttons */}
+            <div className="flex flex-wrap items-center gap-2.5 pt-1">
               <Button
                 variant="primary"
                 size="sm"
@@ -520,7 +611,18 @@ export default function WhatsappAutomationPage() {
                 leftIcon={<Save className="w-3.5 h-3.5" />}
                 className="text-xs font-bold shrink-0"
               >
-                Save Instance
+                Save Instance & Admin Alert
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleTestAdminAlert}
+                isLoading={isTestingAdminAlert}
+                leftIcon={<Send className="w-3.5 h-3.5 text-amber-600" />}
+                className="text-xs font-semibold border-amber-200 bg-amber-50/50 hover:bg-amber-100 text-amber-800"
+              >
+                Send Test Admin Alert 🚨
               </Button>
             </div>
 
@@ -532,16 +634,49 @@ export default function WhatsappAutomationPage() {
               </div>
             )}
 
-            <p className="text-[11px] text-gray-500 flex items-center gap-1.5 pt-0.5">
-              <span>All messages will be dispatched through your assigned instance:</span>
-              {config.instance_name ? (
-                <span className="font-mono font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md">
-                  {config.instance_name}
-                </span>
-              ) : (
-                <span className="text-gray-400 italic font-medium">(Not configured - enter instance name above)</span>
-              )}
-            </p>
+            {/* Test Admin Alert Result Feedback */}
+            {adminTestMsg && (
+              <div className={`p-2.5 rounded-xl border text-xs font-bold flex items-center gap-2 animate-in fade-in duration-150 ${
+                adminTestMsg.success
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                  : 'bg-red-50 border-red-200 text-red-800'
+              }`}>
+                {adminTestMsg.success ? (
+                  <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                )}
+                <span>{adminTestMsg.message}</span>
+              </div>
+            )}
+
+            {/* Current Active Configuration Status Indicators */}
+            <div className="pt-1 flex flex-wrap items-center gap-3 text-[11px] text-gray-500">
+              <div className="flex items-center gap-1.5">
+                <span className="text-gray-600 font-medium">Assigned Instance:</span>
+                {config.instance_name ? (
+                  <span className="font-mono font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md">
+                    {config.instance_name}
+                  </span>
+                ) : (
+                  <span className="text-gray-400 italic">(Not configured)</span>
+                )}
+              </div>
+
+              <span className="text-gray-300">•</span>
+
+              <div className="flex items-center gap-1.5">
+                <span className="text-gray-600 font-medium">Admin Alert Phone:</span>
+                {config.admin_phone ? (
+                  <span className="font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    +{config.admin_phone} (Active 🔔)
+                  </span>
+                ) : (
+                  <span className="text-amber-600 italic font-medium">(Enter admin number above to receive appointment alerts)</span>
+                )}
+              </div>
+            </div>
           </div>
         </Card>
 

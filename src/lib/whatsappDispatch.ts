@@ -24,6 +24,8 @@ export interface WhatsappConfig {
   evolution_api_url: string;
   evolution_apikey: string;
   instance_name: string;
+  admin_phone?: string;
+  admin_lead_alert_enabled?: boolean;
   step1: WhatsappStageConfig;
   step2: WhatsappStageConfig;
   step3: WhatsappStageConfig;
@@ -33,6 +35,8 @@ export const DEFAULT_WHATSAPP_CONFIG: WhatsappConfig = {
   evolution_api_url: 'https://evo.infispark.in',
   evolution_apikey: 'vR39h6avY69g7kAU3YQbS6V6XEvudson',
   instance_name: '',
+  admin_phone: '',
+  admin_lead_alert_enabled: true,
   step1: {
     enabled: true,
     msg_type: 'text',
