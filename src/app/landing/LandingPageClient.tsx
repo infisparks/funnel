@@ -439,6 +439,7 @@ export function LandingPageClient({
           onClose={() => setIsPopupFunnelOpen(false)}
           funnelId={initialWorkspace?.id}
           userId={initialWorkspace?.user_id}
+          googleMeetUrl={initialWorkspace?.google_meet_url || workspace?.google_meet_url}
           pixelId={pixelId}
           surveyQuestions={
             surveyQuestions && surveyQuestions.length > 0
@@ -925,6 +926,7 @@ export function LandingPageClient({
         onClose={() => setIsPopupFunnelOpen(false)}
         funnelId={isPublicView ? (initialWorkspace?.id || workspace?.id) : (workspace?.id || initialWorkspace?.id)}
         userId={isPublicView ? (initialWorkspace?.user_id || user?.id) : (user?.id || initialWorkspace?.user_id)}
+        googleMeetUrl={isPublicView ? (initialWorkspace?.google_meet_url || workspace?.google_meet_url) : (workspace?.google_meet_url || initialWorkspace?.google_meet_url)}
         pixelId={pixelId}
         surveyQuestions={surveyQuestions}
         popupTheme={popupTheme}

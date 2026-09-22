@@ -33,13 +33,15 @@ export async function getUserWhatsappConfig(userIdOrWorkspaceId?: string | null)
       // 1. Try exact workspace match
       const { data: wsById } = await supabaseAdmin
         .from('funnel_workspaces')
-        .select('id, user_id, whatsapp_config, google_meet_url')
+        .select('id, user_id, whatsapp_config, google_meet_url, admin_notification_number')
         .eq('id', userIdOrWorkspaceId)
         .maybeSingle();
 
       if (wsById?.whatsapp_config?.instance_name) {
         return {
           ...wsById.whatsapp_config,
+          admin_phone: wsById.admin_notification_number || wsById.whatsapp_config.admin_phone,
+          admin_notification_number: wsById.admin_notification_number || wsById.whatsapp_config.admin_phone,
           google_meet_url: wsById.google_meet_url || wsById.whatsapp_config.google_meet_url,
         };
       }
@@ -47,7 +49,7 @@ export async function getUserWhatsappConfig(userIdOrWorkspaceId?: string | null)
       // 2. Try user_id match
       const { data: wsByUser } = await supabaseAdmin
         .from('funnel_workspaces')
-        .select('id, user_id, whatsapp_config, google_meet_url')
+        .select('id, user_id, whatsapp_config, google_meet_url, admin_notification_number')
         .eq('user_id', userIdOrWorkspaceId)
         .order('updated_at', { ascending: false })
         .limit(1)
@@ -56,6 +58,8 @@ export async function getUserWhatsappConfig(userIdOrWorkspaceId?: string | null)
       if (wsByUser?.whatsapp_config?.instance_name) {
         return {
           ...wsByUser.whatsapp_config,
+          admin_phone: wsByUser.admin_notification_number || wsByUser.whatsapp_config.admin_phone,
+          admin_notification_number: wsByUser.admin_notification_number || wsByUser.whatsapp_config.admin_phone,
           google_meet_url: wsByUser.google_meet_url || wsByUser.whatsapp_config.google_meet_url,
         };
       }
@@ -64,7 +68,7 @@ export async function getUserWhatsappConfig(userIdOrWorkspaceId?: string | null)
     // Default workspace fallback
     const { data: defaultWs } = await supabaseAdmin
       .from('funnel_workspaces')
-      .select('id, user_id, whatsapp_config, google_meet_url')
+      .select('id, user_id, whatsapp_config, google_meet_url, admin_notification_number')
       .not('whatsapp_config->>instance_name', 'is', null)
       .neq('whatsapp_config->>instance_name', '')
       .order('updated_at', { ascending: false })
@@ -74,6 +78,8 @@ export async function getUserWhatsappConfig(userIdOrWorkspaceId?: string | null)
     if (defaultWs?.whatsapp_config?.instance_name) {
       return {
         ...defaultWs.whatsapp_config,
+        admin_phone: defaultWs.admin_notification_number || defaultWs.whatsapp_config.admin_phone,
+        admin_notification_number: defaultWs.admin_notification_number || defaultWs.whatsapp_config.admin_phone,
         google_meet_url: defaultWs.google_meet_url || defaultWs.whatsapp_config.google_meet_url,
       };
     }
@@ -305,9 +311,16 @@ export async function handleStepTrigger(
     return { success: true, skipped: true };
   }
 
+  const leadDataWithMeet = {
+    ...leadData,
+    google_meet_url: leadData.google_meet_url || leadData.meeting_url || config?.google_meet_url,
+    meeting_url: leadData.google_meet_url || leadData.meeting_url || config?.google_meet_url,
+  };
+
   const messageText = parseWhatsappTemplate(
     stepConfig ? stepConfig.message : 'Hello {{name}}, thank you for reaching out!',
-    leadData
+    leadDataWithMeet,
+    config?.google_meet_url || 'https://meet.google.com/qbi-erbq-moy'
   );
 
   const mediaType = (stepConfig && stepConfig.msg_type) || 'text';
@@ -337,7 +350,7 @@ export async function handleStepTrigger(
   });
 
   // 3. Notify Founder with New Lead Alert when someone fills the first detail form (step1)
-  const adminPhone = config?.admin_phone || config?.admin_notification_phone;
+  const adminPhone = config?.admin_notification_number || config?.admin_phone || config?.admin_notification_phone;
   const isFirstDetailStep = stepKey === 'step1' || leadData.step_progress === 'step1_contact';
 
   if (adminPhone && isFirstDetailStep) {

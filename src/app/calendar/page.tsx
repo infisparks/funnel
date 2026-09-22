@@ -74,7 +74,7 @@ export function isMeetingPassed(meetingDate?: string, meetingTime?: string): boo
 }
 
 export default function MeetingsCalendarPage() {
-  const { user, workspace } = useAuth();
+  const { user, workspace, saveWorkspaceConfig } = useAuth();
   const { openClientDrawer } = useClientDrawer();
 
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -101,21 +101,19 @@ export default function MeetingsCalendarPage() {
       let query = supabase
         .from('leads')
         .select('*')
-        .order('created_at', { ascending: false });
+        .not('meeting_date', 'is', null);
 
       if (workspace?.id) {
-        query = query.or(`user_id.eq.${user.id},funnel_id.eq.${workspace.id}`);
-      } else {
+        query = query.or(`funnel_id.eq.${workspace.id},user_id.eq.${user.id}`);
+      } else if (user.id) {
         query = query.eq('user_id', user.id);
       }
 
-      const { data, error } = await query;
-
-      if (!error && data) {
-        setLeads(data);
+      const { data, error } = await query.order('created_at', { ascending: false });
+      if (error) {
+        console.error('Error fetching meeting leads:', error);
       } else {
-        console.error('Error loading calendar leads:', error);
-        setLeads([]);
+        setLeads(data || []);
       }
     } catch (err) {
       console.error('Error in fetchLeads:', err);
@@ -129,16 +127,34 @@ export default function MeetingsCalendarPage() {
       fetchLeads();
     }
 
-    const savedMeet = typeof window !== 'undefined' ? localStorage.getItem('workspace_google_meet_url') : null;
-    const savedPin = typeof window !== 'undefined' ? localStorage.getItem('workspace_delete_pin') : null;
-    if (savedMeet) setGoogleMeetUrl(savedMeet);
-    if (savedPin) setDeletePin(savedPin);
+    if (workspace?.google_meet_url) {
+      setGoogleMeetUrl(workspace.google_meet_url);
+    } else {
+      const savedMeet = typeof window !== 'undefined' ? localStorage.getItem('workspace_google_meet_url') : null;
+      if (savedMeet) setGoogleMeetUrl(savedMeet);
+    }
+
+    if (workspace?.delete_pin) {
+      setDeletePin(workspace.delete_pin);
+    } else {
+      const savedPin = typeof window !== 'undefined' ? localStorage.getItem('workspace_delete_pin') : null;
+      if (savedPin) setDeletePin(savedPin);
+    }
 
     (async () => {
       try {
-        const { data } = await supabase
+        let query = supabase
           .from('funnel_workspaces')
-          .select('google_meet_url, delete_pin')
+          .select('google_meet_url, delete_pin');
+
+        if (workspace?.id) {
+          query = query.eq('id', workspace.id);
+        } else if (user?.id) {
+          query = query.eq('user_id', user.id);
+        }
+
+        const { data } = await query
+          .order('updated_at', { ascending: false })
           .limit(1)
           .maybeSingle();
 
@@ -160,18 +176,42 @@ export default function MeetingsCalendarPage() {
     e.preventDefault();
     setIsSavingSettings(true);
     try {
-      localStorage.setItem('workspace_google_meet_url', googleMeetUrl);
-      localStorage.setItem('workspace_delete_pin', deletePin);
+      const cleanMeet = googleMeetUrl.trim();
+      const cleanPin = deletePin.trim() || '1234';
 
-      const { data: workspaces } = await supabase.from('funnel_workspaces').select('id').limit(1);
-      if (workspaces && workspaces.length > 0) {
-        await supabase.from('funnel_workspaces').update({
-          google_meet_url: googleMeetUrl,
-          delete_pin: deletePin,
-        }).eq('id', workspaces[0].id);
+      localStorage.setItem('workspace_google_meet_url', cleanMeet);
+      localStorage.setItem('workspace_delete_pin', cleanPin);
+
+      if (user) {
+        await saveWorkspaceConfig({
+          google_meet_url: cleanMeet,
+          delete_pin: cleanPin,
+        });
       }
 
-      alert('✓ Google Meet URL and 4-Digit Security PIN saved successfully!');
+      if (workspace?.id || user?.id) {
+        let updateQuery = supabase.from('funnel_workspaces').update({
+          google_meet_url: cleanMeet,
+          delete_pin: cleanPin,
+          updated_at: new Date().toISOString(),
+        });
+        if (workspace?.id) {
+          await updateQuery.eq('id', workspace.id);
+        } else if (user?.id) {
+          await updateQuery.eq('user_id', user.id);
+        }
+      } else {
+        const { data: workspaces } = await supabase.from('funnel_workspaces').select('id').limit(1);
+        if (workspaces && workspaces.length > 0) {
+          await supabase.from('funnel_workspaces').update({
+            google_meet_url: cleanMeet,
+            delete_pin: cleanPin,
+            updated_at: new Date().toISOString(),
+          }).eq('id', workspaces[0].id);
+        }
+      }
+
+      alert('✓ Google Meet URL and 4-Digit Security PIN saved successfully to your workspace!');
       setIsMeetModalOpen(false);
     } catch (err) {
       console.error('Error saving settings:', err);

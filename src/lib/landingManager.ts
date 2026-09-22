@@ -179,14 +179,21 @@ export async function captureLead(body: Record<string, any>) {
     }
   }
 
-  if (!resolvedUserId && resolvedFunnelId) {
-    const { data: ws } = await supabaseAdmin
-      .from('funnel_workspaces')
-      .select('user_id')
-      .eq('id', resolvedFunnelId)
-      .maybeSingle();
-    if (ws?.user_id) resolvedUserId = ws.user_id;
+  let workspaceGoogleMeetUrl: string | null = null;
+  if (resolvedFunnelId || resolvedUserId || subdomain) {
+    const ws = await resolveWorkspace(resolvedFunnelId || resolvedUserId || subdomain);
+    if (ws) {
+      if (!resolvedFunnelId) resolvedFunnelId = ws.id;
+      if (!resolvedUserId) resolvedUserId = ws.user_id;
+      workspaceGoogleMeetUrl = ws.google_meet_url || ws.whatsapp_config?.google_meet_url || null;
+    }
   }
+
+  const effectiveMeetUrl =
+    body.google_meet_url ||
+    body.meeting_url ||
+    workspaceGoogleMeetUrl ||
+    'https://meet.google.com/qbi-erbq-moy';
 
   const payload: Record<string, any> = {
     name: name || 'Landing Page Visitor',
@@ -198,6 +205,7 @@ export async function captureLead(body: Record<string, any>) {
     survey_responses: survey_responses || null,
     meeting_date: isMeetingBooked ? (meeting_date || null) : null,
     meeting_time: isMeetingBooked ? (meeting_time || null) : null,
+    google_meet_url: isMeetingBooked ? effectiveMeetUrl : (body.google_meet_url || workspaceGoogleMeetUrl || null),
     funnel_id: resolvedFunnelId || null,
     user_id: resolvedUserId || null,
     organization_id: resolvedUserId || null,
@@ -238,6 +246,8 @@ export async function captureLead(body: Record<string, any>) {
         phone: cleanPhone,
         workspace_id: resolvedFunnelId,
         user_id: resolvedUserId,
+        google_meet_url: savedRecord?.google_meet_url || effectiveMeetUrl,
+        meeting_url: savedRecord?.google_meet_url || effectiveMeetUrl,
       },
       null
     ).catch((e) => console.warn('[LandingPage Lead WhatsApp Trigger Error]:', e.message));

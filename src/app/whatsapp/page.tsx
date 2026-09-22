@@ -120,7 +120,7 @@ export default function WhatsappAutomationPage() {
         } else if (user?.id) {
           const { data: ws } = await supabase
             .from('funnel_workspaces')
-            .select('id, user_id, whatsapp_config')
+            .select('id, user_id, whatsapp_config, admin_notification_number')
             .eq('user_id', user.id)
             .maybeSingle();
           if (ws) {
@@ -131,7 +131,7 @@ export default function WhatsappAutomationPage() {
         } else {
           const { data: ws } = await supabase
             .from('funnel_workspaces')
-            .select('id, user_id, whatsapp_config')
+            .select('id, user_id, whatsapp_config, admin_notification_number')
             .limit(1)
             .maybeSingle();
           if (ws) {
@@ -141,11 +141,12 @@ export default function WhatsappAutomationPage() {
           }
         }
 
-        if (wsData?.whatsapp_config) {
+        if (wsData?.whatsapp_config || wsData?.admin_notification_number) {
           setConfig({
             ...DEFAULT_WHATSAPP_CONFIG,
-            ...wsData.whatsapp_config,
-            instance_name: wsData.whatsapp_config.instance_name || '',
+            ...(wsData.whatsapp_config || {}),
+            instance_name: wsData.whatsapp_config?.instance_name || '',
+            admin_phone: wsData.admin_notification_number || wsData.whatsapp_config?.admin_phone || '',
           });
         }
       } catch (err) {
@@ -170,17 +171,24 @@ export default function WhatsappAutomationPage() {
         instance_name: config.instance_name?.trim() || '',
         admin_phone: config.admin_phone?.trim() || '',
       };
+      const adminNum = updatedConfig.admin_phone || null;
       let targetWsId = workspaceId || workspace?.id;
 
       if (targetWsId) {
         await supabase
           .from('funnel_workspaces')
-          .update({ whatsapp_config: updatedConfig })
+          .update({
+            whatsapp_config: updatedConfig,
+            admin_notification_number: adminNum,
+          })
           .eq('id', targetWsId);
       } else if (user?.id) {
         const { data: ws } = await supabase
           .from('funnel_workspaces')
-          .update({ whatsapp_config: updatedConfig })
+          .update({
+            whatsapp_config: updatedConfig,
+            admin_notification_number: adminNum,
+          })
           .eq('user_id', user.id)
           .select('id')
           .maybeSingle();
@@ -195,7 +203,10 @@ export default function WhatsappAutomationPage() {
           setWorkspaceId(ws.id);
           await supabase
             .from('funnel_workspaces')
-            .update({ whatsapp_config: updatedConfig })
+            .update({
+              whatsapp_config: updatedConfig,
+              admin_notification_number: adminNum,
+            })
             .eq('id', ws.id);
         }
       }
@@ -272,10 +283,14 @@ export default function WhatsappAutomationPage() {
     setIsSaving(true);
     setSaveStatus(null);
     try {
+      const adminNum = config.admin_phone?.trim() || null;
       if (workspaceId) {
         await supabase
           .from('funnel_workspaces')
-          .update({ whatsapp_config: config })
+          .update({
+            whatsapp_config: config,
+            admin_notification_number: adminNum,
+          })
           .eq('id', workspaceId);
       } else {
         const { data: ws } = await supabase
@@ -288,7 +303,10 @@ export default function WhatsappAutomationPage() {
           setWorkspaceId(ws.id);
           await supabase
             .from('funnel_workspaces')
-            .update({ whatsapp_config: config })
+            .update({
+              whatsapp_config: config,
+              admin_notification_number: adminNum,
+            })
             .eq('id', ws.id);
         }
       }

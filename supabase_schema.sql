@@ -36,6 +36,9 @@ CREATE TABLE IF NOT EXISTS public.funnel_workspaces (
         }
     ]'::jsonb,
     pixel_id TEXT DEFAULT NULL,
+    google_meet_url TEXT DEFAULT NULL,
+    delete_pin TEXT DEFAULT '1234',
+    admin_notification_number TEXT DEFAULT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );

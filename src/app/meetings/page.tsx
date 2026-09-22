@@ -71,21 +71,27 @@ export default function ScheduledMeetingsPage() {
       fetchMeetings();
     }
 
-    (async () => {
-      try {
-        const { data } = await supabase
-          .from('funnel_workspaces')
-          .select('google_meet_url')
-          .limit(1)
-          .maybeSingle();
-
-        if (data?.google_meet_url) {
-          setGoogleMeetUrl(data.google_meet_url);
+    if (workspace?.google_meet_url) {
+      setGoogleMeetUrl(workspace.google_meet_url);
+    } else {
+      (async () => {
+        try {
+          if (!user && !workspace) return;
+          let query = supabase.from('funnel_workspaces').select('google_meet_url');
+          if (workspace?.id) {
+            query = query.eq('id', workspace.id);
+          } else if (user?.id) {
+            query = query.eq('user_id', user.id);
+          }
+          const { data } = await query.order('updated_at', { ascending: false }).limit(1).maybeSingle();
+          if (data?.google_meet_url) {
+            setGoogleMeetUrl(data.google_meet_url);
+          }
+        } catch (err) {
+          console.error('Error loading workspace google meet:', err);
         }
-      } catch (err) {
-        console.error('Error loading workspace google meet:', err);
-      }
-    })();
+      })();
+    }
   }, [user, workspace]);
 
   return (

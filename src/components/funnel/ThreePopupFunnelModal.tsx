@@ -113,6 +113,7 @@ interface ThreePopupFunnelModalProps {
   funnelId?: string;
   userId?: string;
   pixelId?: string | null;
+  googleMeetUrl?: string;
   onStep1Complete?: (leadData: any) => void;
   onComplete?: (leadData: any) => void;
 }
@@ -132,6 +133,7 @@ export function ThreePopupFunnelModal({
   funnelId,
   userId,
   pixelId,
+  googleMeetUrl,
   onStep1Complete,
   onComplete,
 }: ThreePopupFunnelModalProps) {
@@ -237,6 +239,36 @@ export function ThreePopupFunnelModal({
   const handleOptionsScroll = () => {
     checkScrollAffordance();
   };
+
+  // Google Meet URL state (inherited from props, popupTheme, or workspace DB)
+  const [effectiveMeetUrl, setEffectiveMeetUrl] = useState<string>(
+    googleMeetUrl || popupTheme?.googleMeetUrl || ''
+  );
+
+  useEffect(() => {
+    if (googleMeetUrl) {
+      setEffectiveMeetUrl(googleMeetUrl);
+    } else if (popupTheme?.googleMeetUrl) {
+      setEffectiveMeetUrl(popupTheme.googleMeetUrl);
+    } else if (funnelId || userId) {
+      (async () => {
+        try {
+          let query = supabase.from('funnel_workspaces').select('google_meet_url');
+          if (funnelId) {
+            query = query.eq('id', funnelId);
+          } else if (userId) {
+            query = query.eq('user_id', userId);
+          }
+          const { data } = await query.order('updated_at', { ascending: false }).limit(1).maybeSingle();
+          if (data?.google_meet_url) {
+            setEffectiveMeetUrl(data.google_meet_url);
+          }
+        } catch (e) {
+          console.warn('[ThreePopupFunnelModal] Error loading google_meet_url:', e);
+        }
+      })();
+    }
+  }, [googleMeetUrl, popupTheme?.googleMeetUrl, funnelId, userId]);
 
   // Initialize Meta Pixel if pixelId is provided
   useEffect(() => {
@@ -809,7 +841,12 @@ export function ThreePopupFunnelModal({
     e.preventDefault();
     setIsSubmitting(true);
 
-    const activeMeetUrl = (typeof window !== 'undefined' && localStorage.getItem('workspace_google_meet_url')) || popupTheme?.googleMeetUrl || 'https://meet.google.com/qbi-erbq-moy';
+    const activeMeetUrl =
+      effectiveMeetUrl ||
+      googleMeetUrl ||
+      popupTheme?.googleMeetUrl ||
+      (typeof window !== 'undefined' && localStorage.getItem('workspace_google_meet_url')) ||
+      'https://meet.google.com/qbi-erbq-moy';
     const cleanPhone = getFullPhone();
 
     const finalLeadPayload = {
@@ -1532,7 +1569,7 @@ export function ThreePopupFunnelModal({
               </div>
 
               {/* GOOGLE MEET VIDEO CALL CARD */}
-              {popupTheme?.googleMeetUrl && (
+              {(effectiveMeetUrl || popupTheme?.googleMeetUrl || googleMeetUrl) && (
                 <div className="p-3.5 rounded-2xl bg-indigo-950/90 border border-indigo-500/30 text-left space-y-2 shadow-md">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-xs font-extrabold text-white">
@@ -1545,10 +1582,10 @@ export function ThreePopupFunnelModal({
                   </div>
                   <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-black/40 text-[11px] font-mono border border-white/10">
                     <span className="truncate text-white/90">
-                      {popupTheme.googleMeetUrl}
+                      {effectiveMeetUrl || popupTheme?.googleMeetUrl || googleMeetUrl}
                     </span>
                     <a
-                      href={popupTheme.googleMeetUrl}
+                      href={effectiveMeetUrl || popupTheme?.googleMeetUrl || googleMeetUrl}
                       target="_blank"
                       rel="noreferrer"
                       className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-sans text-xs font-extrabold shrink-0 flex items-center gap-1 shadow-sm transition-colors"

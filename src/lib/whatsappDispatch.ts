@@ -139,10 +139,10 @@ export async function dispatchWhatsappTrigger(
 
     let config: WhatsappConfig = customConfig || DEFAULT_WHATSAPP_CONFIG;
 
-    // Fetch workspace whatsapp_config if not passed explicitly
-    if (!customConfig) {
+    // Fetch workspace whatsapp_config or google_meet_url if needed
+    let wsData: any = null;
+    if (!customConfig || !lead.google_meet_url) {
       const targetWsId = lead.funnel_id || lead.workspace_id;
-      let wsData: any = null;
 
       if (targetWsId) {
         const { data: wsById } = await supabase
@@ -164,7 +164,7 @@ export async function dispatchWhatsappTrigger(
         wsData = wsByUser;
       }
 
-      if (wsData?.whatsapp_config) {
+      if (wsData?.whatsapp_config && !customConfig) {
         config = { ...DEFAULT_WHATSAPP_CONFIG, ...wsData.whatsapp_config };
       }
       if (wsData?.google_meet_url && !lead.google_meet_url) {
@@ -185,7 +185,7 @@ export async function dispatchWhatsappTrigger(
     }
 
     const formattedNumber = formatWhatsappNumber(lead.phone);
-    const parsedMessage = parseWhatsappTemplate(stepConfig.message, lead);
+    const parsedMessage = parseWhatsappTemplate(stepConfig.message, lead, wsData?.google_meet_url);
     const baseUrl = config.evolution_api_url.replace(/\/$/, '');
 
     if (stepConfig.msg_type === 'text' || !stepConfig.media_url) {

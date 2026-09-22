@@ -35,7 +35,9 @@ export interface UserWorkspace {
   whatsapp_config?: any;
   pipeline_stages?: any[];
   google_meet_url?: string;
+  delete_pin?: string | null;
   pixel_id?: string | null;
+  admin_notification_number?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -167,6 +169,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (config.subdomain !== undefined) updatePayload.subdomain = config.subdomain;
       if (config.custom_domain !== undefined) updatePayload.custom_domain = config.custom_domain;
       if (config.pixel_id !== undefined) updatePayload.pixel_id = config.pixel_id ? config.pixel_id.trim() : null;
+      if (config.google_meet_url !== undefined) updatePayload.google_meet_url = config.google_meet_url ? config.google_meet_url.trim() : null;
+      if (config.delete_pin !== undefined) updatePayload.delete_pin = config.delete_pin ? config.delete_pin.trim() : null;
+      if (config.admin_notification_number !== undefined) {
+        updatePayload.admin_notification_number = config.admin_notification_number ? config.admin_notification_number.trim() : null;
+      }
 
       // 1. Update existing workspace row for this user_id
       const { data: updated, error: updateError } = await supabase
@@ -195,11 +202,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user_id: user.id,
         subdomain: config.subdomain || defaultSub,
         custom_domain: config.custom_domain || `${config.subdomain || defaultSub}.firstoption.cloud`,
-        landing_html: config.landing_html !== undefined ? config.landing_html : DEFAULT_LANDING_HTML,
-        trigger_buttons: config.trigger_buttons !== undefined ? config.trigger_buttons : ['Claim Free Strategy Session'],
-        popup_theme: config.popup_theme !== undefined ? config.popup_theme : { primaryColor: '#8146F0', themeMode: 'dark' },
-        survey_questions: config.survey_questions !== undefined ? config.survey_questions : [],
-        pixel_id: config.pixel_id !== undefined ? (config.pixel_id ? config.pixel_id.trim() : null) : null,
+        landing_html: config.landing_html || DEFAULT_LANDING_HTML,
+        trigger_buttons: config.trigger_buttons || ['Claim Free Strategy Session', 'Get Started Free'],
+        popup_theme: config.popup_theme || { primaryColor: '#8146F0', themeMode: 'dark' },
+        survey_questions: config.survey_questions || [
+          {
+            id: 'q1',
+            label: 'Select Your Primary Industry',
+            options: ['Service Business', 'E-commerce', 'Consulting / Agency', 'Doctor / Clinic'],
+            allowMultiple: false,
+          },
+        ],
+        pixel_id: config.pixel_id ? config.pixel_id.trim() : null,
+        google_meet_url: config.google_meet_url ? config.google_meet_url.trim() : null,
+        delete_pin: config.delete_pin ? config.delete_pin.trim() : '1234',
+        admin_notification_number: config.admin_notification_number ? config.admin_notification_number.trim() : null,
         updated_at: new Date().toISOString(),
       };
 

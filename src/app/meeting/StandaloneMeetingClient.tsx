@@ -82,6 +82,7 @@ export function StandaloneMeetingClient({ workspace }: StandaloneMeetingClientPr
       survey_responses: surveyAnswers,
       meeting_date: meetingDate,
       meeting_time: meetingTime,
+      google_meet_url: workspace?.google_meet_url || null,
     };
 
     const digits = cleanPhone.replace(/\D/g, '');
@@ -163,6 +164,19 @@ export function StandaloneMeetingClient({ workspace }: StandaloneMeetingClientPr
             <p className="text-xs text-gray-300 max-w-sm mx-auto leading-relaxed">
               Your meeting is locked for <span className="font-bold text-emerald-400">{meetingDate} at {meetingTime}</span>. Your details have been saved to our CRM.
             </p>
+
+            {workspace?.google_meet_url && (
+              <div className="pt-2">
+                <a
+                  href={workspace.google_meet_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-md"
+                >
+                  <span>Join Google Meet Call</span>
+                </a>
+              </div>
+            )}
           </div>
         ) : (
           <>
