@@ -48,6 +48,7 @@ import {
   Share2,
 } from 'lucide-react';
 import { PopupThemeConfig, SurveyQuestion, SuccessButton } from '@/components/funnel/ThreePopupFunnelModal';
+import { DEFAULT_MEETING_SLOTS } from '@/lib/dateUtils';
 import { LandingTemplateModal } from '@/components/landing/LandingTemplateModal';
 import { ShareLandingModal } from '@/components/landing/ShareLandingModal';
 import { LandingTemplate } from '@/lib/landingTemplates';
@@ -77,7 +78,7 @@ const DEFAULT_POPUP_THEME: PopupThemeConfig = {
   step3ButtonText: 'CONFIRM & LOCK BOOKING 📅',
   dateLabel: 'Select Preferred Meeting Date *',
   timeSlotLabel: 'Select Strategy Call Time Slot *',
-  meetingSlots: ['09:00 AM', '11:00 AM', '02:00 PM', '04:30 PM', '06:00 PM'],
+  meetingSlots: DEFAULT_MEETING_SLOTS,
   step4Title: 'Booking Confirmed! 🎉',
   step4Subtitle: 'Your meeting is locked in our calendar and CRM. We look forward to speaking!',
   step4ButtonColor: '#25D366',
@@ -192,7 +193,7 @@ export default function CustomizeStudioPage() {
     step3ButtonText: 'CONFIRM & LOCK BOOKING 📅',
     dateLabel: 'Select Preferred Meeting Date *',
     timeSlotLabel: 'Select Strategy Call Time Slot *',
-    meetingSlots: ['09:00 AM', '11:00 AM', '02:00 PM', '04:30 PM', '06:00 PM'],
+    meetingSlots: DEFAULT_MEETING_SLOTS,
     step4Title: 'Booking Confirmed! 🎉',
     step4Subtitle: 'Your meeting is locked in our calendar and CRM. We look forward to speaking!',
     step4ButtonColor: '#25D366',
@@ -336,11 +337,11 @@ export default function CustomizeStudioPage() {
   const handleApplyPresetSlots = (preset: 'allDay' | 'businessHours' | 'evening') => {
     let slots: string[] = [];
     if (preset === 'allDay') {
-      slots = ['09:00 AM', '11:00 AM', '02:00 PM', '04:30 PM', '06:00 PM', '08:00 PM'];
+      slots = [...DEFAULT_MEETING_SLOTS];
     } else if (preset === 'businessHours') {
-      slots = ['10:00 AM', '12:00 PM', '02:30 PM', '04:00 PM'];
+      slots = ['11:00 AM', '12:00 PM', '01:00 PM', '02:00 PM', '03:00 PM', '04:00 PM', '05:00 PM'];
     } else {
-      slots = ['05:00 PM', '06:30 PM', '08:00 PM', '09:30 PM'];
+      slots = ['02:00 PM', '03:00 PM', '04:00 PM', '05:00 PM', '06:00 PM', '07:00 PM', '08:00 PM'];
     }
     setTheme({ ...theme, meetingSlots: slots });
   };
@@ -1693,7 +1694,7 @@ export default function CustomizeStudioPage() {
 
                     {/* Time Slot Grid */}
                     <div className="grid grid-cols-3 gap-1.5">
-                      {(theme.meetingSlots || ['09:00 AM', '11:00 AM', '02:00 PM', '04:30 PM']).map((slot, idx) => (
+                      {(theme.meetingSlots || DEFAULT_MEETING_SLOTS).map((slot, idx) => (
                         <div
                           key={slot}
                           className={`p-2 rounded-xl text-[10px] font-semibold flex items-center justify-center gap-1 border truncate ${

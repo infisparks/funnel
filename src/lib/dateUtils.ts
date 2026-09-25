@@ -2,12 +2,48 @@
  * Date and Time slot utility functions for Meeting bookings and Funnel popups.
  */
 
+// Default meeting slots: 11:00 AM - 01:00 PM (1-hr interval) and 02:00 PM - 08:00 PM (1-hr interval)
+export const DEFAULT_MEETING_SLOTS: string[] = [
+  '11:00 AM',
+  '12:00 PM',
+  '01:00 PM',
+  '02:00 PM',
+  '03:00 PM',
+  '04:00 PM',
+  '05:00 PM',
+  '06:00 PM',
+  '07:00 PM',
+  '08:00 PM',
+];
+
 export function getTodayIso(): string {
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+/**
+ * Normalizes time string to standard format "HH:MM AM/PM" (e.g., "11:00 AM", "02:00 PM")
+ */
+export function normalizeTimeSlot(slotTimeStr?: string | null): string {
+  if (!slotTimeStr) return '';
+  const clean = slotTimeStr.trim().replace(/\s+/g, ' ');
+  const match = clean.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+  if (!match) return clean.toUpperCase();
+
+  let hours = parseInt(match[1], 10);
+  const minutes = match[2] ? match[2].padStart(2, '0') : '00';
+  let ampm = match[3] ? match[3].toUpperCase() : '';
+
+  if (!ampm) {
+    ampm = hours >= 12 ? 'PM' : 'AM';
+    if (hours > 12) hours -= 12;
+    if (hours === 0) hours = 12;
+  }
+
+  return `${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
 }
 
 export function parseSlotTimeToDate(slotTimeStr: string, baseDate: Date = new Date()): Date | null {
@@ -28,12 +64,21 @@ export function parseSlotTimeToDate(slotTimeStr: string, baseDate: Date = new Da
 }
 
 /**
- * Checks if a given time slot is disabled.
- * A time slot is disabled if:
- * 1. The selected date is before today (in the past).
- * 2. The selected date is today AND the slot time has already passed OR is within the upcoming 1-hour buffer (60 minutes).
+ * Checks if a slot is already booked on the given date by another user.
  */
-export function isTimeSlotDisabled(
+export function isTimeSlotBooked(
+  slotTimeStr: string,
+  bookedSlotsForDate: string[] = []
+): boolean {
+  if (!slotTimeStr || !bookedSlotsForDate || bookedSlotsForDate.length === 0) return false;
+  const normalizedTarget = normalizeTimeSlot(slotTimeStr);
+  return bookedSlotsForDate.some((b) => normalizeTimeSlot(b) === normalizedTarget);
+}
+
+/**
+ * Checks if a slot time has passed or falls within the upcoming buffer window (for today).
+ */
+export function isTimeSlotPassedOrBuffered(
   slotTimeStr: string,
   selectedIsoDate: string,
   bufferMinutes: number = 60
@@ -51,13 +96,12 @@ export function isTimeSlotDisabled(
     return true;
   }
 
-  // If selected date is strictly in the future (after today), slots are open
+  // If selected date is strictly in the future (after today), time has not passed
   if (cleanSelectedDate > todayIso) {
     return false;
   }
 
   // Selected date is TODAY:
-  // Disable if slot time has passed OR is within the upcoming 1-hour notice period
   const slotDate = parseSlotTimeToDate(slotTimeStr, now);
   if (!slotDate) return false;
 
@@ -66,16 +110,39 @@ export function isTimeSlotDisabled(
 }
 
 /**
- * Returns the first available (non-disabled) time slot for a date, or null if none available.
+ * Checks if a given time slot is disabled.
+ * A time slot is disabled if:
+ * 1. The selected date is before today (in the past).
+ * 2. The selected date is today AND the slot time has already passed OR is within the buffer.
+ * 3. The slot has already been booked by another user (if bookedSlotsForDate is provided).
+ */
+export function isTimeSlotDisabled(
+  slotTimeStr: string,
+  selectedIsoDate: string,
+  bufferMinutes: number = 60,
+  bookedSlotsForDate: string[] = []
+): boolean {
+  if (isTimeSlotPassedOrBuffered(slotTimeStr, selectedIsoDate, bufferMinutes)) {
+    return true;
+  }
+  if (isTimeSlotBooked(slotTimeStr, bookedSlotsForDate)) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Returns the first available (non-disabled and non-booked) time slot for a date, or null if none available.
  */
 export function getFirstAvailableSlot(
   availableSlots: string[],
   selectedIsoDate: string,
-  bufferMinutes: number = 60
+  bufferMinutes: number = 60,
+  bookedSlotsForDate: string[] = []
 ): string | null {
   if (!availableSlots || availableSlots.length === 0) return null;
   for (const slot of availableSlots) {
-    if (!isTimeSlotDisabled(slot, selectedIsoDate, bufferMinutes)) {
+    if (!isTimeSlotDisabled(slot, selectedIsoDate, bufferMinutes, bookedSlotsForDate)) {
       return slot;
     }
   }

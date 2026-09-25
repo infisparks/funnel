@@ -24,9 +24,14 @@ import {
   Plus,
   Video,
   ChevronDown,
+  AlertCircle,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import {
+  DEFAULT_MEETING_SLOTS,
+  normalizeTimeSlot,
+  isTimeSlotBooked,
+  isTimeSlotPassedOrBuffered,
   isTimeSlotDisabled,
   getFirstAvailableSlot,
   getUpcomingDates,
@@ -169,7 +174,7 @@ export function ThreePopupFunnelModal({
   const availableTimeSlots = useMemo(() => {
     return popupTheme.meetingSlots && popupTheme.meetingSlots.length > 0
       ? popupTheme.meetingSlots
-      : ['09:00 AM', '11:00 AM', '02:00 PM', '04:30 PM', '06:00 PM'];
+      : DEFAULT_MEETING_SLOTS;
   }, [popupTheme.meetingSlots]);
 
   // Step 4 Copy & Buttons & Custom Color (Default: primaryColor)
@@ -182,13 +187,18 @@ export function ThreePopupFunnelModal({
 
   const upcomingDates = useMemo(() => getUpcomingDates(), []);
 
+  // Booked slots map from DB: { "YYYY-MM-DD": ["11:00 AM", "02:00 PM"] }
+  const [bookedSlotsMap, setBookedSlotsMap] = useState<Record<string, string[]>>({});
+  const [slotConflictError, setSlotConflictError] = useState<string | null>(null);
+
   // Compute best default date: today if it has available slots, else tomorrow
   const initialDate = useMemo(() => {
     const todayIso = upcomingDates[0]?.isoDate || getTodayIso();
-    const hasTodaySlots = getFirstAvailableSlot(availableTimeSlots, todayIso, 60);
+    const todayBooked = bookedSlotsMap[todayIso] || [];
+    const hasTodaySlots = getFirstAvailableSlot(availableTimeSlots, todayIso, 60, todayBooked);
     if (hasTodaySlots) return todayIso;
     return upcomingDates[1]?.isoDate || todayIso;
-  }, [upcomingDates, availableTimeSlots]);
+  }, [upcomingDates, availableTimeSlots, bookedSlotsMap]);
 
   // Active popup step: 1 (Contact), 2 (Survey), 3 (Meeting), 4 (Completed Confirmation)
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
@@ -196,6 +206,75 @@ export function ThreePopupFunnelModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [existingLeadId, setExistingLeadId] = useState<string | null>(null);
   const dispatchedStepsRef = useRef<Set<string>>(new Set());
+
+  // Function to load all booked slots from Supabase for this funnel / user
+  const loadBookedSlots = React.useCallback(async () => {
+    try {
+      let query = supabase
+        .from('leads')
+        .select('id, meeting_date, meeting_time')
+        .not('meeting_date', 'is', null)
+        .not('meeting_time', 'is', null);
+
+      if (funnelId) {
+        query = query.eq('funnel_id', funnelId);
+      } else if (userId) {
+        query = query.eq('user_id', userId);
+      }
+
+      const { data, error } = await query;
+      if (error) {
+        console.warn('[ThreePopupFunnelModal] Error loading booked slots:', error);
+        return;
+      }
+
+      const map: Record<string, string[]> = {};
+      if (Array.isArray(data)) {
+        for (const row of data) {
+          if (!row.meeting_date || !row.meeting_time) continue;
+          if (existingLeadId && row.id === existingLeadId) continue;
+
+          const dateKey = row.meeting_date.includes('T')
+            ? row.meeting_date.split('T')[0]
+            : row.meeting_date.trim();
+          const normTime = normalizeTimeSlot(row.meeting_time);
+          if (!map[dateKey]) map[dateKey] = [];
+          if (!map[dateKey].includes(normTime)) {
+            map[dateKey].push(normTime);
+          }
+        }
+      }
+      setBookedSlotsMap(map);
+    } catch (err) {
+      console.warn('[ThreePopupFunnelModal] Exception fetching booked slots:', err);
+    }
+  }, [funnelId, userId, existingLeadId]);
+
+  // Load booked slots when modal is open or when entering Step 3
+  useEffect(() => {
+    if (isOpen) {
+      loadBookedSlots();
+    }
+  }, [isOpen, step, loadBookedSlots]);
+
+  // Realtime subscription on leads to auto-update booked slots immediately if another user books
+  useEffect(() => {
+    if (!isOpen) return;
+    const channel = supabase
+      .channel(`leads_slots_realtime_${funnelId || userId || 'global'}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'leads' },
+        () => {
+          loadBookedSlots();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isOpen, funnelId, userId, loadBookedSlots]);
 
   // Popup 1 State: Contact Info
   const [name, setName] = useState('');
@@ -288,16 +367,18 @@ export function ThreePopupFunnelModal({
   // Popup 3 State: Date & Time Slot
   const [selectedIsoDate, setSelectedIsoDate] = useState(initialDate);
   const [meetingTime, setMeetingTime] = useState<string>(() => {
-    return getFirstAvailableSlot(availableTimeSlots, initialDate, 60) || availableTimeSlots[0] || '02:00 PM';
+    const todayBooked = bookedSlotsMap[initialDate] || [];
+    return getFirstAvailableSlot(availableTimeSlots, initialDate, 60, todayBooked) || availableTimeSlots[0] || '11:00 AM';
   });
 
-  // Auto-update selected slot if current meetingTime is disabled for the chosen date
+  // Auto-update selected slot if current meetingTime is disabled or booked for the chosen date
   useEffect(() => {
-    if (isTimeSlotDisabled(meetingTime, selectedIsoDate, 60)) {
-      const validSlot = getFirstAvailableSlot(availableTimeSlots, selectedIsoDate, 60);
+    const dateBooked = bookedSlotsMap[selectedIsoDate] || [];
+    if (isTimeSlotDisabled(meetingTime, selectedIsoDate, 60, dateBooked)) {
+      const validSlot = getFirstAvailableSlot(availableTimeSlots, selectedIsoDate, 60, dateBooked);
       setMeetingTime(validSlot || '');
     }
-  }, [selectedIsoDate, availableTimeSlots]);
+  }, [selectedIsoDate, availableTimeSlots, bookedSlotsMap]);
 
   // Helper to update URL search parameter cleanly without page refresh
   const updateUrlStep = (targetStep: 1 | 2 | 3 | 4) => {
@@ -839,6 +920,15 @@ export function ThreePopupFunnelModal({
 
   const handleStep3Submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSlotConflictError(null);
+
+    const bookedForSelectedDate = bookedSlotsMap[selectedIsoDate] || [];
+    if (isTimeSlotBooked(meetingTime, bookedForSelectedDate)) {
+      setSlotConflictError(`The time slot "${meetingTime}" on ${selectedIsoDate} is already booked by another user. Please choose another available slot.`);
+      loadBookedSlots();
+      return;
+    }
+
     setIsSubmitting(true);
 
     const activeMeetUrl =
@@ -896,8 +986,14 @@ export function ThreePopupFunnelModal({
           await supabase.from('leads').insert(finalLeadPayload);
         }
       } catch (e) {}
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error saving meeting lead:', err);
+      if (err?.message && err.message.toLowerCase().includes('already booked')) {
+        setSlotConflictError(err.message);
+        loadBookedSlots();
+        setIsSubmitting(false);
+        return;
+      }
     } finally {
       setIsSubmitting(false);
       saveSessionToLocalStorage(surveyAnswers, true, undefined, cleanPhone);
@@ -948,6 +1044,7 @@ export function ThreePopupFunnelModal({
     setPhone('');
     setSurveyAnswers({});
     setExistingLeadId(null);
+    setSlotConflictError(null);
     changeStep(1);
     setCurrentQuestionIndex(0);
   };
@@ -1457,15 +1554,17 @@ export function ThreePopupFunnelModal({
                 <div className="flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-none">
                   {upcomingDates.map((item) => {
                     const isSelected = selectedIsoDate === item.isoDate;
-                    const hasSlots = Boolean(getFirstAvailableSlot(availableTimeSlots, item.isoDate, 60));
+                    const dateBooked = bookedSlotsMap[item.isoDate] || [];
+                    const hasSlots = Boolean(getFirstAvailableSlot(availableTimeSlots, item.isoDate, 60, dateBooked));
                     return (
                       <button
                         type="button"
                         key={item.isoDate}
                         onClick={() => {
                           setSelectedIsoDate(item.isoDate);
-                          if (!meetingTime || isTimeSlotDisabled(meetingTime, item.isoDate, 60)) {
-                            const firstValid = getFirstAvailableSlot(availableTimeSlots, item.isoDate, 60);
+                          setSlotConflictError(null);
+                          if (!meetingTime || isTimeSlotDisabled(meetingTime, item.isoDate, 60, dateBooked)) {
+                            const firstValid = getFirstAvailableSlot(availableTimeSlots, item.isoDate, 60, dateBooked);
                             setMeetingTime(firstValid || '');
                           }
                         }}
@@ -1489,20 +1588,23 @@ export function ThreePopupFunnelModal({
                 </div>
               </div>
 
-              {/* TIME SLOTS: 3 PER ROW GRID (NEXT & REST ADJUST NEATLY) */}
+              {/* TIME SLOTS: 2-3 PER ROW GRID */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className={`block text-xs font-bold uppercase tracking-wider ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
                     {timeSlotLabel}
                   </label>
                   <span className="text-[10px] text-gray-400 font-mono">
-                    1-hr buffer applied
+                    Realtime availability
                   </span>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {availableTimeSlots.map((slot) => {
-                    const isDisabled = isTimeSlotDisabled(slot, selectedIsoDate, 60);
+                    const bookedForDate = bookedSlotsMap[selectedIsoDate] || [];
+                    const isBooked = isTimeSlotBooked(slot, bookedForDate);
+                    const isPassed = isTimeSlotPassedOrBuffered(slot, selectedIsoDate, 60);
+                    const isDisabled = isBooked || isPassed;
                     const isSelected = meetingTime === slot && !isDisabled;
                     return (
                       <button
@@ -1510,12 +1612,23 @@ export function ThreePopupFunnelModal({
                         key={slot}
                         disabled={isDisabled}
                         onClick={() => {
-                          if (!isDisabled) setMeetingTime(slot);
+                          if (!isDisabled) {
+                            setMeetingTime(slot);
+                            setSlotConflictError(null);
+                          }
                         }}
-                        title={isDisabled ? 'Time passed or within 1-hour notice' : slot}
-                        className={`p-2.5 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1 border transition-all truncate select-none ${
-                          isDisabled
-                            ? 'opacity-40 cursor-not-allowed bg-gray-100 dark:bg-white/5 border-dashed border-gray-300 dark:border-gray-800 text-gray-400 dark:text-gray-600 line-through'
+                        title={
+                          isBooked
+                            ? 'Already booked by another client'
+                            : isPassed
+                            ? 'Time passed or within 1-hour notice'
+                            : slot
+                        }
+                        className={`p-2.5 rounded-xl text-[11px] font-bold flex flex-col items-center justify-center gap-0.5 border transition-all truncate select-none ${
+                          isBooked
+                            ? 'opacity-50 cursor-not-allowed bg-rose-500/10 dark:bg-rose-950/20 border-rose-300 dark:border-rose-900/40 text-rose-500 dark:text-rose-400 line-through'
+                            : isPassed
+                            ? 'opacity-35 cursor-not-allowed bg-gray-100 dark:bg-white/5 border-dashed border-gray-300 dark:border-gray-800 text-gray-400 dark:text-gray-600 line-through'
                             : isSelected
                             ? 'border-emerald-500 bg-emerald-500/20 text-emerald-400 shadow-md font-extrabold cursor-pointer'
                             : isLightMode
@@ -1523,27 +1636,42 @@ export function ThreePopupFunnelModal({
                             : 'border-gray-800 bg-[#131B2A] text-gray-300 hover:border-gray-700 cursor-pointer'
                         }`}
                       >
-                        <Clock className={`w-3 h-3 shrink-0 ${isDisabled ? 'text-gray-400 dark:text-gray-600' : ''}`} style={!isDisabled ? { color: primaryColor } : undefined} />
-                        <span className="truncate">{slot}</span>
+                        <div className="flex items-center gap-1">
+                          <Clock className={`w-3 h-3 shrink-0 ${isBooked ? 'text-rose-400' : isDisabled ? 'text-gray-400 dark:text-gray-600' : ''}`} style={!isDisabled ? { color: primaryColor } : undefined} />
+                          <span>{slot}</span>
+                        </div>
+                        {isBooked && (
+                          <span className="text-[9px] uppercase font-mono font-extrabold text-rose-400 tracking-wider">
+                            Booked
+                          </span>
+                        )}
                       </button>
                     );
                   })}
                 </div>
 
+                {/* Error notice if slot collision happens */}
+                {slotConflictError && (
+                  <div className="p-3 mt-2 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-400 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                    <span>{slotConflictError}</span>
+                  </div>
+                )}
+
                 {/* Notice if no slots available for today */}
-                {!getFirstAvailableSlot(availableTimeSlots, selectedIsoDate, 60) && (
+                {!getFirstAvailableSlot(availableTimeSlots, selectedIsoDate, 60, bookedSlotsMap[selectedIsoDate] || []) && (
                   <div className="p-2.5 mt-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-500 dark:text-amber-400 text-xs font-semibold flex items-center gap-2">
                     <Clock className="w-4 h-4 shrink-0" />
-                    <span>All slots for this date have passed or are within 1 hour. Please choose tomorrow or another date.</span>
+                    <span>All slots for this date are booked or have passed. Please choose tomorrow or another date.</span>
                   </div>
                 )}
               </div>
 
               <button
                 type="submit"
-                disabled={isSubmitting || !meetingTime || isTimeSlotDisabled(meetingTime, selectedIsoDate, 60)}
+                disabled={isSubmitting || !meetingTime || isTimeSlotDisabled(meetingTime, selectedIsoDate, 60, bookedSlotsMap[selectedIsoDate] || [])}
                 className={`w-full py-3.5 px-4 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all mt-2 ${
-                  !meetingTime || isTimeSlotDisabled(meetingTime, selectedIsoDate, 60)
+                  !meetingTime || isTimeSlotDisabled(meetingTime, selectedIsoDate, 60, bookedSlotsMap[selectedIsoDate] || [])
                     ? 'opacity-50 cursor-not-allowed'
                     : 'cursor-pointer'
                 }`}
