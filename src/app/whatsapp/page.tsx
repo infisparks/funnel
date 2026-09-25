@@ -330,6 +330,8 @@ export default function WhatsappAutomationPage() {
         {
           name: 'Demo Lead (Arshad)',
           phone: testPhone,
+          meeting_date: 'Tomorrow, Oct 24',
+          meeting_time: '4:00 PM',
           google_meet_url: 'https://meet.google.com/qbi-erbq-moy',
         },
         config
@@ -1001,20 +1003,34 @@ export default function WhatsappAutomationPage() {
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-1.5">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
                 <label className="font-bold text-xs text-gray-800">Custom Message Text:</label>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-1.5">
                   <button
                     type="button"
                     onClick={() => insertVariable('step3', '{{name}}')}
-                    className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-[#6366F1] font-bold text-[11px] border border-indigo-200 cursor-pointer"
+                    className="px-2 py-0.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-[#6366F1] font-bold text-[11px] border border-indigo-200 cursor-pointer"
                   >
                     + {'{{name}}'}
                   </button>
                   <button
                     type="button"
+                    onClick={() => insertVariable('step3', '{{date}}')}
+                    className="px-2 py-0.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-[#6366F1] font-bold text-[11px] border border-indigo-200 cursor-pointer"
+                  >
+                    + {'{{date}}'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertVariable('step3', '{{time}}')}
+                    className="px-2 py-0.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-[#6366F1] font-bold text-[11px] border border-indigo-200 cursor-pointer"
+                  >
+                    + {'{{time}}'}
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => insertVariable('step3', '{{meeting_url}}')}
-                    className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-[#6366F1] font-bold text-[11px] border border-indigo-200 cursor-pointer"
+                    className="px-2 py-0.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-[#6366F1] font-bold text-[11px] border border-indigo-200 cursor-pointer"
                   >
                     + {'{{meeting_url}}'}
                   </button>
@@ -1030,8 +1046,8 @@ export default function WhatsappAutomationPage() {
                     step3: { ...config.step3, message: e.target.value },
                   })
                 }
-                placeholder="Enter message (e.g. Hello {{name}}, meeting booked! Join link: {{meeting_url}})..."
-                className="w-full p-3 rounded-xl border border-gray-200 text-xs font-medium text-gray-900 bg-gray-50/50 focus:bg-white focus:outline-none"
+                placeholder="Enter message (e.g. 🎥 Hello {{name}}! Your 1-on-1 strategy session is confirmed for {{date}} at {{time}}. Join link: {{meeting_url}})..."
+                className="w-full p-3 rounded-xl border border-gray-200 text-xs font-medium text-gray-900 bg-gray-50/50 focus:bg-white focus:outline-none leading-relaxed"
               />
             </div>
           </Card>

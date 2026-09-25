@@ -17,14 +17,16 @@ export function parseWhatsappTemplate(
   if (!template) return '';
   const name = data.name || data.recipient_name || data.full_name || 'Friend';
   const meetUrl = data.google_meet_url || data.meeting_url || defaultMeetUrl;
+  const date = data.meeting_date || data.date || '';
+  const time = data.meeting_time || data.time || '';
 
   return template
     .replace(/\{\{\s*name\s*\}\}/gi, name)
     .replace(/\{\{\s*phone\s*\}\}/gi, data.phone || '')
     .replace(/\{\{\s*email\s*\}\}/gi, data.email || '')
-    .replace(/\{\{\s*date\s*\}\}/gi, data.meeting_date || '')
-    .replace(/\{\{\s*time\s*\}\}/gi, data.meeting_time || '')
-    .replace(/\{\{\s*meeting_url\s*\}\}/gi, meetUrl);
+    .replace(/\{\{\s*(date|meeting_date)\s*\}\}/gi, date)
+    .replace(/\{\{\s*(time|meeting_time)\s*\}\}/gi, time)
+    .replace(/\{\{\s*(meeting_url|google_meet_url|meet_url)\s*\}\}/gi, meetUrl);
 }
 
 export async function getUserWhatsappConfig(userIdOrWorkspaceId?: string | null) {

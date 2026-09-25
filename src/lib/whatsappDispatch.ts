@@ -53,7 +53,7 @@ export const DEFAULT_WHATSAPP_CONFIG: WhatsappConfig = {
     enabled: true,
     msg_type: 'text',
     media_url: '',
-    message: '🎥 Hello {{name}}! Your strategy session is booked. Join Google Meet link here: {{meeting_url}}',
+    message: '🎥 Hello {{name}}! Your 1-on-1 strategy session is confirmed for {{date}} at {{time}}.\n\nJoin Google Meet link here: {{meeting_url}}',
   },
 };
 
@@ -69,15 +69,21 @@ export function formatWhatsappNumber(phone: string): string {
 }
 
 /**
- * Parse variables {{name}} and {{meeting_url}}
+ * Parse variables {{name}}, {{phone}}, {{email}}, {{date}}, {{time}}, and {{meeting_url}}
  */
 export function parseWhatsappTemplate(template: string, lead: WhatsappLeadData, defaultMeetUrl?: string): string {
   const name = lead.name || 'Friend';
   const meetUrl = lead.google_meet_url || defaultMeetUrl || 'https://meet.google.com/qbi-erbq-moy';
+  const date = lead.meeting_date || '';
+  const time = lead.meeting_time || '';
 
   return template
     .replace(/\{\{\s*name\s*\}\}/gi, name)
-    .replace(/\{\{\s*meeting_url\s*\}\}/gi, meetUrl);
+    .replace(/\{\{\s*phone\s*\}\}/gi, lead.phone || '')
+    .replace(/\{\{\s*email\s*\}\}/gi, lead.email || '')
+    .replace(/\{\{\s*(date|meeting_date)\s*\}\}/gi, date)
+    .replace(/\{\{\s*(time|meeting_time)\s*\}\}/gi, time)
+    .replace(/\{\{\s*(meeting_url|google_meet_url|meet_url)\s*\}\}/gi, meetUrl);
 }
 
 const SERVER_URL = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_SERVER_URL || '').replace(/\/$/, '');
