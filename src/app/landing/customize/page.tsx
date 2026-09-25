@@ -740,8 +740,24 @@ export default function CustomizeStudioPage() {
                         type="text"
                         value={theme.step1ButtonText}
                         onChange={(e) => setTheme({ ...theme, step1ButtonText: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50/50 text-xs font-bold text-indigo-700"
+                        className="w-full px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50/50 text-xs font-bold text-indigo-700 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                       />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-[#111827] mb-1">
+                        Button Sub-text / Guarantee Note
+                      </label>
+                      <input
+                        type="text"
+                        value={theme.step1FooterCopy || ''}
+                        onChange={(e) => setTheme({ ...theme, step1FooterCopy: e.target.value })}
+                        placeholder="100% free strategy session • no sales pitch"
+                        className="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] text-xs font-medium text-[#111827] focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                      />
+                      <p className="text-[11px] text-[#6B7280] mt-1">
+                        Shown inside/under the button (e.g. &quot;100% FREE STRATEGY SESSION • NO SALES PITCH&quot;)
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -1507,15 +1523,17 @@ export default function CustomizeStudioPage() {
               style={{ borderColor: isLightMode ? '#E5E7EB' : `${primaryColor}40` }}
             >
               {/* Header inside modal */}
-              <div className="p-5 pb-2 text-center space-y-2">
-                <div
-                  className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border"
-                  style={{ backgroundColor: `${primaryColor}15`, borderColor: `${primaryColor}40`, color: primaryColor }}
-                >
-                  <Sparkles className="w-3 h-3" />
-                  <span>
-                    {theme.badgeText || (activeStepTab === 2 ? `Question 1 of ${surveyQuestions.length}` : `Step ${activeStepTab > 4 ? 3 : activeStepTab} of 3`)}
-                  </span>
+              <div className="p-4 sm:p-5 pb-2 text-center space-y-2">
+                <div className="px-4 flex justify-center">
+                  <div
+                    className="inline-flex max-w-full items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9.5px] font-bold uppercase border"
+                    style={{ backgroundColor: `${primaryColor}15`, borderColor: `${primaryColor}40`, color: primaryColor }}
+                  >
+                    <Sparkles className="w-3 h-3 shrink-0" />
+                    <span className="truncate">
+                      {theme.badgeText || (activeStepTab === 2 ? `Question 1 of ${surveyQuestions.length}` : `Step ${activeStepTab > 4 ? 3 : activeStepTab} of 3`)}
+                    </span>
+                  </div>
                 </div>
 
                 <h3 className={`text-base sm:text-lg font-bold tracking-tight ${isLightMode ? 'text-[#111827]' : 'text-white'}`}>
@@ -1581,16 +1599,17 @@ export default function CustomizeStudioPage() {
                   </div>
 
                   <button
-                    className="w-full py-3 px-3 rounded-xl font-bold text-xs uppercase flex items-center justify-center gap-1.5 shadow-md mt-1 cursor-pointer transition-all"
+                    className="w-full py-3.5 px-3 rounded-xl font-bold text-xs uppercase flex flex-col items-center justify-center gap-0.5 shadow-md mt-1 cursor-pointer transition-all"
                     style={getButtonStyle()}
                   >
-                    <span>{theme.step1ButtonText || 'CONTINUE TO SELECT SLOT'}</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
+                    <span className="flex items-center gap-1.5">
+                      <span>{theme.step1ButtonText || 'CONTINUE TO SELECT SLOT'}</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </span>
+                    <span className="text-[9.5px] font-bold opacity-85 font-mono tracking-normal">
+                      {theme.step1FooterCopy || '100% free strategy session • no sales pitch'}
+                    </span>
                   </button>
-
-                  <p className="text-[10px] text-center text-gray-400 pt-1">
-                    {theme.step1FooterCopy || '100% free strategy session • no sales pitch'}
-                  </p>
                 </div>
               )}
 

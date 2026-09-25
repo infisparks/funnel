@@ -1089,50 +1089,53 @@ export function ThreePopupFunnelModal({
         style={{ borderColor: isLightMode ? '#E5E7EB' : `${primaryColor}50` }}
       >
         {/* Top Controls */}
-        <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
+        <div className="absolute top-3.5 right-3.5 flex items-center gap-1.5 z-20">
           <button
             onClick={resetLeadSession}
             title="Fill details for a new lead"
             aria-label="Fill details for a new lead"
-            className="w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer border shadow-2xs hover:scale-105 active:scale-95 shrink-0"
+            className="w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer border shadow-2xs hover:scale-105 active:scale-95 shrink-0"
             style={{
               backgroundColor: `${primaryColor}18`,
               borderColor: `${primaryColor}40`,
               color: primaryColor,
             }}
           >
-            <Plus className="w-4 h-4 stroke-[2.8]" />
+            <Plus className="w-3.5 h-3.5 stroke-[2.8]" />
           </button>
 
           <button
             onClick={handleCloseModal}
-            className={`w-8 h-8 rounded-full flex items-center justify-center cursor-pointer transition-all shrink-0 ${
+            aria-label="Close modal"
+            className={`w-7 h-7 rounded-full flex items-center justify-center cursor-pointer transition-all shrink-0 ${
               isLightMode ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-white/10 text-gray-400 hover:text-white'
             }`}
           >
-            <X className="w-4 h-4" />
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
 
         {/* Modal Header */}
-        <div className="p-6 pb-2 text-center space-y-2.5">
-          <div
-            className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-bold tracking-wide uppercase border"
-            style={{
-              backgroundColor: `${primaryColor}15`,
-              borderColor: `${primaryColor}40`,
-              color: primaryColor,
-            }}
-          >
-            <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: primaryColor }} />
-            <span>
-              {step === 2 ? `Question ${currentQuestionIndex + 1} of ${totalQuestions}` : `Step ${step > 3 ? 3 : step} of 3`}
-            </span>
-            <span className="text-gray-400">•</span>
-            <span>{badgeText}</span>
+        <div className="p-5 sm:p-6 pb-2 text-center space-y-2">
+          <div className="px-10 sm:px-12 flex justify-center">
+            <div
+              className="inline-flex max-w-full items-center gap-1.5 px-2.5 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-[10.5px] font-bold tracking-wide uppercase border"
+              style={{
+                backgroundColor: `${primaryColor}15`,
+                borderColor: `${primaryColor}40`,
+                color: primaryColor,
+              }}
+            >
+              <span className="w-1.5 h-1.5 rounded-full animate-pulse shrink-0" style={{ backgroundColor: primaryColor }} />
+              <span className="shrink-0">
+                {step === 2 ? `Question ${currentQuestionIndex + 1} of ${totalQuestions}` : `Step ${step > 3 ? 3 : step} of 3`}
+              </span>
+              <span className="text-gray-400 shrink-0">•</span>
+              <span className="truncate">{badgeText}</span>
+            </div>
           </div>
 
-          <h3 className={`text-xl sm:text-2xl font-extrabold tracking-tight ${isLightMode ? 'text-[#111827]' : 'text-white'}`}>
+          <h3 className={`text-lg sm:text-xl font-extrabold tracking-tight leading-snug ${isLightMode ? 'text-[#111827]' : 'text-white'}`}>
             {step === 1 && step1Title}
             {step === 2 && (step2Title || 'Qualify Your Business Requirements')}
             {step === 3 && step3Title}

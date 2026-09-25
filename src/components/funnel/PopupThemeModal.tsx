@@ -401,6 +401,22 @@ export function PopupThemeModal({
 
                 <div>
                   <label className="block text-xs font-bold text-gray-300 mb-1">
+                    Button Sub-text / Guarantee Note
+                  </label>
+                  <input
+                    type="text"
+                    value={theme.step1FooterCopy || ''}
+                    onChange={(e) => setTheme({ ...theme, step1FooterCopy: e.target.value })}
+                    placeholder="100% free strategy session • no sales pitch"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-800 bg-[#131B2A] text-xs font-medium text-gray-200 focus:outline-none focus:border-amber-400"
+                  />
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    Shown inside/under the button (e.g. &quot;100% FREE STRATEGY SESSION • NO SALES PITCH&quot;)
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-300 mb-1">
                     Top Badge Text
                   </label>
                   <input
@@ -718,22 +734,24 @@ export function PopupThemeModal({
               }`}
               style={{ borderColor: isLightMode ? '#E5E7EB' : `${primaryColor}50` }}
             >
-              <div className="p-5 pb-2 text-center space-y-2">
-                <div
-                  className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase border"
-                  style={{
-                    backgroundColor: `${primaryColor}15`,
-                    borderColor: `${primaryColor}40`,
-                    color: primaryColor,
-                  }}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: primaryColor }} />
-                  <span>Step {activeStepTab > 3 ? 1 : activeStepTab} of 3</span>
-                  <span className="text-gray-400">•</span>
-                  <span>{theme.badgeText || 'FAST 30-SEC BOOKING'}</span>
+              <div className="p-4 sm:p-5 pb-2 text-center space-y-2">
+                <div className="px-4 flex justify-center">
+                  <div
+                    className="inline-flex max-w-full items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9.5px] font-bold tracking-wide uppercase border"
+                    style={{
+                      backgroundColor: `${primaryColor}15`,
+                      borderColor: `${primaryColor}40`,
+                      color: primaryColor,
+                    }}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full animate-pulse shrink-0" style={{ backgroundColor: primaryColor }} />
+                    <span className="shrink-0">Step {activeStepTab > 3 ? 1 : activeStepTab} of 3</span>
+                    <span className="text-gray-400 shrink-0">•</span>
+                    <span className="truncate">{theme.badgeText || 'FAST 30-SEC BOOKING'}</span>
+                  </div>
                 </div>
 
-                <h3 className={`text-lg font-extrabold tracking-tight ${isLightMode ? 'text-[#111827]' : 'text-white'}`}>
+                <h3 className={`text-base sm:text-lg font-extrabold tracking-tight ${isLightMode ? 'text-[#111827]' : 'text-white'}`}>
                   {activeStepTab === 1 && (theme.step1Title || 'Claim Your 1-on-1 Growth Consultation')}
                   {activeStepTab === 2 && (theme.step2Title || 'Qualify Your Business Requirements')}
                   {activeStepTab === 3 && (theme.step3Title || 'Lock Your Strategy Call Slot')}
@@ -803,11 +821,16 @@ export function PopupThemeModal({
                   </div>
 
                   <button
-                    className="w-full py-3 px-3 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-1 shadow-lg transition-all cursor-pointer mt-1"
+                    className="w-full py-3.5 px-3 rounded-xl font-extrabold text-xs uppercase tracking-wider flex flex-col items-center justify-center gap-0.5 shadow-lg transition-all cursor-pointer mt-1"
                     style={getButtonStyle()}
                   >
-                    <span>{theme.step1ButtonText || 'CONTINUE TO SELECT SLOT'}</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
+                    <span className="flex items-center gap-1">
+                      <span>{theme.step1ButtonText || 'CONTINUE TO SELECT SLOT'}</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </span>
+                    <span className="text-[9px] font-bold opacity-80 font-mono tracking-normal">
+                      {theme.step1FooterCopy || '100% free strategy session • no sales pitch'}
+                    </span>
                   </button>
                 </div>
               )}
