@@ -695,27 +695,6 @@ export default function CustomizeStudioPage() {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       <div>
-                        <label className="block text-xs font-medium text-[#6B7280] mb-1">Email Label</label>
-                        <input
-                          type="text"
-                          value={theme.emailLabel}
-                          onChange={(e) => setTheme({ ...theme, emailLabel: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] text-xs font-medium text-[#111827]"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-[#6B7280] mb-1">Email Placeholder</label>
-                        <input
-                          type="text"
-                          value={theme.emailPlaceholder}
-                          onChange={(e) => setTheme({ ...theme, emailPlaceholder: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] text-xs text-[#111827]"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      <div>
                         <label className="block text-xs font-medium text-[#6B7280] mb-1">Phone Label</label>
                         <input
                           type="text"
@@ -1565,20 +1544,6 @@ export default function CustomizeStudioPage() {
                       type="text"
                       disabled
                       placeholder={theme.namePlaceholder || 'Enter your full name'}
-                      className={`w-full px-3 py-2 rounded-xl border text-xs font-medium ${
-                        isLightMode ? 'bg-gray-100 border-gray-300 text-gray-900' : 'bg-[#1E293B] border-slate-700 text-white'
-                      }`}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">
-                      {theme.emailLabel || 'WORK EMAIL *'}
-                    </label>
-                    <input
-                      type="email"
-                      disabled
-                      placeholder={theme.emailPlaceholder || 'name@company.com'}
                       className={`w-full px-3 py-2 rounded-xl border text-xs font-medium ${
                         isLightMode ? 'bg-gray-100 border-gray-300 text-gray-900' : 'bg-[#1E293B] border-slate-700 text-white'
                       }`}

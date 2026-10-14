@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, Sparkles, CheckCircle2 } from 'lucide-react';
+import { ChevronRight, Sparkles, CheckCircle2, AlertCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { initClientMetaPixel, trackMetaSurveyCompleted } from '@/lib/metaPixel';
 
@@ -37,6 +37,7 @@ export function StandaloneSurveyClient({ workspace }: StandaloneSurveyClientProp
   const [savedLeadId, setSavedLeadId] = useState<string | null>(null);
   const [hasSavedDetails, setHasSavedDetails] = useState(false);
   const [answers, setAnswers] = useState<Record<string, any>>({});
+  const [surveyError, setSurveyError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Check browser localStorage on mount
@@ -71,6 +72,7 @@ export function StandaloneSurveyClient({ workspace }: StandaloneSurveyClientProp
     setPhone('');
     setSavedLeadId(null);
     setAnswers({});
+    setSurveyError(null);
     setHasSavedDetails(false);
   };
 
@@ -105,10 +107,11 @@ export function StandaloneSurveyClient({ workspace }: StandaloneSurveyClientProp
   };
 
   const handleSelectOption = (qId: string, opt: string) => {
+    setSurveyError(null);
     const questionObj = surveyQuestions.find((q: any) => q.id === qId || q.label === qId);
     const keyToUse = questionObj?.label || qId;
 
-    const updated = { ...answers, [keyToUse]: opt };
+    const updated = { ...answers, [keyToUse]: opt, [qId]: opt };
     setAnswers(updated);
 
     // Instantly sync option selection to Supabase in real time
@@ -153,6 +156,20 @@ export function StandaloneSurveyClient({ workspace }: StandaloneSurveyClientProp
       alert('Please fill in your Name, Email, and Phone number');
       return;
     }
+
+    // Require answering every survey question
+    const unansweredQuestion = surveyQuestions.find((q: any) => {
+      const qKey = q.label || q.id;
+      const val = answers[qKey] ?? answers[q.id];
+      if (Array.isArray(val)) return val.length === 0;
+      return !val || !String(val).trim();
+    });
+
+    if (unansweredQuestion) {
+      setSurveyError('Please select 1 option in every survey question');
+      return;
+    }
+    setSurveyError(null);
 
     setIsSubmitting(true);
     const cleanPhone = phone.trim();
@@ -319,7 +336,7 @@ export function StandaloneSurveyClient({ workspace }: StandaloneSurveyClientProp
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {q.options.map((opt: string) => {
-                    const isSelected = answers[q.id] === opt;
+                    const isSelected = answers[q.id] === opt || answers[q.label] === opt;
                     return (
                       <button
                         type="button"
@@ -339,6 +356,13 @@ export function StandaloneSurveyClient({ workspace }: StandaloneSurveyClientProp
               </div>
             ))}
           </div>
+
+          {surveyError && (
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-semibold animate-in fade-in">
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+              <span>{surveyError}</span>
+            </div>
+          )}
 
           <button
             type="submit"

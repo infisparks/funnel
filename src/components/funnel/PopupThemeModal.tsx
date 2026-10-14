@@ -9,7 +9,6 @@ import {
   CheckCircle2,
   Eye,
   User,
-  Mail,
   Phone,
   Calendar,
   ChevronRight,
@@ -346,24 +345,6 @@ export function PopupThemeModal({
                       value={theme.namePlaceholder}
                       onChange={(e) => setTheme({ ...theme, namePlaceholder: e.target.value })}
                       placeholder="Enter your full name"
-                      className="w-full px-3 py-2 rounded-xl border border-gray-700 bg-[#0B0F17] text-xs text-gray-300"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-gray-300 mb-1">Work Email Field Title</label>
-                    <input
-                      type="text"
-                      value={theme.emailLabel}
-                      onChange={(e) => setTheme({ ...theme, emailLabel: e.target.value })}
-                      placeholder="Work Email *"
-                      className="w-full px-3 py-2 rounded-xl border border-gray-700 bg-[#0B0F17] text-xs font-bold text-white mb-1.5"
-                    />
-                    <input
-                      type="text"
-                      value={theme.emailPlaceholder}
-                      onChange={(e) => setTheme({ ...theme, emailPlaceholder: e.target.value })}
-                      placeholder="name@company.com"
                       className="w-full px-3 py-2 rounded-xl border border-gray-700 bg-[#0B0F17] text-xs text-gray-300"
                     />
                   </div>
@@ -779,23 +760,6 @@ export function PopupThemeModal({
                         type="text"
                         disabled
                         placeholder={theme.namePlaceholder || 'Enter your full name'}
-                        className={`w-full pl-9 pr-3 py-2 rounded-xl border text-xs font-semibold ${
-                          isLightMode ? 'bg-[#F8FAFC] border-gray-300 text-gray-900 placeholder-gray-400' : 'bg-[#131B2A] border-gray-800 text-white placeholder-gray-500'
-                        }`}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
-                      {theme.emailLabel || 'Work Email *'}
-                    </label>
-                    <div className="relative">
-                      <Mail className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="email"
-                        disabled
-                        placeholder={theme.emailPlaceholder || 'name@company.com'}
                         className={`w-full pl-9 pr-3 py-2 rounded-xl border text-xs font-semibold ${
                           isLightMode ? 'bg-[#F8FAFC] border-gray-300 text-gray-900 placeholder-gray-400' : 'bg-[#131B2A] border-gray-800 text-white placeholder-gray-500'
                         }`}

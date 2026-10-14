@@ -9,7 +9,6 @@ import {
   Calendar,
   User,
   Phone,
-  Mail,
   ChevronRight,
   Clock,
   RotateCcw,
@@ -203,6 +202,7 @@ export function ThreePopupFunnelModal({
   // Active popup step: 1 (Contact), 2 (Survey), 3 (Meeting), 4 (Completed Confirmation)
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [surveyValidationError, setSurveyValidationError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [existingLeadId, setExistingLeadId] = useState<string | null>(null);
   const dispatchedStepsRef = useRef<Set<string>>(new Set());
@@ -705,8 +705,8 @@ export function ThreePopupFunnelModal({
   const handleStep1Submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanPhone = getFullPhone();
-    if (!name || !cleanPhone || !email) {
-      alert('Please fill out Name, WhatsApp Phone Number, and Email');
+    if (!name || !cleanPhone) {
+      alert('Please fill out Name and WhatsApp Phone Number');
       return;
     }
 
@@ -728,7 +728,7 @@ export function ThreePopupFunnelModal({
 
       const step1Payload: any = {
         name,
-        email,
+        email: email || '',
         phone: cleanPhone,
         step_progress: 'step1_contact',
         stage_id: 'step1_contact',
@@ -878,6 +878,22 @@ export function ThreePopupFunnelModal({
   };
 
   const handleNextQuestion = async () => {
+    // Validate that user has ticked / selected an option before proceeding
+    const activeQ = surveyQuestions[currentQuestionIndex];
+    if (activeQ) {
+      const qKey = activeQ.label || activeQ.id;
+      const currentVal = surveyAnswers[qKey] ?? surveyAnswers[activeQ.id];
+      const hasSelection = Array.isArray(currentVal)
+        ? currentVal.length > 0
+        : Boolean(currentVal !== undefined && currentVal !== null && String(currentVal).trim() !== '');
+
+      if (!hasSelection) {
+        setSurveyValidationError('Please select 1 option in every survey question');
+        return;
+      }
+    }
+    setSurveyValidationError(null);
+
     await saveSurveyResponsesToSupabase(surveyAnswers);
     saveSessionToLocalStorage(surveyAnswers, true);
     if (currentQuestionIndex < surveyQuestions.length - 1) {
@@ -911,6 +927,7 @@ export function ThreePopupFunnelModal({
   };
 
   const handlePrevQuestion = () => {
+    setSurveyValidationError(null);
     if (currentQuestionIndex > 0) {
       setCurrentQuestionIndex((prev) => prev - 1);
     } else {
@@ -1045,11 +1062,13 @@ export function ThreePopupFunnelModal({
     setSurveyAnswers({});
     setExistingLeadId(null);
     setSlotConflictError(null);
+    setSurveyValidationError(null);
     changeStep(1);
     setCurrentQuestionIndex(0);
   };
 
   const handleOptionSelect = (qId: string, opt: string, isMultiple?: boolean) => {
+    setSurveyValidationError(null);
     const questionObj = surveyQuestions.find((q) => q.id === qId || q.label === qId);
     const keyToUse = questionObj?.label || qId;
 
@@ -1278,30 +1297,6 @@ export function ThreePopupFunnelModal({
 
               <div>
                 <label className={`block text-xs font-bold uppercase tracking-wider mb-1 ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
-                  {emailLabel}
-                </label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setEmail(val);
-                      saveContactInfoToStorage(undefined, val, undefined);
-                    }}
-                    onBlur={() => saveContactInfoToStorage()}
-                    placeholder={emailPlaceholder}
-                    className={`w-full pl-10 pr-3.5 py-2.5 rounded-xl border text-xs font-semibold focus:outline-none ${
-                      isLightMode ? 'bg-[#F8FAFC] border-gray-300 text-gray-900 placeholder-gray-400' : 'bg-[#131B2A] border-gray-800 text-white placeholder-gray-500'
-                    }`}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className={`block text-xs font-bold uppercase tracking-wider mb-1 ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
                   {phoneLabel}
                 </label>
                 <div className="flex items-center gap-1.5">
@@ -1514,6 +1509,14 @@ export function ThreePopupFunnelModal({
                   )}
                 </div>
               </div>
+
+              {/* Validation error if user clicks Next without selecting an option */}
+              {surveyValidationError && (
+                <div className="flex items-center gap-2 p-2.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-500 text-xs font-semibold animate-in fade-in">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+                  <span>{surveyValidationError}</span>
+                </div>
+              )}
 
               {/* Navigation controls for survey step */}
               <div className="flex items-center justify-between gap-2 pt-2">
