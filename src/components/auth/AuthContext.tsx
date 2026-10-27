@@ -21,6 +21,8 @@ export interface PopupThemeConfig {
   step3ButtonText?: string;
   step4Title?: string;
   step4Subtitle?: string;
+  hideSurvey?: boolean;
+  hideMeeting?: boolean;
 }
 
 export interface UserWorkspace {
@@ -38,6 +40,8 @@ export interface UserWorkspace {
   delete_pin?: string | null;
   pixel_id?: string | null;
   admin_notification_number?: string | null;
+  hide_survey?: boolean;
+  hide_meeting?: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -174,6 +178,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (config.admin_notification_number !== undefined) {
         updatePayload.admin_notification_number = config.admin_notification_number ? config.admin_notification_number.trim() : null;
       }
+      if (config.hide_survey !== undefined) updatePayload.hide_survey = Boolean(config.hide_survey);
+      if (config.hide_meeting !== undefined) updatePayload.hide_meeting = Boolean(config.hide_meeting);
 
       // 1. Update existing workspace row for this user_id
       const { data: updated, error: updateError } = await supabase
@@ -217,6 +223,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         google_meet_url: config.google_meet_url ? config.google_meet_url.trim() : null,
         delete_pin: config.delete_pin ? config.delete_pin.trim() : '1234',
         admin_notification_number: config.admin_notification_number ? config.admin_notification_number.trim() : null,
+        hide_survey: config.hide_survey ?? false,
+        hide_meeting: config.hide_meeting ?? false,
         updated_at: new Date().toISOString(),
       };
 

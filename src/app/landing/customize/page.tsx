@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useAuth } from '@/components/auth/AuthContext';
@@ -10,10 +10,12 @@ import {
   Save,
   CheckCircle2,
   Eye,
+  EyeOff,
   User,
   Mail,
   Phone,
   Calendar,
+  ChevronLeft,
   ChevronRight,
   Sun,
   Moon,
@@ -167,6 +169,18 @@ export default function CustomizeStudioPage() {
   const [activeStepTab, setActiveStepTab] = useState<1 | 2 | 3 | 4 | 5 | 6>(1);
   const [selectedColorCategory, setSelectedColorCategory] = useState<string>('All');
   const [previewDevice, setPreviewDevice] = useState<'mobile' | 'desktop'>('mobile');
+  const [hideSurvey, setHideSurvey] = useState(false);
+  const [hideMeeting, setHideMeeting] = useState(false);
+  const tabsContainerRef = useRef<HTMLDivElement>(null);
+
+  const scrollTabs = (direction: 'left' | 'right') => {
+    if (tabsContainerRef.current) {
+      tabsContainerRef.current.scrollBy({
+        left: direction === 'left' ? -180 : 180,
+        behavior: 'smooth',
+      });
+    }
+  };
 
   // Theme Config State
   const [theme, setTheme] = useState<PopupThemeConfig>({
@@ -252,33 +266,54 @@ export default function CustomizeStudioPage() {
   useEffect(() => {
     if (workspace) {
       if (workspace.popup_theme) setTheme(workspace.popup_theme);
+      if (workspace.hide_survey !== undefined) {
+        setHideSurvey(Boolean(workspace.hide_survey));
+      } else if (workspace.popup_theme?.hideSurvey !== undefined) {
+        setHideSurvey(Boolean(workspace.popup_theme.hideSurvey));
+      }
+      if (workspace.hide_meeting !== undefined) {
+        setHideMeeting(Boolean(workspace.hide_meeting));
+      } else if (workspace.popup_theme?.hideMeeting !== undefined) {
+        setHideMeeting(Boolean(workspace.popup_theme.hideMeeting));
+      }
       if (workspace.survey_questions && workspace.survey_questions.length > 0) {
         setSurveyQuestions(workspace.survey_questions);
       }
     }
   }, [workspace]);
 
-  // Keep full JSON string updated whenever theme or surveyQuestions change
+  // Keep full JSON string updated whenever theme, surveyQuestions, or visibility toggles change
   useEffect(() => {
     const currentConfig = {
-      popup_theme: theme,
+      popup_theme: { ...theme, hideSurvey, hideMeeting },
       survey_questions: surveyQuestions,
+      hide_survey: hideSurvey,
+      hide_meeting: hideMeeting,
     };
     setFullJsonText(JSON.stringify(currentConfig, null, 2));
-  }, [theme, surveyQuestions]);
+  }, [theme, surveyQuestions, hideSurvey, hideMeeting]);
 
   const handleResetToDefault = () => {
     setTheme({ ...DEFAULT_POPUP_THEME });
     setSurveyQuestions([...DEFAULT_SURVEY_QUESTIONS]);
+    setHideSurvey(false);
+    setHideMeeting(false);
     setResetSuccess(true);
     setTimeout(() => setResetSuccess(false), 2500);
   };
 
   const handleSaveAll = async () => {
     setIsSaving(true);
+    const updatedTheme = {
+      ...theme,
+      hideSurvey,
+      hideMeeting,
+    };
     const ok = await saveWorkspaceConfig({
-      popup_theme: theme,
+      popup_theme: updatedTheme,
       survey_questions: surveyQuestions,
+      hide_survey: hideSurvey,
+      hide_meeting: hideMeeting,
     });
     setIsSaving(false);
 
@@ -406,6 +441,18 @@ export default function CustomizeStudioPage() {
         setTheme(parsed.popup_theme);
       } else if (parsed.primaryColor || parsed.step1Title) {
         setTheme(parsed);
+      }
+
+      if (parsed.hide_survey !== undefined) {
+        setHideSurvey(Boolean(parsed.hide_survey));
+      } else if (parsed.popup_theme?.hideSurvey !== undefined) {
+        setHideSurvey(Boolean(parsed.popup_theme.hideSurvey));
+      }
+
+      if (parsed.hide_meeting !== undefined) {
+        setHideMeeting(Boolean(parsed.hide_meeting));
+      } else if (parsed.popup_theme?.hideMeeting !== undefined) {
+        setHideMeeting(Boolean(parsed.popup_theme.hideMeeting));
       }
 
       if (Array.isArray(parsed.survey_questions)) {
@@ -540,82 +587,245 @@ export default function CustomizeStudioPage() {
         {/* Studio Split Grid (Left Controls | Right Real-Time Interactive Mockup) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 flex-1 min-h-0 overflow-hidden mt-3 rounded-2xl border border-[#E5E7EB] bg-white shadow-2xs">
           
-          {/* LEFT 6 COLUMNS: TABBED CONTROLS */}
-          <div className="lg:col-span-6 border-r border-[#E5E7EB] flex flex-col min-h-0 bg-[#F5F6F8]/60 overflow-hidden">
+          {/* LEFT CONTROLS: 7 COLUMNS ON LG / 6 ON XL */}
+          <div className="lg:col-span-7 xl:col-span-6 border-r border-[#E5E7EB] flex flex-col min-h-0 bg-[#F5F6F8]/60 overflow-hidden">
             
-            {/* Step Navigation Tabs */}
-            <div className="p-2.5 bg-white border-b border-[#E5E7EB] flex items-center gap-1.5 overflow-x-auto shrink-0 scrollbar-none whitespace-nowrap">
+            {/* Step Navigation Tabs with Scroll Chevrons & Responsiveness */}
+            <div className="relative bg-white border-b border-[#E5E7EB] flex items-center px-1.5 py-1.5 shrink-0">
               <button
-                onClick={() => setActiveStepTab(1)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
-                  activeStepTab === 1
-                    ? 'bg-indigo-600 text-white shadow-2xs font-semibold'
-                    : 'bg-[#F5F6F8] text-[#111827] hover:bg-gray-200/60'
-                }`}
+                type="button"
+                onClick={() => scrollTabs('left')}
+                aria-label="Scroll tabs left"
+                className="w-7 h-7 rounded-lg bg-[#F5F6F8] hover:bg-gray-200 text-[#111827] flex items-center justify-center shrink-0 mr-1 transition-colors cursor-pointer border border-[#E5E7EB]"
+                title="Scroll left"
               >
-                <User className="w-3.5 h-3.5" />
-                <span>1. Contact Info</span>
+                <ChevronLeft className="w-3.5 h-3.5" />
               </button>
 
-              <button
-                onClick={() => setActiveStepTab(2)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
-                  activeStepTab === 2
-                    ? 'bg-indigo-600 text-white shadow-2xs font-semibold'
-                    : 'bg-[#F5F6F8] text-[#111827] hover:bg-gray-200/60'
-                }`}
+              <div
+                ref={tabsContainerRef}
+                className="flex items-center gap-1.5 overflow-x-auto shrink flex-1 scrollbar-none scroll-smooth py-0.5 whitespace-nowrap"
               >
-                <ListOrdered className="w-3.5 h-3.5" />
-                <span>2. Survey Form ({surveyQuestions.length})</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveStepTab(1)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
+                    activeStepTab === 1
+                      ? 'bg-indigo-600 text-white shadow-2xs font-semibold'
+                      : 'bg-[#F5F6F8] text-[#111827] hover:bg-gray-200/60'
+                  }`}
+                >
+                  <User className="w-3.5 h-3.5" />
+                  <span>1. Contact Info</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveStepTab(2)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
+                    activeStepTab === 2
+                      ? 'bg-indigo-600 text-white shadow-2xs font-semibold'
+                      : 'bg-[#F5F6F8] text-[#111827] hover:bg-gray-200/60'
+                  }`}
+                >
+                  <ListOrdered className="w-3.5 h-3.5" />
+                  <span>2. Survey</span>
+                  <span className="text-[10px] opacity-75 font-mono">({surveyQuestions.length})</span>
+                  {hideSurvey && (
+                    <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                      Hidden
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveStepTab(3)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
+                    activeStepTab === 3
+                      ? 'bg-indigo-600 text-white shadow-2xs font-semibold'
+                      : 'bg-[#F5F6F8] text-[#111827] hover:bg-gray-200/60'
+                  }`}
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>3. Time Slots</span>
+                  {hideMeeting && (
+                    <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                      Hidden
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveStepTab(5)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
+                    activeStepTab === 5
+                      ? 'bg-indigo-600 text-white shadow-2xs font-semibold'
+                      : 'bg-[#F5F6F8] text-[#111827] hover:bg-gray-200/60'
+                  }`}
+                >
+                  <CheckCheck className="w-3.5 h-3.5" />
+                  <span>4. Confirmation</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveStepTab(4)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
+                    activeStepTab === 4
+                      ? 'bg-indigo-600 text-white shadow-2xs font-semibold'
+                      : 'bg-[#F5F6F8] text-[#111827] hover:bg-gray-200/60'
+                  }`}
+                >
+                  <Palette className="w-3.5 h-3.5" />
+                  <span>Theme & Palette</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveStepTab(6)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
+                    activeStepTab === 6
+                      ? 'bg-indigo-600 text-white shadow-2xs font-semibold'
+                      : 'bg-[#F5F6F8] text-[#111827] hover:bg-gray-200/60'
+                  }`}
+                >
+                  <Code className="w-3.5 h-3.5" />
+                  <span>JSON</span>
+                </button>
+              </div>
 
               <button
-                onClick={() => setActiveStepTab(3)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
-                  activeStepTab === 3
-                    ? 'bg-indigo-600 text-white shadow-2xs font-semibold'
-                    : 'bg-[#F5F6F8] text-[#111827] hover:bg-gray-200/60'
-                }`}
+                type="button"
+                onClick={() => scrollTabs('right')}
+                aria-label="Scroll tabs right"
+                className="w-7 h-7 rounded-lg bg-[#F5F6F8] hover:bg-gray-200 text-[#111827] flex items-center justify-center shrink-0 ml-1 transition-colors cursor-pointer border border-[#E5E7EB]"
+                title="Scroll right"
               >
-                <Clock className="w-3.5 h-3.5" />
-                <span>3. Time Slots</span>
+                <ChevronRight className="w-3.5 h-3.5" />
               </button>
+            </div>
 
-              <button
-                onClick={() => setActiveStepTab(5)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
-                  activeStepTab === 5
-                    ? 'bg-indigo-600 text-white shadow-2xs font-semibold'
-                    : 'bg-[#F5F6F8] text-[#111827] hover:bg-gray-200/60'
-                }`}
-              >
-                <CheckCheck className="w-3.5 h-3.5" />
-                <span>4. Confirmation</span>
-              </button>
+            {/* Persistent Funnel Step Flow & Quick Toggle Bar */}
+            <div className="bg-white border-b border-[#E5E7EB] px-3.5 py-2.5 flex flex-col gap-2 shrink-0">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <Sliders className="w-3.5 h-3.5 text-indigo-600" />
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#111827]">
+                    Funnel Step Flow Sequence
+                  </span>
+                  <span className="text-[10px] text-[#6B7280]">
+                    ({!hideSurvey && !hideMeeting ? 'All Steps Enabled' : hideSurvey && hideMeeting ? '1-Step Fast Lead Mode' : '2 Steps Enabled'})
+                  </span>
+                </div>
+                <div className="text-[10px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  Production Safe
+                </div>
+              </div>
 
-              <button
-                onClick={() => setActiveStepTab(4)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
-                  activeStepTab === 4
-                    ? 'bg-indigo-600 text-white shadow-2xs font-semibold'
-                    : 'bg-[#F5F6F8] text-[#111827] hover:bg-gray-200/60'
-                }`}
-              >
-                <Palette className="w-3.5 h-3.5" />
-                <span>Theme & Palette</span>
-              </button>
+              {/* 4 Flow Step Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                {/* Step 1: Details */}
+                <div className="p-2 rounded-xl border border-indigo-200 bg-indigo-50/50 flex flex-col gap-0.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10.5px] font-bold text-indigo-950 flex items-center gap-1">
+                      <User className="w-3 h-3 text-indigo-600" />
+                      1. Details
+                    </span>
+                    <span className="text-[8.5px] font-extrabold px-1.5 py-0.2 rounded bg-indigo-600 text-white">
+                      Always On
+                    </span>
+                  </div>
+                  <span className="text-[9.5px] text-[#6B7280] leading-tight">Name, Phone & Email</span>
+                </div>
 
-              <button
-                onClick={() => setActiveStepTab(6)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
-                  activeStepTab === 6
-                    ? 'bg-indigo-600 text-white shadow-2xs font-semibold'
-                    : 'bg-[#F5F6F8] text-[#111827] hover:bg-gray-200/60'
-                }`}
-              >
-                <Code className="w-3.5 h-3.5" />
-                <span>JSON</span>
-              </button>
+                {/* Step 2: Survey */}
+                <div className={`p-2 rounded-xl border transition-all flex flex-col gap-0.5 ${
+                  !hideSurvey ? 'border-[#E5E7EB] bg-white' : 'border-amber-200 bg-amber-50/60'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10.5px] font-bold text-[#111827] flex items-center gap-1">
+                      <ListOrdered className="w-3 h-3 text-indigo-600" />
+                      2. Survey
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setHideSurvey(!hideSurvey)}
+                      className={`px-1.5 py-0.5 rounded text-[9px] font-bold cursor-pointer transition-colors ${
+                        !hideSurvey
+                          ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                          : 'bg-amber-500 text-white hover:bg-amber-600'
+                      }`}
+                      title={!hideSurvey ? 'Click to hide survey in popup' : 'Click to show survey in popup'}
+                    >
+                      {!hideSurvey ? '✓ Shown' : '✕ Hidden'}
+                    </button>
+                  </div>
+                  <span className="text-[9.5px] text-[#6B7280] leading-tight">
+                    {!hideSurvey ? `${surveyQuestions.length} questions` : 'Skipped in flow'}
+                  </span>
+                </div>
+
+                {/* Step 3: Meeting */}
+                <div className={`p-2 rounded-xl border transition-all flex flex-col gap-0.5 ${
+                  !hideMeeting ? 'border-[#E5E7EB] bg-white' : 'border-amber-200 bg-amber-50/60'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10.5px] font-bold text-[#111827] flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-indigo-600" />
+                      3. Meeting
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setHideMeeting(!hideMeeting)}
+                      className={`px-1.5 py-0.5 rounded text-[9px] font-bold cursor-pointer transition-colors ${
+                        !hideMeeting
+                          ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                          : 'bg-amber-500 text-white hover:bg-amber-600'
+                      }`}
+                      title={!hideMeeting ? 'Click to hide meeting in popup' : 'Click to show meeting in popup'}
+                    >
+                      {!hideMeeting ? '✓ Shown' : '✕ Hidden'}
+                    </button>
+                  </div>
+                  <span className="text-[9.5px] text-[#6B7280] leading-tight">
+                    {!hideMeeting ? 'Calendar slots' : 'Skipped in flow'}
+                  </span>
+                </div>
+
+                {/* Step 4: Confirmation */}
+                <div className="p-2 rounded-xl border border-emerald-200 bg-emerald-50/50 flex flex-col gap-0.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10.5px] font-bold text-emerald-950 flex items-center gap-1">
+                      <CheckCheck className="w-3 h-3 text-emerald-600" />
+                      4. Thanks
+                    </span>
+                    <span className="text-[8.5px] font-extrabold px-1.5 py-0.2 rounded bg-emerald-600 text-white">
+                      Always On
+                    </span>
+                  </div>
+                  <span className="text-[9.5px] text-[#6B7280] leading-tight">Thank you & links</span>
+                </div>
+              </div>
+
+              {/* Informative sequence pill */}
+              {hideSurvey && hideMeeting ? (
+                <div className="flex items-center gap-1.5 text-[10.5px] text-amber-800 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200 animate-in fade-in">
+                  <Zap className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                  <span><strong>1-Step Fast Lead Flow:</strong> Contact Details (Name & Phone) ➔ Thank You Page! Survey & Meeting are hidden.</span>
+                </div>
+              ) : hideSurvey ? (
+                <div className="flex items-center gap-1.5 text-[10.5px] text-indigo-800 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200 animate-in fade-in">
+                  <Zap className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                  <span><strong>Survey Skipped:</strong> Contact Details ➔ Meeting Time Slots ➔ Thank You Page!</span>
+                </div>
+              ) : hideMeeting ? (
+                <div className="flex items-center gap-1.5 text-[10.5px] text-indigo-800 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200 animate-in fade-in">
+                  <Zap className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                  <span><strong>Meeting Skipped:</strong> Contact Details ➔ Survey Form ➔ Thank You Page!</span>
+                </div>
+              ) : null}
             </div>
 
             {/* TAB CONTENT PANEL */}
@@ -746,6 +956,46 @@ export default function CustomizeStudioPage() {
               {/* STEP 2 CONTROLS & DYNAMIC SURVEY BUILDER */}
               {activeStepTab === 2 && (
                 <div className="space-y-4">
+                  {/* Quick Toggle Banner */}
+                  <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between gap-3 shadow-2xs ${
+                    !hideSurvey ? 'bg-white border-[#E5E7EB]' : 'bg-amber-50/70 border-amber-300'
+                  }`}>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                        !hideSurvey ? 'bg-indigo-50 text-indigo-600' : 'bg-amber-100 text-amber-700'
+                      }`}>
+                        {!hideSurvey ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-xs font-bold text-[#111827]">Survey Step Visibility</h4>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                            !hideSurvey ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-500 text-white'
+                          }`}>
+                            {!hideSurvey ? 'Active / Shown' : 'Hidden in Popup'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-[#6B7280] mt-0.5">
+                          {!hideSurvey
+                            ? 'Visitors answer these questions after entering contact details.'
+                            : 'Visitors will skip this survey and go straight to the next active step.'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setHideSurvey(!hideSurvey)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all shrink-0 ${
+                        !hideSurvey
+                          ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
+                          : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm'
+                      }`}
+                    >
+                      {!hideSurvey ? 'Hide Survey' : 'Enable Survey'}
+                    </button>
+                  </div>
+
                   <div className="bg-white p-4 rounded-2xl border border-[#E5E7EB] shadow-2xs space-y-3">
                     <div className="flex items-center gap-2 pb-2 border-b border-[#E5E7EB]">
                       <ListOrdered className="w-4 h-4 text-indigo-600" />
@@ -895,6 +1145,46 @@ export default function CustomizeStudioPage() {
               {/* STEP 3 CONTROLS & TIME SLOTS */}
               {activeStepTab === 3 && (
                 <div className="space-y-4">
+                  {/* Quick Toggle Banner */}
+                  <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between gap-3 shadow-2xs ${
+                    !hideMeeting ? 'bg-white border-[#E5E7EB]' : 'bg-amber-50/70 border-amber-300'
+                  }`}>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                        !hideMeeting ? 'bg-indigo-50 text-indigo-600' : 'bg-amber-100 text-amber-700'
+                      }`}>
+                        {!hideMeeting ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-xs font-bold text-[#111827]">Meeting / Time Slots Visibility</h4>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                            !hideMeeting ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-500 text-white'
+                          }`}>
+                            {!hideMeeting ? 'Active / Shown' : 'Hidden in Popup'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-[#6B7280] mt-0.5">
+                          {!hideMeeting
+                            ? 'Visitors pick a date and strategy call slot from your calendar.'
+                            : 'Visitors will skip booking a call and go directly to the Thank You page.'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setHideMeeting(!hideMeeting)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all shrink-0 ${
+                        !hideMeeting
+                          ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
+                          : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm'
+                      }`}
+                    >
+                      {!hideMeeting ? 'Hide Meeting' : 'Enable Meeting'}
+                    </button>
+                  </div>
+
                   <div className="bg-white p-4 rounded-2xl border border-[#E5E7EB] shadow-2xs space-y-3">
                     <div className="flex items-center gap-2 pb-2 border-b border-[#E5E7EB]">
                       <Clock className="w-4 h-4 text-indigo-600" />
@@ -1459,8 +1749,8 @@ export default function CustomizeStudioPage() {
             </div>
           </div>
 
-          {/* RIGHT 6 COLUMNS: REAL-TIME INTERACTIVE LIVE PREVIEW */}
-          <div className="lg:col-span-6 bg-[#0B0F17] p-4 sm:p-6 flex flex-col items-center justify-center relative overflow-y-auto">
+          {/* RIGHT COLUMNS: REAL-TIME INTERACTIVE LIVE PREVIEW */}
+          <div className="lg:col-span-5 xl:col-span-6 bg-[#0B0F17] p-4 sm:p-6 flex flex-col items-center justify-center relative overflow-y-auto">
             
             {/* Top Preview Controls Bar */}
             <div className="w-full flex items-center justify-between gap-2 pb-4 text-xs font-medium text-gray-400">
@@ -1511,7 +1801,13 @@ export default function CustomizeStudioPage() {
                   >
                     <Sparkles className="w-3 h-3 shrink-0" />
                     <span className="truncate">
-                      {theme.badgeText || (activeStepTab === 2 ? `Question 1 of ${surveyQuestions.length}` : `Step ${activeStepTab > 4 ? 3 : activeStepTab} of 3`)}
+                      {theme.badgeText || (
+                        activeStepTab === 2
+                          ? `Question 1 of ${surveyQuestions.length}`
+                          : activeStepTab === 5
+                          ? 'Complete 🎉'
+                          : `Step ${activeStepTab === 1 ? 1 : activeStepTab === 3 ? (!hideSurvey ? 3 : 2) : 1} of ${1 + (!hideSurvey ? 1 : 0) + (!hideMeeting ? 1 : 0)}`
+                      )}
                     </span>
                   </div>
                 </div>
@@ -1569,11 +1865,23 @@ export default function CustomizeStudioPage() {
                     style={getButtonStyle()}
                   >
                     <span className="flex items-center gap-1.5">
-                      <span>{theme.step1ButtonText || 'CONTINUE TO SELECT SLOT'}</span>
+                      <span>
+                        {theme.step1ButtonText || (
+                          hideSurvey && hideMeeting
+                            ? 'SUBMIT DETAILS'
+                            : hideSurvey
+                            ? 'CONTINUE TO TIME SLOTS'
+                            : 'CONTINUE TO SELECT SLOT'
+                        )}
+                      </span>
                       <ChevronRight className="w-3.5 h-3.5" />
                     </span>
                     <span className="text-[9.5px] font-bold opacity-85 font-mono tracking-normal">
-                      {theme.step1FooterCopy || '100% free strategy session • no sales pitch'}
+                      {theme.step1FooterCopy || (
+                        hideSurvey && hideMeeting
+                          ? 'Instant confirmation • No waiting'
+                          : '100% free strategy session • no sales pitch'
+                      )}
                     </span>
                   </button>
                 </div>
@@ -1582,6 +1890,12 @@ export default function CustomizeStudioPage() {
               {/* LIVE FORM CONTENT STEP 2 */}
               {activeStepTab === 2 && (
                 <div className="p-5 pt-2 space-y-3">
+                  {hideSurvey && (
+                    <div className="p-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[10.5px] font-semibold flex items-center gap-1.5">
+                      <EyeOff className="w-3.5 h-3.5 shrink-0" />
+                      <span>Survey is currently hidden in live popup flow</span>
+                    </div>
+                  )}
                   <div className="w-full bg-gray-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
                     <div className="h-full w-1/2 transition-all" style={{ backgroundColor: primaryColor }} />
                   </div>
@@ -1628,6 +1942,12 @@ export default function CustomizeStudioPage() {
               {/* LIVE FORM CONTENT STEP 3 */}
               {activeStepTab === 3 && (
                 <div className="p-5 pt-2 space-y-3">
+                  {hideMeeting && (
+                    <div className="p-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[10.5px] font-semibold flex items-center gap-1.5">
+                      <EyeOff className="w-3.5 h-3.5 shrink-0" />
+                      <span>Meeting booking is currently hidden in live popup flow</span>
+                    </div>
+                  )}
                   <div>
                     <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1.5 ${isLightMode ? 'text-gray-700' : 'text-gray-300'}`}>
                       {theme.dateLabel || 'SELECT PREFERRED MEETING DATE *'}
@@ -1696,14 +2016,14 @@ export default function CustomizeStudioPage() {
 
                   <div className="space-y-1">
                     <h4 className={`text-base font-bold ${isLightMode ? 'text-gray-900' : 'text-white'}`}>
-                      {theme.step4Title || 'Booking Confirmed! 🎉'}
+                      {theme.step4Title || (hideMeeting ? 'Submission Received! 🎉' : 'Booking Confirmed! 🎉')}
                     </h4>
                     <p className={`text-xs leading-relaxed ${isLightMode ? 'text-gray-600' : 'text-gray-300'}`}>
-                      {theme.step4Subtitle || 'Your meeting is locked in our calendar.'}
+                      {theme.step4Subtitle || (hideMeeting ? 'Your details have been received successfully.' : 'Your meeting is locked in our calendar.')}
                     </p>
                   </div>
 
-                  {theme.googleMeetUrl && (
+                  {!hideMeeting && theme.googleMeetUrl && (
                     <div className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 text-xs font-mono flex items-center justify-center gap-1.5">
                       <Video className="w-3.5 h-3.5" />
                       <span className="truncate">{theme.googleMeetUrl}</span>

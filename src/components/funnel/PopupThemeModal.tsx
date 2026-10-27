@@ -54,6 +54,8 @@ export interface PopupThemeConfig {
   timeSlotLabel?: string;
   step4Title?: string;
   step4Subtitle?: string;
+  hideSurvey?: boolean;
+  hideMeeting?: boolean;
 }
 
 interface PopupThemeModalProps {

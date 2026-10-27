@@ -39,6 +39,8 @@ CREATE TABLE IF NOT EXISTS public.funnel_workspaces (
     google_meet_url TEXT DEFAULT NULL,
     delete_pin TEXT DEFAULT '1234',
     admin_notification_number TEXT DEFAULT NULL,
+    hide_survey BOOLEAN DEFAULT false,
+    hide_meeting BOOLEAN DEFAULT false,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );

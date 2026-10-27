@@ -107,6 +107,8 @@ export interface PopupThemeConfig {
   step4ButtonColor?: string;
   step4Buttons?: SuccessButton[];
   googleMeetUrl?: string;
+  hideSurvey?: boolean;
+  hideMeeting?: boolean;
 }
 
 interface ThreePopupFunnelModalProps {
@@ -118,6 +120,8 @@ interface ThreePopupFunnelModalProps {
   userId?: string;
   pixelId?: string | null;
   googleMeetUrl?: string;
+  hideSurvey?: boolean;
+  hideMeeting?: boolean;
   onStep1Complete?: (leadData: any) => void;
   onComplete?: (leadData: any) => void;
 }
@@ -138,9 +142,13 @@ export function ThreePopupFunnelModal({
   userId,
   pixelId,
   googleMeetUrl,
+  hideSurvey,
+  hideMeeting,
   onStep1Complete,
   onComplete,
 }: ThreePopupFunnelModalProps) {
+  const shouldHideSurvey = hideSurvey !== undefined ? hideSurvey : Boolean(popupTheme?.hideSurvey);
+  const shouldHideMeeting = hideMeeting !== undefined ? hideMeeting : Boolean(popupTheme?.hideMeeting);
   const primaryColor = popupTheme.primaryColor || '#F59E0B';
   const isLightMode = popupTheme.themeMode === 'light';
   const isSolidButton = popupTheme.buttonStyle === 'solid';
@@ -150,7 +158,12 @@ export function ThreePopupFunnelModal({
   // Step 1 Copy
   const step1Title = popupTheme.step1Title || 'Claim Your 1-on-1 Growth Consultation';
   const step1Subtitle = popupTheme.step1Subtitle || 'Enter your details to reserve your custom revenue strategy session';
-  const step1BtnText = popupTheme.step1ButtonText || 'CONTINUE TO SELECT SLOT';
+  const step1BtnText = useMemo(() => {
+    if (popupTheme.step1ButtonText) return popupTheme.step1ButtonText;
+    if (shouldHideSurvey && shouldHideMeeting) return 'SUBMIT DETAILS';
+    if (shouldHideSurvey) return 'PROCEED TO TIME SLOT';
+    return 'CONTINUE TO SELECT SLOT';
+  }, [popupTheme.step1ButtonText, shouldHideSurvey, shouldHideMeeting]);
   const nameLabel = popupTheme.nameLabel || 'Full Name *';
   const namePlaceholder = popupTheme.namePlaceholder || 'Enter your full name';
   const emailLabel = popupTheme.emailLabel || 'Work Email *';
@@ -201,6 +214,13 @@ export function ThreePopupFunnelModal({
 
   // Active popup step: 1 (Contact), 2 (Survey), 3 (Meeting), 4 (Completed Confirmation)
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const totalEnabledSteps = 1 + (!shouldHideSurvey ? 1 : 0) + (!shouldHideMeeting ? 1 : 0);
+  const currentStepDisplayNum = useMemo(() => {
+    if (step === 1) return 1;
+    if (step === 2) return 2;
+    if (step === 3) return !shouldHideSurvey ? 3 : 2;
+    return totalEnabledSteps;
+  }, [step, shouldHideSurvey, totalEnabledSteps]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [surveyValidationError, setSurveyValidationError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -573,23 +593,36 @@ export function ThreePopupFunnelModal({
         const params = new URLSearchParams(window.location.search);
         const urlStep = params.get('step')?.toLowerCase();
 
-        if (hasSavedDetails && hasSavedSurvey) {
-          // If details and survey completed -> Step 3 (Meeting) unless user requested confirmation
-          initialStep = urlStep === 'confirmation' ? 4 : 3;
+        if (urlStep === 'confirmation') {
+          initialStep = 4;
+        } else if (hasSavedDetails && hasSavedSurvey) {
+          initialStep = shouldHideMeeting ? 4 : 3;
         } else if (hasSavedDetails) {
-          // If details completed -> Step 2 (Survey) unless user requested meeting/confirmation
-          if (urlStep === 'meeting') initialStep = 3;
-          else if (urlStep === 'confirmation') initialStep = 4;
-          else initialStep = 2;
+          if (shouldHideSurvey && shouldHideMeeting) {
+            initialStep = 4;
+          } else if (shouldHideSurvey) {
+            initialStep = 3;
+          } else if (shouldHideMeeting) {
+            initialStep = hasSavedSurvey ? 4 : 2;
+          } else {
+            initialStep = urlStep === 'meeting' ? 3 : 2;
+          }
         } else {
-          // If details missing -> Must complete Step 1 first
           initialStep = 1;
         }
       } else {
         if (hasSavedDetails && hasSavedSurvey) {
-          initialStep = 3;
+          initialStep = shouldHideMeeting ? 4 : 3;
         } else if (hasSavedDetails) {
-          initialStep = 2;
+          if (shouldHideSurvey && shouldHideMeeting) {
+            initialStep = 4;
+          } else if (shouldHideSurvey) {
+            initialStep = 3;
+          } else if (shouldHideMeeting) {
+            initialStep = hasSavedSurvey ? 4 : 2;
+          } else {
+            initialStep = 2;
+          }
         } else {
           initialStep = 1;
         }
@@ -598,7 +631,7 @@ export function ThreePopupFunnelModal({
       setStep(initialStep);
       updateUrlStep(initialStep);
     }
-  }, [isOpen, surveyQuestions, funnelId]);
+  }, [isOpen, surveyQuestions, funnelId, shouldHideSurvey, shouldHideMeeting]);
 
   if (!isOpen) return null;
 
@@ -811,8 +844,25 @@ export function ThreePopupFunnelModal({
         }).catch((e) => console.warn('[WhatsApp Trigger Step 1 error]:', e));
       }
 
-      changeStep(2);
-      setCurrentQuestionIndex(0);
+      if (!shouldHideSurvey) {
+        changeStep(2);
+        setCurrentQuestionIndex(0);
+      } else if (!shouldHideMeeting) {
+        changeStep(3);
+      } else {
+        if (onComplete) {
+          onComplete({
+            funnel_id: funnelId || null,
+            user_id: userId || null,
+            name,
+            email,
+            phone: cleanPhone,
+            step_progress: 'step1_contact',
+            leadId: activeLeadId,
+          });
+        }
+        changeStep(4);
+      }
     }
   };
 
@@ -922,7 +972,24 @@ export function ThreePopupFunnelModal({
         }).catch((e) => console.warn('[WhatsApp Trigger Step 2 error]:', e));
       }
 
-      changeStep(3);
+      if (!shouldHideMeeting) {
+        changeStep(3);
+      } else {
+        const finalLeadPayload = {
+          funnel_id: funnelId || null,
+          user_id: userId || null,
+          name,
+          phone: getFullPhone(),
+          email,
+          step_progress: 'survey_completed',
+          stage_id: 'survey_completed',
+          survey_responses: surveyAnswers,
+          meeting_date: null,
+          meeting_time: null,
+        };
+        if (onComplete) onComplete(finalLeadPayload);
+        changeStep(4);
+      }
     }
   };
 
@@ -1097,7 +1164,24 @@ export function ThreePopupFunnelModal({
         if (currentQuestionIndex < surveyQuestions.length - 1) {
           setCurrentQuestionIndex((prev) => prev + 1);
         } else {
-          changeStep(3);
+          if (!shouldHideMeeting) {
+            changeStep(3);
+          } else {
+            const finalLeadPayload = {
+              funnel_id: funnelId || null,
+              user_id: userId || null,
+              name,
+              phone: getFullPhone(),
+              email,
+              step_progress: 'survey_completed',
+              stage_id: 'survey_completed',
+              survey_responses: updated,
+              meeting_date: null,
+              meeting_time: null,
+            };
+            if (onComplete) onComplete(finalLeadPayload);
+            changeStep(4);
+          }
         }
       }, 180);
     }
@@ -1244,7 +1328,11 @@ export function ThreePopupFunnelModal({
             >
               <span className="w-1.5 h-1.5 rounded-full animate-pulse shrink-0" style={{ backgroundColor: primaryColor }} />
               <span className="shrink-0">
-                {step === 2 ? `Question ${currentQuestionIndex + 1} of ${totalQuestions}` : `Step ${step > 3 ? 3 : step} of 3`}
+                {step === 2
+                  ? `Question ${currentQuestionIndex + 1} of ${totalQuestions}`
+                  : step === 4
+                  ? 'Complete 🎉'
+                  : `Step ${currentStepDisplayNum} of ${totalEnabledSteps}`}
               </span>
               <span className="text-gray-400 shrink-0">•</span>
               <span className="truncate">{badgeText}</span>
@@ -1670,19 +1758,29 @@ export function ThreePopupFunnelModal({
                 )}
               </div>
 
-              <button
-                type="submit"
-                disabled={isSubmitting || !meetingTime || isTimeSlotDisabled(meetingTime, selectedIsoDate, 60, bookedSlotsMap[selectedIsoDate] || [])}
-                className={`w-full py-3.5 px-4 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all mt-2 ${
-                  !meetingTime || isTimeSlotDisabled(meetingTime, selectedIsoDate, 60, bookedSlotsMap[selectedIsoDate] || [])
-                    ? 'opacity-50 cursor-not-allowed'
-                    : 'cursor-pointer'
-                }`}
-                style={getButtonStyle()}
-              >
-                <Calendar className="w-4 h-4" />
-                <span>{isSubmitting ? 'Securing Slot...' : step3BtnText}</span>
-              </button>
+              <div className="flex items-center gap-2 mt-2">
+                <button
+                  type="button"
+                  onClick={() => changeStep(shouldHideSurvey ? 1 : 2)}
+                  className="px-3.5 py-3.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1 border border-gray-300 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer shrink-0"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Back</span>
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting || !meetingTime || isTimeSlotDisabled(meetingTime, selectedIsoDate, 60, bookedSlotsMap[selectedIsoDate] || [])}
+                  className={`flex-1 py-3.5 px-4 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all ${
+                    !meetingTime || isTimeSlotDisabled(meetingTime, selectedIsoDate, 60, bookedSlotsMap[selectedIsoDate] || [])
+                      ? 'opacity-50 cursor-not-allowed'
+                      : 'cursor-pointer'
+                  }`}
+                  style={getButtonStyle()}
+                >
+                  <Calendar className="w-4 h-4" />
+                  <span>{isSubmitting ? 'Securing Slot...' : step3BtnText}</span>
+                </button>
+              </div>
             </form>
           )}
 
@@ -1698,12 +1796,20 @@ export function ThreePopupFunnelModal({
                   {step4Title}
                 </h4>
                 <p className={`text-xs max-w-xs mx-auto leading-relaxed ${isLightMode ? 'text-gray-600' : 'text-gray-300'}`}>
-                  Thank you <span className="font-bold" style={{ color: primaryColor }}>{name}</span>! Your meeting is set for <span className="font-bold text-emerald-400">{selectedIsoDate} at {meetingTime}</span>.
+                  {!shouldHideMeeting && meetingTime ? (
+                    <>
+                      Thank you <span className="font-bold" style={{ color: primaryColor }}>{name}</span>! Your meeting is set for <span className="font-bold text-emerald-400">{selectedIsoDate} at {meetingTime}</span>.
+                    </>
+                  ) : (
+                    <>
+                      Thank you <span className="font-bold" style={{ color: primaryColor }}>{name}</span>! {step4Subtitle || 'Your submission has been received. Our team will get in touch with you shortly.'}
+                    </>
+                  )}
                 </p>
               </div>
 
               {/* GOOGLE MEET VIDEO CALL CARD */}
-              {(effectiveMeetUrl || popupTheme?.googleMeetUrl || googleMeetUrl) && (
+              {!shouldHideMeeting && (effectiveMeetUrl || popupTheme?.googleMeetUrl || googleMeetUrl) && (
                 <div className="p-3.5 rounded-2xl bg-indigo-950/90 border border-indigo-500/30 text-left space-y-2 shadow-md">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-xs font-extrabold text-white">

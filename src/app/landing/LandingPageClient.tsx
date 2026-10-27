@@ -441,6 +441,8 @@ export function LandingPageClient({
           userId={initialWorkspace?.user_id}
           googleMeetUrl={initialWorkspace?.google_meet_url || workspace?.google_meet_url}
           pixelId={pixelId}
+          hideSurvey={initialWorkspace?.hide_survey ?? workspace?.hide_survey ?? popupTheme?.hideSurvey}
+          hideMeeting={initialWorkspace?.hide_meeting ?? workspace?.hide_meeting ?? popupTheme?.hideMeeting}
           surveyQuestions={
             surveyQuestions && surveyQuestions.length > 0
               ? surveyQuestions
@@ -928,6 +930,8 @@ export function LandingPageClient({
         userId={isPublicView ? (initialWorkspace?.user_id || user?.id) : (user?.id || initialWorkspace?.user_id)}
         googleMeetUrl={isPublicView ? (initialWorkspace?.google_meet_url || workspace?.google_meet_url) : (workspace?.google_meet_url || initialWorkspace?.google_meet_url)}
         pixelId={pixelId}
+        hideSurvey={isPublicView ? (initialWorkspace?.hide_survey ?? popupTheme?.hideSurvey) : (workspace?.hide_survey ?? initialWorkspace?.hide_survey ?? popupTheme?.hideSurvey)}
+        hideMeeting={isPublicView ? (initialWorkspace?.hide_meeting ?? popupTheme?.hideMeeting) : (workspace?.hide_meeting ?? initialWorkspace?.hide_meeting ?? popupTheme?.hideMeeting)}
         surveyQuestions={surveyQuestions}
         popupTheme={popupTheme}
         onComplete={(lead) => {
